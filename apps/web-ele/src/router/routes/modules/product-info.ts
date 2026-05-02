@@ -50,6 +50,7 @@ const routes: RouteRecordRaw[] = [
       {
         component: () => import('#/views/product-info/users/index.vue'),
         meta: {
+          authority: ['admin'],
           icon: 'lucide:shield-check',
           title: '用户权限',
         },

@@ -64,6 +64,10 @@ function setupAccessGuard(router: Router) {
 
     // accessToken 检查
     if (!accessStore.accessToken) {
+      await authStore.restoreSession();
+    }
+
+    if (!accessStore.accessToken) {
       // 明确声明忽略权限访问权限，则可以访问
       if (to.meta.ignoreAccess) {
         return true;
