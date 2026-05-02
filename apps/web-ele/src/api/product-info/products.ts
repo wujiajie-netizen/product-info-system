@@ -1,5 +1,14 @@
 import { assertSupabaseClient, normalizeKeyword, toLikePattern } from './client';
-import type { ListParams, ProductRecord } from './types';
+import type { ListParams, ProductRecord, ProductStatus } from './types';
+
+export interface SaveProductInput {
+  category: string;
+  model: string;
+  name: string;
+  specJson?: Record<string, unknown>;
+  status?: ProductStatus;
+  tags?: string[];
+}
 
 export async function listProducts(params: ListParams = {}) {
   const supabase = assertSupabaseClient();
@@ -36,4 +45,65 @@ export async function countProducts() {
   }
 
   return count || 0;
+}
+
+export async function createProduct(input: SaveProductInput) {
+  const supabase = assertSupabaseClient();
+  const { data, error } = await supabase
+    .from('products')
+    .insert({
+      category: input.category,
+      model: input.model,
+      name: input.name,
+      spec_json: input.specJson || {},
+      status: input.status || 'active',
+      tags: input.tags || [],
+    })
+    .select('*')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data as ProductRecord;
+}
+
+export async function updateProduct(id: string, input: SaveProductInput) {
+  const supabase = assertSupabaseClient();
+  const { data, error } = await supabase
+    .from('products')
+    .update({
+      category: input.category,
+      model: input.model,
+      name: input.name,
+      spec_json: input.specJson || {},
+      status: input.status || 'active',
+      tags: input.tags || [],
+    })
+    .eq('id', id)
+    .select('*')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data as ProductRecord;
+}
+
+export async function setProductStatus(id: string, status: ProductStatus) {
+  const supabase = assertSupabaseClient();
+  const { data, error } = await supabase
+    .from('products')
+    .update({ status })
+    .eq('id', id)
+    .select('*')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data as ProductRecord;
 }

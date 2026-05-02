@@ -1,157 +1,95 @@
-<div align="center">
-  <a href="https://github.com/anncwb/vue-vben-admin">
-    <img alt="VbenAdmin Logo" width="215" src="https://unpkg.com/@vbenjs/static-source@0.1.7/source/logo-v1.webp">
-  </a>
-  <br>
-  <br>
+# 产品资料系统
 
-[![license](https://img.shields.io/github/license/anncwb/vue-vben-admin.svg)](LICENSE)
+面向 B2B 内部协作的产品资料、报价文件和动态更新管理系统。项目目标是把零散的产品资料、报价单、规格书、图片和内部通知整理成结构化、可检索、可同步的公司信息资产。
 
-  <h1>Vue Vben Admin</h1>
-</div>
+当前项目基于 Vben Admin 改造，交付应用为 `apps/web-ele`，后端优先使用 Supabase Cloud。未来如有内网部署、合规或成本要求，可迁移到本地或自托管 Supabase。
 
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=vbenjs_vue-vben-admin&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=vbenjs_vue-vben-admin) [![codeql](https://github.com/vbenjs/vue-vben-admin/actions/workflows/codeql.yml/badge.svg)](https://github.com/vbenjs/vue-vben-admin/actions/workflows/codeql.yml) [![build](https://github.com/vbenjs/vue-vben-admin/actions/workflows/build.yml/badge.svg)](https://github.com/vbenjs/vue-vben-admin/actions/workflows/build.yml) [![ci](https://github.com/vbenjs/vue-vben-admin/actions/workflows/ci.yml/badge.svg)](https://github.com/vbenjs/vue-vben-admin/actions/workflows/ci.yml) [![deploy](https://github.com/vbenjs/vue-vben-admin/actions/workflows/deploy.yml/badge.svg)](https://github.com/vbenjs/vue-vben-admin/actions/workflows/deploy.yml)
+## 核心能力
 
-**English** | [中文](./README.zh-CN.md) | [日本語](./README.ja-JP.md)
+- 产品信息库：维护产品分类、型号、名称、规格参数、标签和启停状态。
+- 文档中心：上传报价单、规格书、图片、PDF 和技术资料，并关联产品型号、分类和标签。
+- 动态系统：发布报价更新、新品发布和内部通知，报价类文档上传后可自动生成动态。
+- 权限控制：`admin` 可管理数据，`user` 只读查询和下载；真实边界由 Supabase RLS 和 Storage Policy 控制。
 
-## Introduction
+## 技术栈
 
-Vue Vben Admin is a free and open source middle and back-end template. Using the latest `vue3`, `vite`, `TypeScript` and other mainstream technology development, the out-of-the-box middle and back-end front-end solutions can also be used for learning reference.
+- 前端：Vue 3、Vite、TypeScript、Vben Admin、Element Plus
+- 后端：Supabase Auth、PostgreSQL、Storage、Row Level Security
+- 数据服务层：`apps/web-ele/src/api/product-info`
+- Supabase Client：`apps/web-ele/src/lib/supabase.ts`
+- 数据库迁移：`supabase/migrations`
 
-## Upgrade Notice
+## 文档入口
 
-This is the latest version, 5.0, and it is not compatible with previous versions. If you are starting a new project, it is recommended to use the latest version. If you wish to view the old version, please use the [v2 branch](https://github.com/vbenjs/vue-vben-admin/tree/v2).
+- [AGENTS.md](./AGENTS.md)：Codex 和后续 coding agent 的项目级开发规则，会被 Codex 优先读取。
+- [TECHNICAL_PLAN.md](./TECHNICAL_PLAN.md)：开发路线、云端接入、未来本地迁移和任务拆分。
+- [PROJECT_SUMMARY.md](./PROJECT_SUMMARY.md)：产品定位、MVP 范围和当前阶段摘要。
+- [supabase/README.md](./supabase/README.md)：Supabase 初始化、迁移、权限、Storage 和管理员初始化说明。
 
-## Features
+Vben 模板内部包仍保留各自 README，用于维护框架源码时参考；业务开发通常不需要先阅读这些内部 README。
 
-- **Latest Technology Stack**: Developed with cutting-edge front-end technologies like Vue 3 and Vite
-- **TypeScript**: A language for application-scale JavaScript
-- **Themes**: Multiple theme colors available with customizable options
-- **Internationalization**: Comprehensive built-in internationalization support
-- **Permissions**: Built-in solution for dynamic route-based permission generation
+## 开发环境
 
-## Preview
-
-- [Vben Admin](https://vben.pro/) - Full version Chinese site
-
-Test Account: vben/123456
-
-<div align="center">
-  <img alt="VbenAdmin Logo" width="100%" src="https://anncwb.github.io/anncwb/images/preview1.png">
-  <img alt="VbenAdmin Logo" width="100%" src="https://anncwb.github.io/anncwb/images/preview2.png">
-  <img alt="VbenAdmin Logo" width="100%" src="https://anncwb.github.io/anncwb/images/preview3.png">
-</div>
-
-### Use Gitpod
-
-Open the project in Gitpod (free online dev environment for GitHub) and start coding immediately.
-
-[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/vbenjs/vue-vben-admin)
-
-## Documentation
-
-[Document](https://doc.vben.pro/)
-
-## Install and Use
-
-1. Get the project code
+项目使用 pnpm workspace。推荐 Node 版本满足 `package.json` 中的 engines 要求：
 
 ```bash
-git clone https://github.com/vbenjs/vue-vben-admin.git
-```
-
-2. Install dependencies
-
-```bash
-cd vue-vben-admin
-npm i -g corepack
 pnpm install
-```
-
-3. Run
-
-```bash
 pnpm dev
 ```
 
-4. Build
+当前前端开发服务默认由 Vben 配置选择端口，常见为：
 
-```bash
-pnpm build
+```text
+http://localhost:5666/
 ```
 
-## Change Log
+## Supabase 云端接入
 
-[CHANGELOG](https://github.com/vbenjs/vue-vben-admin/releases)
+开发阶段优先使用 Supabase Cloud，不强制先跑本地 Docker。创建云端项目后，按顺序执行：
 
-## How to Contribute
+```text
+supabase/migrations/001_initial_schema.sql
+supabase/migrations/002_backend_requirements.sql
+```
 
-You are very welcome to join! [Raise an issue](https://github.com/anncwb/vue-vben-admin/issues/new/choose) or submit a Pull Request.
+可选执行：
 
-**Pull Request Process:**
+```text
+supabase/seed.sql
+```
 
-1. Fork the code
-2. Create your branch: `git checkout -b feat/xxxx`
-3. Submit your changes: `git commit -am 'feat(function): add xxxxx'`
-4. Push your branch: `git push origin feat/xxxx`
-5. Submit `pull request`
+复制环境变量示例：
 
-## Git Contribution Submission Specification
+```bash
+Copy-Item apps/web-ele/.env.local.example apps/web-ele/.env.local
+```
 
-Reference [vue](https://github.com/vuejs/vue/blob/dev/.github/COMMIT_CONVENTION.md) specification ([Angular](https://github.com/conventional-changelog/conventional-changelog/tree/master/packages/conventional-changelog-angular))
+填写云端项目 URL 和 anon key：
 
-- `feat` Add new features
-- `fix` Fix the problem/BUG
-- `style` The code style is related and does not affect the running result
-- `perf` Optimization/performance improvement
-- `refactor` Refactor
-- `revert` Undo edit
-- `test` Test related
-- `docs` Documentation/notes
-- `chore` Dependency update/scaffolding configuration modification etc.
-- `ci` Continuous integration
-- `types` Type definition file changes
+```ini
+VITE_SUPABASE_URL=https://your-project-ref.supabase.co
+VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+```
 
-## Browser Support
+检查云端连接：
 
-The `Chrome 80+` browser is recommended for local development
+```bash
+pnpm run check:supabase
+```
 
-Support modern browsers, not IE
+不要把 `service_role` key、数据库密码或真实密钥提交到仓库。
 
-| [<img src="https://raw.githubusercontent.com/alrra/browser-logos/master/src/edge/edge_48x48.png" alt="Edge" width="24px" height="24px" />](http://godban.github.io/browsers-support-badges/)</br>Edge | [<img src="https://raw.githubusercontent.com/alrra/browser-logos/master/src/firefox/firefox_48x48.png" alt="Firefox" width="24px" height="24px" />](http://godban.github.io/browsers-support-badges/)</br>Firefox | [<img src="https://raw.githubusercontent.com/alrra/browser-logos/master/src/chrome/chrome_48x48.png" alt="Chrome" width="24px" height="24px" />](http://godban.github.io/browsers-support-badges/)</br>Chrome | [<img src="https://raw.githubusercontent.com/alrra/browser-logos/master/src/safari/safari_48x48.png" alt="Safari" width="24px" height="24px" />](http://godban.github.io/browsers-support-badges/)</br>Safari |
-| :-: | :-: | :-: | :-: |
-| last 2 versions | last 2 versions | last 2 versions | last 2 versions |
+## 常用命令
 
-## Maintainer
+```bash
+pnpm -F @vben/web-ele run typecheck
+pnpm run build
+pnpm run check:supabase
+```
 
-[@Vben](https://github.com/anncwb)
+## 当前开发重点
 
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=vbenjs/vue-vben-admin&type=Date)](https://star-history.com/#vbenjs/vue-vben-admin&Date)
-
-## Donate
-
-If you think this project is helpful to you, you can help the author buy a cup of coffee to show your support!
-
-![donate](https://unpkg.com/@vbenjs/static-source@0.1.7/source/sponsor.png)
-
-<a style="display: block;width: 100px;height: 50px;line-height: 50px; color: #fff;text-align: center; background: #408aee;border-radius: 4px;" href="https://www.paypal.com/paypalme/cvvben">Paypal Me</a>
-
-## Contributors
-
-<a href="https://openomy.app/github/vbenjs/vue-vben-admin" target="_blank" style="display: block; width: 100%;" align="center">
-  <img src="https://openomy.app/svg?repo=vbenjs/vue-vben-admin&chart=bubble&latestMonth=3" target="_blank" alt="Contribution Leaderboard" style="display: block; width: 100%;" />
- </a>
-
-<a href="https://github.com/vbenjs/vue-vben-admin/graphs/contributors">
-  <img alt="Contributors" src="https://contrib.rocks/image?repo=vbenjs/vue-vben-admin" />
-</a>
-
-## Discord
-
-- [Github Discussions](https://github.com/anncwb/vue-vben-admin/discussions)
-
-## License
-
-[MIT © Vben-2020](./LICENSE)
+1. 云端 Supabase 项目接入与真实账号验证。
+2. 产品管理、文档管理、动态管理接真实数据并补齐管理闭环。
+3. RLS、Storage Policy、管理员/普通用户权限完整验证。
+4. 上线前做一次 Cloud 到本地或自托管环境的迁移演练。
