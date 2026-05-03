@@ -6,6 +6,24 @@
 
 本文件是 Codex 和 coding agent 的项目级指令文档，应保持简洁、可执行、不过度记录业务背景。业务背景写入 `PROJECT_SUMMARY.md`，技术路线写入 `TECHNICAL_PLAN.md`，Supabase 操作细节写入 `supabase/README.md`。
 
+## 文本读取约束
+
+项目内中文文本默认按 UTF-8 处理。使用 Windows PowerShell 5.1 读取文件时，不要直接用无编码参数的 `Get-Content`，否则可能按 GBK/936 解码导致乱码。
+
+读取文本文件时优先使用：
+
+- `Get-Content <file> -Encoding utf8`
+- `node`/`python` 按 UTF-8 显式读取
+
+如终端输出仍异常，先执行：
+
+```powershell
+chcp 65001
+[Console]::InputEncoding  = [System.Text.UTF8Encoding]::new($false)
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+$OutputEncoding = [Console]::OutputEncoding
+```
+
 ## 未来本地迁移要求
 
 本项目后续可能从 Supabase Cloud 迁移到本地或私有服务器。所有开发工作都必须保持可迁移：
@@ -40,3 +58,9 @@ pnpm run build
 - 根目录只保留一个面向项目的 `README.md`。
 - 不恢复 Vben 模板原始多语言 README，除非项目重新需要多语言文档。
 - 子包 README 可保留作为 Vben 内部模块说明，不作为业务需求来源。
+
+## UI 设计参考
+
+- 前台 UI 设计稿统一存放在 `design/frontend-ui/`。
+- 涉及前台页面开发时，优先读取该目录中的设计图并按图实现，不以默认模板样式自行发挥。
+- `design/frontend-ui/README.md` 负责说明每张设计图对应的页面和用途。

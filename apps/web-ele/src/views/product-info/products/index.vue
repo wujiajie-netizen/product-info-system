@@ -24,7 +24,12 @@ import {
   ElTag,
 } from 'element-plus';
 
-import { createProduct, listProducts, setProductStatus, updateProduct } from '#/api';
+import {
+  createProduct,
+  listProducts,
+  setProductStatus,
+  updateProduct,
+} from '#/api';
 
 const userStore = useUserStore();
 const loading = ref(false);
@@ -35,7 +40,9 @@ const dialogVisible = ref(false);
 const editingProduct = ref<ProductRecord>();
 
 const isAdmin = computed(() => userStore.userRoles.includes('admin'));
-const dialogTitle = computed(() => (editingProduct.value ? '编辑产品' : '新增产品'));
+const dialogTitle = computed(() =>
+  editingProduct.value ? '编辑产品' : '新增产品',
+);
 
 const form = reactive({
   category: '',
@@ -97,7 +104,7 @@ function parseSpecJson() {
 
     return value as Record<string, unknown>;
   } catch (error) {
-    throw new Error((error as Error).message || '规格参数 JSON 格式不正确');
+    throw new Error((error as Error).message || '规格参数 JSON 格式不正确', { cause: error });
   }
 }
 
@@ -209,7 +216,11 @@ onMounted(loadProducts);
               编辑
             </ElButton>
             <ElPopconfirm
-              :title="row.status === 'active' ? '确认停用该产品？' : '确认启用该产品？'"
+              :title="
+                row.status === 'active'
+                  ? '确认停用该产品？'
+                  : '确认启用该产品？'
+              "
               @confirm="handleStatusChange(row)"
             >
               <template #reference>
@@ -255,7 +266,7 @@ onMounted(loadProducts);
           <ElInput
             v-model="form.specJsonText"
             :rows="6"
-            placeholder='例如 {"range":"-20~80C"}'
+            placeholder="例如 {&quot;range&quot;:&quot;-20~80C&quot;}"
             type="textarea"
           />
         </ElFormItem>

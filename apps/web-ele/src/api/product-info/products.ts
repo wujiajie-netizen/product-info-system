@@ -1,5 +1,10 @@
-import { assertSupabaseClient, normalizeKeyword, toLikePattern } from './client';
 import type { ListParams, ProductRecord, ProductStatus } from './types';
+
+import {
+  assertSupabaseClient,
+  normalizeKeyword,
+  toLikePattern,
+} from './client';
 
 export interface SaveProductInput {
   category: string;

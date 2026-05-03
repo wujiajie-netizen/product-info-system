@@ -70,30 +70,53 @@ if (
   process.exit(1);
 }
 
-let restUrl;
+let baseUrl;
 
 try {
-  restUrl = new URL('/rest/v1/', supabaseUrl);
+  baseUrl = new URL(supabaseUrl);
 } catch {
   console.error(`Invalid VITE_SUPABASE_URL: ${supabaseUrl}`);
   process.exit(1);
 }
 
-console.log(`Checking Supabase Cloud: ${restUrl.origin}`);
+console.log(`Checking Supabase Cloud: ${baseUrl.origin}`);
 console.log(`Using anon key: ${mask(anonKey)}`);
 
-const response = await fetch(restUrl, {
-  headers: {
-    apikey: anonKey,
-    Authorization: `Bearer ${anonKey}`,
-  },
-});
+async function fetchWithFriendlyError(url) {
+  try {
+    return await fetch(url, {
+      headers: {
+        apikey: anonKey,
+        Authorization: `Bearer ${anonKey}`,
+      },
+    });
+  } catch (error) {
+    console.error(`Unable to reach ${url.origin}.`);
+    console.error((error instanceof Error ? error.message : String(error)).slice(0, 500));
+    process.exit(1);
+  }
+}
 
-if (!response.ok) {
-  const body = await response.text();
-  console.error(`Supabase Cloud check failed: HTTP ${response.status}`);
+const authResponse = await fetchWithFriendlyError(
+  new URL('/auth/v1/settings', baseUrl),
+);
+
+if (!authResponse.ok) {
+  const body = await authResponse.text();
+  console.error(`Supabase Auth check failed: HTTP ${authResponse.status}`);
   console.error(body.slice(0, 500));
   process.exit(1);
 }
 
-console.log('Supabase Cloud REST endpoint is reachable and the anon key was accepted.');
+const productsResponse = await fetchWithFriendlyError(
+  new URL('/rest/v1/products?select=id&limit=1', baseUrl),
+);
+
+if (!productsResponse.ok) {
+  const body = await productsResponse.text();
+  console.error(`Supabase products table check failed: HTTP ${productsResponse.status}`);
+  console.error(body.slice(0, 500));
+  process.exit(1);
+}
+
+console.log('Supabase Cloud is reachable, the public key is accepted, and the products table can be queried.');

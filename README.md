@@ -1,85 +1,43 @@
-# 产品资料系统
+# 商品资料与报价协同平台
 
-面向 B2B 内部协作的产品资料、报价文件和动态更新管理系统。项目目标是把零散的产品资料、报价单、规格书、图片和内部通知整理成结构化、可检索、可同步的公司信息资产。
+服务于跨境电商 B2B 业务的商品信息平台，用来统一管理商品分类、规格资料、图片、报价单、供应商信息和动态更新。项目目标不是做电商下单、ERP 或普通网盘，而是做一个带前台展示和后台管理的商品资料中枢。
 
-当前项目基于 Vben Admin 改造，交付应用为 `apps/web-ele`，后端优先使用 Supabase Cloud。未来如有内网部署、合规或成本要求，可迁移到本地或自托管 Supabase。
+当前前台参考 [m.panelook.cn](https://m.panelook.cn/) 的目录型展示方式，强调分类导航、参数检索、资料汇总和信息密度；后台负责商品、报价、文档、公司、动态和权限管理。
 
-## 核心能力
+## 当前定位
 
-- 产品信息库：维护产品分类、型号、名称、规格参数、标签和启停状态。
-- 文档中心：上传报价单、规格书、图片、PDF 和技术资料，并关联产品型号、分类和标签。
-- 动态系统：发布报价更新、新品发布和内部通知，报价类文档上传后可自动生成动态。
-- 权限控制：`admin` 可管理数据，`user` 只读查询和下载；真实边界由 Supabase RLS 和 Storage Policy 控制。
+- 前台：面向公司内部或授权账号的展示前台，提供搜索、分类浏览、商品详情、资料查看、报价查看和动态浏览。
+- 后台：面向运营、销售、产品和管理层的管理后台，负责录入、整理、审核和维护业务数据。
+- 后端：优先接入 Supabase Cloud，统一承载 Auth、PostgreSQL、Storage 和 RLS。
 
-## 技术栈
+## MVP 核心能力
 
-- 前端：Vue 3、Vite、TypeScript、Vben Admin、Element Plus
-- 后端：Supabase Auth、PostgreSQL、Storage、Row Level Security
-- 数据服务层：`apps/web-ele/src/api/product-info`
-- Supabase Client：`apps/web-ele/src/lib/supabase.ts`
-- 数据库迁移：`supabase/migrations`
+- 商品信息库：分类、品牌、型号、名称、基础参数、标签、启停状态。
+- 资料中心：规格书、图片、PDF、认证资料、技术文档上传与归档。
+- 报价中心：按公司和商品管理报价单、报价版本和生效时间。
+- 公司库：沉淀供应商/品牌方/报价来源公司信息。
+- 动态中心：新品、报价更新、内部通知和资料更新记录。
+- 搜索与筛选：优先支持型号、分类、品牌、标签、公司和文档标题检索。
+
+## 当前判断
+
+本项目已经不应再按“单一后台资料系统”推进。现阶段需要先完成产品定位、信息架构和数据模型重整，再继续云端联调和功能开发。当前仓库中的部分文档、页面和 migration 更适合作为原型参考，而不是最终业务方案。
 
 ## 文档入口
 
-- [AGENTS.md](./AGENTS.md)：Codex 和后续 coding agent 的项目级开发规则，会被 Codex 优先读取。
-- [TECHNICAL_PLAN.md](./TECHNICAL_PLAN.md)：开发路线、云端接入、未来本地迁移和任务拆分。
-- [PROJECT_SUMMARY.md](./PROJECT_SUMMARY.md)：产品定位、MVP 范围和当前阶段摘要。
-- [supabase/README.md](./supabase/README.md)：Supabase 初始化、迁移、权限、Storage 和管理员初始化说明。
-
-Vben 模板内部包仍保留各自 README，用于维护框架源码时参考；业务开发通常不需要先阅读这些内部 README。
+- [PROJECT_SUMMARY.md](./PROJECT_SUMMARY.md)：项目背景、目标用户、业务边界、MVP 范围和当前阶段。
+- [TECHNICAL_PLAN.md](./TECHNICAL_PLAN.md)：前后台架构、页面结构、数据模型和实施顺序。
+- [supabase/README.md](./supabase/README.md)：Supabase 初始化、迁移、权限和存储细节。
+- [AGENTS.md](./AGENTS.md)：Codex 和其他 coding agent 的项目级开发约束。
 
 ## 开发环境
-
-项目使用 pnpm workspace。推荐 Node 版本满足 `package.json` 中的 engines 要求：
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-当前前端开发服务默认由 Vben 配置选择端口，常见为：
-
-```text
-http://localhost:5666/
-```
-
-## Supabase 云端接入
-
-开发阶段优先使用 Supabase Cloud，不强制先跑本地 Docker。创建云端项目后，按顺序执行：
-
-```text
-supabase/migrations/001_initial_schema.sql
-supabase/migrations/002_backend_requirements.sql
-```
-
-可选执行：
-
-```text
-supabase/seed.sql
-```
-
-复制环境变量示例：
-
-```bash
-Copy-Item apps/web-ele/.env.local.example apps/web-ele/.env.local
-```
-
-填写云端项目 URL 和 anon key：
-
-```ini
-VITE_SUPABASE_URL=https://your-project-ref.supabase.co
-VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
-```
-
-检查云端连接：
-
-```bash
-pnpm run check:supabase
-```
-
-不要把 `service_role` key、数据库密码或真实密钥提交到仓库。
-
-## 常用命令
+常用验证命令：
 
 ```bash
 pnpm -F @vben/web-ele run typecheck
@@ -89,7 +47,7 @@ pnpm run check:supabase
 
 ## 当前开发重点
 
-1. 云端 Supabase 项目接入与真实账号验证。
-2. 产品管理、文档管理、动态管理接真实数据并补齐管理闭环。
-3. RLS、Storage Policy、管理员/普通用户权限完整验证。
-4. 上线前做一次 Cloud 到本地或自托管环境的迁移演练。
+1. 先重做项目文档和数据模型，明确前台展示与后台管理边界。
+2. 在现有 `apps/web-ele` 中规划前台路由和后台路由两套场景。
+3. 按新模型重审 `supabase/migrations`，避免带着旧假设直接上云。
+4. 再推进真实 Supabase Cloud 接入、权限验证和页面联调。

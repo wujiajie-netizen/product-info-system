@@ -14,11 +14,11 @@
 4. 可选执行 `seed.sql` 写入演示产品、文档记录和动态记录。
 5. 在 Supabase Auth 中创建测试用户。
 6. 将首个管理员提升为 `admin`。
-7. 在前端环境变量中配置 Supabase URL 和 anon key。
+7. 在前端环境变量中配置 Supabase URL 和公开 key。Supabase 新版界面可能显示为 `PUBLISHABLE_KEY`，可写入本项目的 `VITE_SUPABASE_ANON_KEY`。
 
 ```ini
 VITE_SUPABASE_URL=https://your-project-ref.supabase.co
-VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+VITE_SUPABASE_ANON_KEY=your-supabase-publishable-or-anon-key
 ```
 
 管理员提升 SQL：
@@ -29,7 +29,7 @@ set role = 'admin'
 where email = 'admin@example.com';
 ```
 
-只允许在前端使用 anon key，不得把 service role key 写入 `apps/web-ele`、文档示例或 Git 仓库。
+只允许在前端使用 publishable/anon key，不得把 service role key 写入 `apps/web-ele`、文档示例或 Git 仓库。
 
 配置完成后可以在仓库根目录执行云端连通性检查：
 

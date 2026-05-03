@@ -1,87 +1,138 @@
 # 技术计划
 
-## 后端策略
+## 重整结论
 
-开发阶段采用 Supabase Cloud 优先，不在本机强制启动 Supabase Docker 环境。这样可以先把真实登录、数据库读写、Storage 上传下载、RLS 权限和业务页面联调跑通，减少本地容器、端口和系统环境带来的阻塞。
+基于新的业务背景，项目不再按“单一后台资料系统”推进，而是按“前台展示 + 后台管理”的一体化平台推进。  
+当前仓库继续沿用 Vue 3 + Vite + TypeScript + Vben Admin + Supabase 的技术路线，但实施重点要调整。
 
-本项目仍然按可迁移架构开发：业务表结构、RLS、触发器、Storage bucket 和策略全部保存在 `supabase/migrations` 中；前端只通过 `apps/web-ele/src/lib/supabase.ts` 创建 Supabase Client，并由 `apps/web-ele/src/api/product-info` 统一封装业务访问。
+## 架构原则
 
-## 云端接入
+### 前后台同源
 
-1. 在 Supabase Cloud 创建项目。
-2. 在 SQL Editor 中按顺序执行：
-   - `supabase/migrations/001_initial_schema.sql`
-   - `supabase/migrations/002_backend_requirements.sql`
-3. 可选执行 `supabase/seed.sql` 写入演示产品、文档记录和动态记录。
-4. 在 Supabase Auth 中创建测试用户。
-5. 使用 SQL Editor 将首个管理员提升为 `admin`：
+当前建议继续使用现有 `apps/web-ele` 作为主应用，在同一工程内规划两套路由和布局：
 
-```sql
-update public.profiles
-set role = 'admin'
-where email = 'admin@example.com';
-```
+- 前台布局：偏目录站和商品资料展示。
+- 后台布局：偏管理台和数据录入。
 
-6. 在前端本地环境文件中配置云端项目：
+这样可以最大化复用当前仓库、权限体系和 API 封装，也符合现有项目约束：
 
-```ini
-VITE_SUPABASE_URL=https://your-project-ref.supabase.co
-VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
-```
+- Supabase Client 统一在 `apps/web-ele/src/lib/supabase.ts` 创建。
+- 业务访问统一封装在 `apps/web-ele/src/api/product-info`。
 
-不要把 `service_role` key 写入前端、文档示例或 Git 仓库。
+### 后端继续使用 Supabase Cloud
 
-配置完成后执行：
+开发阶段仍优先接入 Supabase Cloud，但在接入之前要先重审旧 migration，避免把基于旧定位的表结构直接当作最终版本执行。
 
-```bash
-pnpm run check:supabase
-```
+### 前台不是匿名公开站
 
-该命令用于确认 Supabase Cloud URL 可访问，且 anon key 被 REST API 接受。
+虽然前台视觉和信息架构参考 `m.panelook.cn`，但本项目目前仍按内部或授权访问设计：
 
-## 本地迁移原则
+- 匿名用户不可读写业务表。
+- 登录用户可读取商品、文档、报价摘要、动态和公司信息。
+- `profiles.role = 'admin'` 的用户可维护全部业务数据。
 
-未来如果需要从 Supabase Cloud 迁移到本地或私有服务器，迁移范围分为四类：
+## 推荐页面结构
 
-- 数据库 schema：继续使用 `supabase/migrations` 重放。
-- 业务数据：通过 PostgreSQL dump/restore 或 Supabase 官方迁移流程导出导入。
-- Auth 用户：需要单独验证 `auth` schema、邮件配置、回调地址和版本兼容性。
-- Storage 文件：需要单独迁移真实对象文件，数据库中的 `documents.storage_path` 只保存对象路径，不能替代文件迁移。
+### 前台页面
 
-为降低迁移成本，开发阶段必须遵守：
+- `/`：首页，承担平台聚合入口，包含统一搜索、分类入口、热门商品、资料中心、报价中心、公司库和最新动态。
+- `/products`：商品总列表页，支持按分类、品牌、标签、关键参数、资料数量和报价状态进行结构化筛选。
+- `/categories`：分类导航页，突出目录式入口和分类聚合浏览。
+- `/categories/:categoryId`：分类商品列表页，承接分类筛选后的商品浏览和排序。
+- `/brands`：品牌导航页，提供热门品牌入口和品牌聚合浏览。
+- `/brands/:brandId`：品牌商品列表页，按品牌查看商品、资料和更新情况。
+- `/documents`：资料中心，独立展示规格书、图片、PDF、认证文件和技术资料。
+- `/quotes`：报价中心，独立展示报价记录，可按公司、商品、日期和状态筛选。
+- `/companies`：公司库，展示供应商/品牌方列表，并联动报价总览与平台动态。
+- `/updates`：动态信息流，集中展示新品、报价调整、资料更新和内部通知。
+- `/search`：综合搜索结果页，统一承接商品、资料、报价、公司等检索结果。
+- `/products/:productId`：商品详情页，集中展示规格参数、相关资料、报价记录、关联公司和最近动态。
 
-- 新增表、字段、索引、策略和触发器必须写入 migration。
-- 页面不得直接散落调用 Supabase Client，统一走 `apps/web-ele/src/api/product-info`。
-- 数据表中保存 `storage_path` 和结构化元数据，不保存只适用于 Supabase Cloud 的临时签名 URL。
-- 不依赖 Supabase Cloud 独有功能作为 MVP 核心链路。
-- 上线前至少做一次从 Cloud 到自托管或本地环境的演练恢复。
+### 后台页面
 
-## 任务拆分
+- `/admin/dashboard`：统计看板和资料完整度提醒。
+- `/admin/products`：商品管理。
+- `/admin/categories`：分类管理。
+- `/admin/brands`：品牌管理。
+- `/admin/companies`：公司/供应商管理。
+- `/admin/documents`：文档管理。
+- `/admin/quotes`：报价管理。
+- `/admin/updates`：动态管理。
+- `/admin/users`：用户和角色管理。
 
-1. 云端接入验证（下一步）
-   - 完成 Supabase Cloud 项目初始化。
-   - 执行两份 migration 和可选 seed。
-   - 配置 `apps/web-ele/.env.local`。
-   - 验证登录、用户 profile、RLS 读写边界和 Storage bucket。
+## 数据模型重审
 
-2. 产品管理 CRUD（已完成基础版本）
-   - 已支持产品新增、编辑、启用/停用和搜索。
-   - API 层已提供 `createProduct`、`updateProduct`、`setProductStatus`。
-   - 后续需要接真实云端账号验证 admin 可写、user 只读。
+旧方案中的 `products + documents + updates` 只能覆盖一部分需求，不足以表达“各公司对各商品的报价”。
 
-3. 文档与动态闭环
-   - 完善文档编辑、删除和上传失败回滚。
-   - 验证报价类文档上传后自动生成动态。
-   - 补齐动态编辑或删除策略。
+当前推荐的核心实体至少包括：
 
-4. 交付验证
-   - 运行 `pnpm -F @vben/web-ele run typecheck`。
-   - 运行 `pnpm run build`。
-   - 整理部署说明、账号初始化说明和云端到本地迁移演练记录。
+- `categories`：商品分类，支持层级。
+- `brands`：品牌或产品线。
+- `products`：商品主表，保存型号、名称、分类、品牌、参数摘要、状态。
+- `product_specs` 或 `products.spec_json`：结构化参数。
+- `companies`：供应商、品牌方、报价来源公司。
+- `documents`：规格书、图片、PDF、认证资料、技术文件。
+- `quotes`：报价主体，记录商品、公司、币种、生效时间、状态、备注。
+- `quote_documents` 或报价文件关联字段：保存报价单文件。
+- `updates`：报价更新、新品、资料更新、内部通知。
+- `tags` 与关联表：支持搜索和筛选。
 
-## 文档职责
+### 数据设计重点
 
-- `README.md`：项目入口和快速开始。
-- `PROJECT_SUMMARY.md`：产品定位、MVP 范围和当前阶段。
-- `supabase/README.md`：后端初始化、权限、Storage 和迁移细节。
-- `AGENTS.md`：Codex 和 coding agent 自动读取的开发约束。
+- 报价不要再只当普通文件；它至少需要商品、公司、日期和状态等结构化字段。
+- 商品参数既要支持结构化筛选，也要保留弹性扩展能力。
+- `documents.storage_path` 保存 bucket 内路径，不能依赖临时签名 URL。
+- 文件上传后要能关联到商品、公司、报价和动态。
+- 当前 MVP 不要求立即为收藏、历史、工作台等个人协作能力扩展核心业务模型。
+- 后续如进入个人协作阶段，可新增用户侧关联对象和行为记录表，但不应影响当前核心实体主干。
+
+## 实施顺序
+
+### Phase 0：先纠偏再上云
+
+1. 重写项目文档，统一产品定位。
+2. 重新梳理信息架构和数据模型。
+3. 审核当前 `supabase/migrations` 是否需要拆分、替换或补迁移。
+
+### Phase 1：前台核心浏览链路
+
+1. 首页、产品总列表页、分类导航/分类结果页、品牌导航/品牌结果页。
+2. 商品详情页，先打通规格参数、相关资料、报价记录、关联公司和最近动态的基础展示。
+3. 建立与参考稿一致的基础筛选和浏览链路。
+
+### Phase 2：资料、报价与信息聚合
+
+1. 独立资料中心和报价中心页面。
+2. 公司库与平台动态流页面。
+3. 综合搜索结果页和跨对象检索能力。
+
+### Phase 3：后台管理闭环与权限质量
+
+1. 商品、分类、公司管理。
+2. 品牌、文档上传、编辑、删除和关联。
+3. 报价录入、版本管理和文件关联。
+4. 动态发布、看板统计和资料完整度提醒。
+5. 验证匿名不可读写、登录用户可读、管理员可写商品、文档、报价、动态和角色。
+
+### Phase 4：个人协作扩展能力
+
+1. 前台上传资料入口。
+2. 收藏、我的关注和浏览历史。
+3. 参数对比和个人工作台。
+4. 申请报价、联系公司等协作能力。
+
+## 迁移与兼容要求
+
+- 所有表结构、索引、RLS policy、Storage policy、触发器和函数继续通过 `supabase/migrations` 管理。
+- 不在页面中散落直接调用 Supabase Client。
+- Storage bucket 继续保持 `product-documents`，除非同时更新 migration、API 层和文档。
+- 上线前仍需做一次 Cloud 到本地或自托管环境的迁移演练。
+
+## 当前建议
+
+在完成新模型确认前，暂停把当前旧 schema 当成最终版本继续扩展。  
+下一步应该优先做的是：
+
+1. 补齐新的业务表设计。
+2. 明确前台页面清单和后台页面清单。
+3. 再进入真实 Supabase Cloud 联调和页面开发。
