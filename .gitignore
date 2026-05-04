@@ -60,3 +60,4 @@ vite.config.ts.*
 .codex
 skills-lock.json
 .playwright-cli
+output

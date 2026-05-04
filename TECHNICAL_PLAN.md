@@ -31,6 +31,37 @@
 - 登录用户可读取商品、文档、报价摘要、动态和公司信息。
 - `profiles.role = 'admin'` 的用户可维护全部业务数据。
 
+## 前端目录约定
+
+Vue 应用在新增页面、文件夹和组件时，默认按业务模块组织，优先适用于 `apps/web-front/src`，其他 Vue 子应用如无特殊约束也应尽量保持一致。
+
+```text
+src/
+├── views/               # 页面模块，目录名使用 kebab-case
+│   └── [module]/        # 业务模块目录
+│       ├── index.vue    # 模块主页面
+│       ├── detail.vue   # 模块详情页或子页面
+│       ├── components/  # 模块私有组件
+│       └── [child]/     # 需要继续拆分时的子页面目录
+├── components/          # 公共组件
+├── composables/         # 组合式函数
+├── stores/              # Pinia 状态
+├── router/              # 路由配置
+├── api/                 # 接口请求
+├── utils/               # 工具函数
+├── types/               # TypeScript 类型
+└── assets/              # 静态资源
+```
+
+命名与拆分约束：
+
+- `views` 下的大页面必须使用模块文件夹承载，不再直接平铺 `xxxView.vue`。
+- 模块目录使用业务语义命名，不使用 `product-list`、`product-detail` 这类页面结果名；推荐 `product`、`document`、`quote`、`company`。
+- 同一业务对象的列表页、详情页、信息页等页面，优先收敛到同一个模块目录内，例如 `views/product/index.vue`、`views/product/detail.vue`。
+- 模块主页面统一使用 `index.vue`，属于该模块的子页面放在同级文件或子目录中。
+- 只在当前页面模块内部使用的组件放入该模块的 `components/`；跨页面复用的组件放入 `src/components/`。
+- 新增路由时，优先引用 `#/views/[module]/index.vue` 这类模块入口文件，保持目录语义稳定。
+
 ## 推荐页面结构
 
 ### 前台页面

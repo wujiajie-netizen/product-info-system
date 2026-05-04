@@ -7,7 +7,10 @@ import {
 } from './client';
 
 export interface SaveProductInput {
+  brandId?: string;
   category: string;
+  categoryId?: string;
+  description?: string;
   model: string;
   name: string;
   specJson?: Record<string, unknown>;
@@ -15,7 +18,13 @@ export interface SaveProductInput {
   tags?: string[];
 }
 
-export async function listProducts(params: ListParams = {}) {
+export interface ProductListParams extends ListParams {
+  brandId?: string;
+  categoryId?: string;
+  status?: ProductStatus;
+}
+
+export async function listProducts(params: ProductListParams = {}) {
   const supabase = assertSupabaseClient();
   const keyword = normalizeKeyword(params.keyword);
   let query = supabase
@@ -28,6 +37,18 @@ export async function listProducts(params: ListParams = {}) {
     query = query.or(
       `model.ilike.${pattern},name.ilike.${pattern},category.ilike.${pattern}`,
     );
+  }
+
+  if (params.categoryId) {
+    query = query.eq('category_id', params.categoryId);
+  }
+
+  if (params.brandId) {
+    query = query.eq('brand_id', params.brandId);
+  }
+
+  if (params.status) {
+    query = query.eq('status', params.status);
   }
 
   const { data, error } = await query;
@@ -57,7 +78,10 @@ export async function createProduct(input: SaveProductInput) {
   const { data, error } = await supabase
     .from('products')
     .insert({
+      brand_id: input.brandId || null,
       category: input.category,
+      category_id: input.categoryId || null,
+      description: input.description || null,
       model: input.model,
       name: input.name,
       spec_json: input.specJson || {},
@@ -79,7 +103,10 @@ export async function updateProduct(id: string, input: SaveProductInput) {
   const { data, error } = await supabase
     .from('products')
     .update({
+      brand_id: input.brandId || null,
       category: input.category,
+      category_id: input.categoryId || null,
+      description: input.description || null,
       model: input.model,
       name: input.name,
       spec_json: input.specJson || {},

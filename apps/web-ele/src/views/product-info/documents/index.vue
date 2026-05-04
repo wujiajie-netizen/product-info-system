@@ -1,5 +1,10 @@
 <script lang="ts" setup>
-import type { DocumentFileType, DocumentRecord, ProductRecord } from '#/api';
+import type {
+  CompanyRecord,
+  DocumentFileType,
+  DocumentRecord,
+  ProductRecord,
+} from '#/api';
 import type { UploadFile } from 'element-plus';
 
 import { computed, onMounted, reactive, ref } from 'vue';
@@ -28,6 +33,7 @@ import {
 import {
   createDocument,
   createDocumentSignedUrl,
+  listCompanies,
   listDocuments,
   listProducts,
 } from '#/api';
@@ -38,6 +44,7 @@ const uploading = ref(false);
 const keyword = ref('');
 const documents = ref<DocumentRecord[]>([]);
 const products = ref<ProductRecord[]>([]);
+const companies = ref<CompanyRecord[]>([]);
 const dialogVisible = ref(false);
 const selectedFile = ref<File>();
 
@@ -45,7 +52,9 @@ const isAdmin = computed(() => userStore.userRoles.includes('admin'));
 
 const uploadForm = reactive({
   category: '',
+  companyId: '',
   fileType: 'other' as DocumentFileType,
+  productId: '',
   productModel: '',
   tagsText: '',
   title: '',
@@ -68,9 +77,7 @@ async function loadDocuments() {
 
 async function openUploadDialog() {
   dialogVisible.value = true;
-  if (products.value.length === 0) {
-    products.value = await listProducts();
-  }
+  await loadRelationOptions();
 }
 
 function handleFileChange(file: UploadFile) {
@@ -80,9 +87,25 @@ function handleFileChange(file: UploadFile) {
   }
 }
 
+function resetUploadForm() {
+  uploadForm.category = '';
+  uploadForm.companyId = '';
+  uploadForm.fileType = 'other';
+  uploadForm.productId = '';
+  uploadForm.productModel = '';
+  uploadForm.tagsText = '';
+  uploadForm.title = '';
+  selectedFile.value = undefined;
+}
+
 async function submitUpload() {
   if (!selectedFile.value) {
     ElMessage.warning('请选择要上传的文件');
+    return;
+  }
+
+  if (!uploadForm.title.trim()) {
+    ElMessage.warning('请填写文件标题');
     return;
   }
 
@@ -90,8 +113,10 @@ async function submitUpload() {
     uploading.value = true;
     await createDocument({
       category: uploadForm.category || '未分类',
+      companyId: uploadForm.companyId || undefined,
       file: selectedFile.value,
       fileType: uploadForm.fileType,
+      productId: uploadForm.productId || undefined,
       productModel: uploadForm.productModel || undefined,
       tags: uploadForm.tagsText
         .split(',')
@@ -101,13 +126,33 @@ async function submitUpload() {
     });
     ElMessage.success('文件已上传');
     dialogVisible.value = false;
-    selectedFile.value = undefined;
     await loadDocuments();
   } catch (error) {
     ElMessage.error((error as Error).message);
   } finally {
     uploading.value = false;
   }
+}
+
+async function loadRelationOptions() {
+  const requests: Array<Promise<unknown>> = [];
+
+  if (products.value.length === 0) {
+    requests.push(listProducts().then((records) => (products.value = records)));
+  }
+
+  if (companies.value.length === 0) {
+    requests.push(
+      listCompanies().then((records) => (companies.value = records)),
+    );
+  }
+
+  await Promise.all(requests);
+}
+
+function handleProductChange(productId?: string) {
+  const product = products.value.find((item) => item.id === productId);
+  uploadForm.productModel = product?.model || '';
 }
 
 async function openDocument(row: DocumentRecord) {
@@ -119,7 +164,9 @@ async function openDocument(row: DocumentRecord) {
   }
 }
 
-onMounted(loadDocuments);
+onMounted(async () => {
+  await Promise.all([loadRelationOptions(), loadDocuments()]);
+});
 </script>
 
 <template>
@@ -142,6 +189,14 @@ onMounted(loadDocuments);
       <ElTable v-loading="loading" :data="documents" stripe>
         <ElTableColumn label="文件标题" min-width="260" prop="title" />
         <ElTableColumn label="关联型号" prop="product_model" width="160" />
+        <ElTableColumn label="关联公司" width="180">
+          <template #default="{ row }">
+            {{
+              companies.find((company) => company.id === row.company_id)
+                ?.name || '-'
+            }}
+          </template>
+        </ElTableColumn>
         <ElTableColumn label="文件类型" prop="file_type" width="120">
           <template #default="{ row }">
             <ElTag type="primary">{{ row.file_type }}</ElTag>
@@ -166,24 +221,46 @@ onMounted(loadDocuments);
       </ElTable>
     </ElCard>
 
-    <ElDialog v-model="dialogVisible" title="上传文件" width="520px">
+    <ElDialog
+      v-model="dialogVisible"
+      title="上传文件"
+      width="520px"
+      @closed="resetUploadForm"
+    >
       <ElForm label-width="88px">
         <ElFormItem label="标题">
           <ElInput v-model="uploadForm.title" placeholder="请输入文件标题" />
         </ElFormItem>
         <ElFormItem label="关联产品">
           <ElSelect
-            v-model="uploadForm.productModel"
+            v-model="uploadForm.productId"
             clearable
             filterable
             placeholder="选择产品型号"
             style="width: 100%"
+            @change="handleProductChange"
           >
             <ElOption
               v-for="product in products"
               :key="product.id"
               :label="`${product.model} - ${product.name}`"
-              :value="product.model"
+              :value="product.id"
+            />
+          </ElSelect>
+        </ElFormItem>
+        <ElFormItem label="关联公司">
+          <ElSelect
+            v-model="uploadForm.companyId"
+            clearable
+            filterable
+            placeholder="选择供应商、制造商或报价来源"
+            style="width: 100%"
+          >
+            <ElOption
+              v-for="company in companies"
+              :key="company.id"
+              :label="company.name"
+              :value="company.id"
             />
           </ElSelect>
         </ElFormItem>
@@ -200,7 +277,10 @@ onMounted(loadDocuments);
           <ElInput v-model="uploadForm.category" placeholder="例如 报价资料" />
         </ElFormItem>
         <ElFormItem label="标签">
-          <ElInput v-model="uploadForm.tagsText" placeholder="多个标签用英文逗号分隔" />
+          <ElInput
+            v-model="uploadForm.tagsText"
+            placeholder="多个标签用英文逗号分隔"
+          />
         </ElFormItem>
         <ElFormItem label="文件">
           <ElUpload

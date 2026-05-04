@@ -3,7 +3,9 @@ import { ref, watch } from 'vue';
 import { NCard, NEmpty, NTag } from 'naive-ui';
 
 import { formatDate, formatUpdateType, listUpdates } from '#/api/product-info';
+import AppIcon from '#/components/AppIcon.vue';
 import FrontShell from '#/components/FrontShell.vue';
+import { getUpdateTypeIcon } from '#/lib/front-icons';
 import { useAuthState } from '#/lib/auth';
 import { getErrorMessage } from '#/lib/errors';
 
@@ -54,7 +56,13 @@ watch(
       <n-card v-else-if="!loading && !updates.length">
         <n-empty description="暂无更新动态。" />
       </n-card>
-      <n-card v-for="item in updates" v-else :key="item.id" class="stack-card" hoverable>
+      <n-card
+        v-for="item in updates"
+        v-else
+        :key="item.id"
+        class="stack-card"
+        hoverable
+      >
         <div class="update-row">
           <div>
             <strong>{{ item.title }}</strong>
@@ -62,7 +70,10 @@ watch(
             <span>{{ formatDate(item.created_at) }}</span>
           </div>
           <n-tag :type="item.type === 'price_update' ? 'error' : 'info'">
-            {{ formatUpdateType(item.type) }}
+            <span class="tag-with-icon">
+              <AppIcon :icon="getUpdateTypeIcon(item.type)" :size="14" />
+              {{ formatUpdateType(item.type) }}
+            </span>
           </n-tag>
         </div>
       </n-card>

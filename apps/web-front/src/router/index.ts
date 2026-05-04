@@ -1,11 +1,13 @@
 import type { RouteRecordRaw } from 'vue-router';
 
-import HomeView from '#/views/HomeView.vue';
-import CategoryView from '#/views/CategoryView.vue';
-import ProductListView from '#/views/ProductListView.vue';
-import ProductDetailView from '#/views/ProductDetailView.vue';
-import QuoteListView from '#/views/QuoteListView.vue';
-import UpdateListView from '#/views/UpdateListView.vue';
+import BrandView from '#/views/brand/index.vue';
+import CategoryView from '#/views/category/index.vue';
+import CompanyListView from '#/views/company/index.vue';
+import DocumentListView from '#/views/document/index.vue';
+import HomeView from '#/views/home/index.vue';
+import ProductDetailView from '#/views/product/detail.vue';
+import ProductListView from '#/views/product/index.vue';
+import QuoteListView from '#/views/quote/index.vue';
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -14,21 +16,32 @@ export const routes: RouteRecordRaw[] = [
     component: HomeView,
   },
   {
+    path: '/products',
+    name: 'products',
+    component: ProductListView,
+  },
+  {
+    path: '/products/:productId',
+    name: 'product-detail',
+    component: ProductDetailView,
+    props: true,
+  },
+  {
     path: '/categories/:slug?',
     name: 'categories',
     component: CategoryView,
     props: true,
   },
   {
-    path: '/products',
-    name: 'products',
-    component: ProductListView,
+    path: '/brands/:brand?',
+    name: 'brands',
+    component: BrandView,
+    props: true,
   },
   {
-    path: '/products/:id',
-    name: 'product-detail',
-    component: ProductDetailView,
-    props: true,
+    path: '/documents',
+    name: 'documents',
+    component: DocumentListView,
   },
   {
     path: '/quotes',
@@ -36,8 +49,8 @@ export const routes: RouteRecordRaw[] = [
     component: QuoteListView,
   },
   {
-    path: '/updates',
-    name: 'updates',
-    component: UpdateListView,
+    path: '/companies',
+    name: 'companies',
+    component: CompanyListView,
   },
 ];

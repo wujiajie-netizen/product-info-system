@@ -21,3 +21,9 @@ export function normalizeKeyword(keyword?: string) {
 export function toLikePattern(keyword: string) {
   return `%${keyword.replaceAll('%', '\\%').replaceAll('_', '\\_')}%`;
 }
+
+export function normalizeSlug(slug: string | undefined, fallback: string) {
+  const value = (slug || fallback).trim().toLowerCase();
+
+  return value.replaceAll(/\s+/g, '-');
+}

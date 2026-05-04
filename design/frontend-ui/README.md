@@ -7,6 +7,7 @@
 - 涉及前台页面开发时，优先按本目录中的设计图实现页面结构、模块布局和视觉层级。
 - 如设计图与项目文档冲突，以 `PROJECT_SUMMARY.md`、`TECHNICAL_PLAN.md`、`ROUTE_PLAN.md` 中已确认的需求边界为准。
 - 当前设计图主要用于前台主链路，不代表所有个人协作能力都已进入 MVP。
+- 前台开发与验收时，同时参考 [IMPLEMENTATION_RULES.md](./IMPLEMENTATION_RULES.md) 中的开发规则、适配规则和验收规则。
 
 ## 文件对应关系
 
@@ -18,10 +19,17 @@
   - 分类导航 / 品牌导航页：目录式浏览和聚合入口。
 - `product-detail.png`
   - 商品详情页：规格参数、相关资料、报价记录、关联公司、最近动态。
+- `mobile-design-board-v1.png`
+  - 首批移动端设计板：首页、产品列表、分类 / 品牌导航、商品详情的移动端适配参考。
 - `docs-quotes-updates.png`
   - 资料、报价、动态联动场景参考。
 - `companies-quotes.png`
   - 公司库、报价总览、平台动态联动场景参考。
+
+## 配套文档
+
+- `IMPLEMENTATION_RULES.md`
+  - 前台实现规则、移动端适配规则、组件落地约束和页面验收标准。
 
 ## 备注
 

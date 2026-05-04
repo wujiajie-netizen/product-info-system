@@ -36,7 +36,7 @@ export async function getUserInfoApi(): Promise<UserInfo> {
   return {
     avatar: '',
     desc: role === 'admin' ? '系统管理员' : '资料查看用户',
-    homePath: '/product-info/dashboard',
+    homePath: '/admin/dashboard',
     realName,
     roles: [role],
     token: session.access_token,

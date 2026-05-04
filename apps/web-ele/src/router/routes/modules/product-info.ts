@@ -2,23 +2,24 @@ import type { RouteRecordRaw } from 'vue-router';
 
 const routes: RouteRecordRaw[] = [
   {
+    redirect: '/admin/dashboard',
     meta: {
       icon: 'lucide:boxes',
       order: 0,
-      title: '产品资料系统',
+      title: '后台管理',
     },
-    name: 'ProductInfoSystem',
-    path: '/product-info',
+    name: 'ProductAdmin',
+    path: '/admin',
     children: [
       {
         component: () => import('#/views/product-info/dashboard/index.vue'),
         meta: {
           affixTab: true,
           icon: 'lucide:gauge',
-          title: '工作台',
+          title: '后台看板',
         },
-        name: 'ProductInfoDashboard',
-        path: '/product-info/dashboard',
+        name: 'AdminDashboard',
+        path: '/admin/dashboard',
       },
       {
         component: () => import('#/views/product-info/products/index.vue'),
@@ -26,8 +27,35 @@ const routes: RouteRecordRaw[] = [
           icon: 'lucide:package-search',
           title: '产品管理',
         },
-        name: 'ProductInfoProducts',
-        path: '/product-info/products',
+        name: 'AdminProducts',
+        path: '/admin/products',
+      },
+      {
+        component: () => import('#/views/product-info/categories/index.vue'),
+        meta: {
+          icon: 'lucide:folder-tree',
+          title: '分类管理',
+        },
+        name: 'AdminCategories',
+        path: '/admin/categories',
+      },
+      {
+        component: () => import('#/views/product-info/brands/index.vue'),
+        meta: {
+          icon: 'lucide:badge-check',
+          title: '品牌管理',
+        },
+        name: 'AdminBrands',
+        path: '/admin/brands',
+      },
+      {
+        component: () => import('#/views/product-info/companies/index.vue'),
+        meta: {
+          icon: 'lucide:building-2',
+          title: '公司管理',
+        },
+        name: 'AdminCompanies',
+        path: '/admin/companies',
       },
       {
         component: () => import('#/views/product-info/documents/index.vue'),
@@ -35,8 +63,17 @@ const routes: RouteRecordRaw[] = [
           icon: 'lucide:file-box',
           title: '文件资料',
         },
-        name: 'ProductInfoDocuments',
-        path: '/product-info/documents',
+        name: 'AdminDocuments',
+        path: '/admin/documents',
+      },
+      {
+        component: () => import('#/views/product-info/quotes/index.vue'),
+        meta: {
+          icon: 'lucide:receipt-text',
+          title: '报价管理',
+        },
+        name: 'AdminQuotes',
+        path: '/admin/quotes',
       },
       {
         component: () => import('#/views/product-info/updates/index.vue'),
@@ -44,8 +81,8 @@ const routes: RouteRecordRaw[] = [
           icon: 'lucide:radio',
           title: '动态管理',
         },
-        name: 'ProductInfoUpdates',
-        path: '/product-info/updates',
+        name: 'AdminUpdates',
+        path: '/admin/updates',
       },
       {
         component: () => import('#/views/product-info/users/index.vue'),
@@ -54,8 +91,8 @@ const routes: RouteRecordRaw[] = [
           icon: 'lucide:shield-check',
           title: '用户权限',
         },
-        name: 'ProductInfoUsers',
-        path: '/product-info/users',
+        name: 'AdminUsers',
+        path: '/admin/users',
       },
     ],
   },

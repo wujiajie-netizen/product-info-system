@@ -11,10 +11,11 @@
 1. 在 Supabase Cloud 创建项目。
 2. 在 SQL Editor 中执行 `migrations/001_initial_schema.sql`。
 3. 继续执行 `migrations/002_backend_requirements.sql`。
-4. 可选执行 `seed.sql` 写入演示产品、文档记录和动态记录。
-5. 在 Supabase Auth 中创建测试用户。
-6. 将首个管理员提升为 `admin`。
-7. 在前端环境变量中配置 Supabase URL 和公开 key。Supabase 新版界面可能显示为 `PUBLISHABLE_KEY`，可写入本项目的 `VITE_SUPABASE_ANON_KEY`。
+4. 继续执行 `migrations/003_core_catalog_and_quotes.sql`。
+5. 可选执行 `seed.sql` 写入演示产品、文档记录和动态记录。
+6. 在 Supabase Auth 中创建测试用户。
+7. 将首个管理员提升为 `admin`。
+8. 在前端环境变量中配置 Supabase URL 和公开 key。Supabase 新版界面可能显示为 `PUBLISHABLE_KEY`，可写入本项目的 `VITE_SUPABASE_ANON_KEY`。
 
 ```ini
 VITE_SUPABASE_URL=https://your-project-ref.supabase.co
@@ -41,10 +42,12 @@ pnpm run check:supabase
 
 ## Migration 内容
 
-- `profiles`、`products`、`documents`、`updates`：核心业务表和索引。
+- `profiles`、`categories`、`brands`、`companies`、`products`、`documents`、`quotes`、`updates`：核心业务表和索引。
+- `product_companies`、`quote_documents`：商品公司关系和报价附件关系。
 - `public.handle_new_user()`：Supabase Auth 新用户创建后自动写入 `public.profiles`。
 - `public.set_updated_at()`：统一维护 `profiles`、`products`、`documents` 的 `updated_at`。
 - `public.create_document_update()`：报价类文档创建后自动写入一条 `updates` 动态。
+- `public.create_quote_update()`：报价主体创建后自动写入一条 `updates` 动态。
 - `product-documents` Storage bucket：私有 bucket，限制常见文档和图片 MIME 类型，单文件上限 50 MB。
 - Storage policies：登录用户可读取文件对象，管理员可新增、更新和删除文件对象。
 

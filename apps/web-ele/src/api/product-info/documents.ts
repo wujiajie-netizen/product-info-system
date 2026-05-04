@@ -1,18 +1,31 @@
-import { assertSupabaseClient, normalizeKeyword, toLikePattern } from './client';
+import {
+  assertSupabaseClient,
+  normalizeKeyword,
+  toLikePattern,
+} from './client';
 import type { DocumentFileType, DocumentRecord, ListParams } from './types';
 
 const BUCKET = 'product-documents';
 
 export interface CreateDocumentInput {
   category: string;
+  companyId?: string;
   file: File;
   fileType: DocumentFileType;
+  productId?: string;
   productModel?: string;
   tags?: string[];
   title: string;
 }
 
-export async function listDocuments(params: ListParams = {}) {
+export interface DocumentListParams extends ListParams {
+  companyId?: string;
+  fileType?: DocumentFileType;
+  productId?: string;
+  productModel?: string;
+}
+
+export async function listDocuments(params: DocumentListParams = {}) {
   const supabase = assertSupabaseClient();
   const keyword = normalizeKeyword(params.keyword);
   let query = supabase
@@ -25,6 +38,22 @@ export async function listDocuments(params: ListParams = {}) {
     query = query.or(
       `title.ilike.${pattern},product_model.ilike.${pattern},category.ilike.${pattern}`,
     );
+  }
+
+  if (params.fileType) {
+    query = query.eq('file_type', params.fileType);
+  }
+
+  if (params.productId) {
+    query = query.eq('product_id', params.productId);
+  }
+
+  if (params.productModel) {
+    query = query.eq('product_model', params.productModel);
+  }
+
+  if (params.companyId) {
+    query = query.eq('company_id', params.companyId);
   }
 
   const { data, error } = await query;
@@ -76,9 +105,11 @@ export async function createDocument(input: CreateDocumentInput) {
     .from('documents')
     .insert({
       category: input.category,
+      company_id: input.companyId || null,
       created_by: user?.id,
       file_type: input.fileType,
       file_url: `storage://${BUCKET}/${storagePath}`,
+      product_id: input.productId || null,
       product_model: input.productModel || null,
       storage_path: storagePath,
       tags: input.tags || [],

@@ -1,5 +1,10 @@
 <script lang="ts" setup>
-import type { ProductRecord, ProductStatus } from '#/api';
+import type {
+  BrandRecord,
+  CategoryRecord,
+  ProductRecord,
+  ProductStatus,
+} from '#/api';
 
 import { computed, onMounted, reactive, ref } from 'vue';
 
@@ -26,6 +31,8 @@ import {
 
 import {
   createProduct,
+  listBrands,
+  listCategories,
   listProducts,
   setProductStatus,
   updateProduct,
@@ -36,6 +43,8 @@ const loading = ref(false);
 const saving = ref(false);
 const keyword = ref('');
 const products = ref<ProductRecord[]>([]);
+const categories = ref<CategoryRecord[]>([]);
+const brands = ref<BrandRecord[]>([]);
 const dialogVisible = ref(false);
 const editingProduct = ref<ProductRecord>();
 
@@ -46,6 +55,9 @@ const dialogTitle = computed(() =>
 
 const form = reactive({
   category: '',
+  categoryId: '',
+  brandId: '',
+  description: '',
   model: '',
   name: '',
   specJsonText: '{}',
@@ -71,6 +83,9 @@ async function loadProducts() {
 function resetForm() {
   editingProduct.value = undefined;
   form.category = '';
+  form.categoryId = '';
+  form.brandId = '';
+  form.description = '';
   form.model = '';
   form.name = '';
   form.specJsonText = '{}';
@@ -86,6 +101,9 @@ function openCreateDialog() {
 function openEditDialog(row: ProductRecord) {
   editingProduct.value = row;
   form.category = row.category;
+  form.categoryId = row.category_id || '';
+  form.brandId = row.brand_id || '';
+  form.description = row.description || '';
   form.model = row.model;
   form.name = row.name;
   form.specJsonText = JSON.stringify(row.spec_json || {}, null, 2);
@@ -104,21 +122,29 @@ function parseSpecJson() {
 
     return value as Record<string, unknown>;
   } catch (error) {
-    throw new Error((error as Error).message || '规格参数 JSON 格式不正确', { cause: error });
+    throw new Error((error as Error).message || '规格参数 JSON 格式不正确', {
+      cause: error,
+    });
   }
 }
 
 function buildProductInput() {
   const model = form.model.trim();
   const name = form.name.trim();
-  const category = form.category.trim();
+  const selectedCategory = categories.value.find(
+    (item) => item.id === form.categoryId,
+  );
+  const category = (selectedCategory?.name || form.category).trim();
 
   if (!model || !name || !category) {
     throw new Error('请填写产品型号、名称和分类');
   }
 
   return {
+    brandId: form.brandId || undefined,
     category,
+    categoryId: form.categoryId || undefined,
+    description: form.description.trim() || undefined,
     model,
     name,
     specJson: parseSpecJson(),
@@ -128,6 +154,16 @@ function buildProductInput() {
       .map((tag) => tag.trim())
       .filter(Boolean),
   };
+}
+
+async function loadOptions() {
+  const [categoryRecords, brandRecords] = await Promise.all([
+    listCategories(),
+    listBrands(),
+  ]);
+
+  categories.value = categoryRecords;
+  brands.value = brandRecords;
 }
 
 async function submitProduct() {
@@ -165,7 +201,9 @@ async function handleStatusChange(row: ProductRecord) {
   }
 }
 
-onMounted(loadProducts);
+onMounted(async () => {
+  await Promise.all([loadOptions(), loadProducts()]);
+});
 </script>
 
 <template>
@@ -188,7 +226,12 @@ onMounted(loadProducts);
       <ElTable v-loading="loading" :data="products" stripe>
         <ElTableColumn label="产品型号" prop="model" width="160" />
         <ElTableColumn label="产品名称" min-width="220" prop="name" />
-        <ElTableColumn label="分类" prop="category" width="120" />
+        <ElTableColumn label="分类" prop="category" width="140" />
+        <ElTableColumn label="品牌" width="140">
+          <template #default="{ row }">
+            {{ brands.find((brand) => brand.id === row.brand_id)?.name || '-' }}
+          </template>
+        </ElTableColumn>
         <ElTableColumn label="状态" prop="status" width="100">
           <template #default="{ row }">
             <ElTag :type="row.status === 'active' ? 'success' : 'info'">
@@ -251,7 +294,42 @@ onMounted(loadProducts);
           <ElInput v-model="form.name" placeholder="请输入产品名称" />
         </ElFormItem>
         <ElFormItem label="分类">
-          <ElInput v-model="form.category" placeholder="例如 传感器" />
+          <ElSelect
+            v-model="form.categoryId"
+            clearable
+            filterable
+            placeholder="选择结构化分类"
+            style="width: 100%"
+          >
+            <ElOption
+              v-for="category in categories"
+              :key="category.id"
+              :label="category.name"
+              :value="category.id"
+            />
+          </ElSelect>
+        </ElFormItem>
+        <ElFormItem label="备用分类">
+          <ElInput
+            v-model="form.category"
+            placeholder="未选择结构化分类时填写，例如 传感器"
+          />
+        </ElFormItem>
+        <ElFormItem label="品牌">
+          <ElSelect
+            v-model="form.brandId"
+            clearable
+            filterable
+            placeholder="选择品牌"
+            style="width: 100%"
+          >
+            <ElOption
+              v-for="brand in brands"
+              :key="brand.id"
+              :label="brand.name"
+              :value="brand.id"
+            />
+          </ElSelect>
         </ElFormItem>
         <ElFormItem label="状态">
           <ElSelect v-model="form.status" style="width: 100%">
@@ -262,11 +340,19 @@ onMounted(loadProducts);
         <ElFormItem label="标签">
           <ElInput v-model="form.tagsText" placeholder="多个标签用逗号分隔" />
         </ElFormItem>
+        <ElFormItem label="简介">
+          <ElInput
+            v-model="form.description"
+            :rows="3"
+            placeholder="用于前台产品详情和列表摘要"
+            type="textarea"
+          />
+        </ElFormItem>
         <ElFormItem label="规格参数">
           <ElInput
             v-model="form.specJsonText"
             :rows="6"
-            placeholder="例如 {&quot;range&quot;:&quot;-20~80C&quot;}"
+            placeholder='例如 {"range":"-20~80C"}'
             type="textarea"
           />
         </ElFormItem>
