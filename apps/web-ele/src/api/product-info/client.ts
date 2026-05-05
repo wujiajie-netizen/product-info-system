@@ -19,7 +19,7 @@ export function normalizeKeyword(keyword?: string) {
 }
 
 export function toLikePattern(keyword: string) {
-  return `%${keyword.replaceAll('%', '\\%').replaceAll('_', '\\_')}%`;
+  return `%${keyword.replaceAll('%', String.raw`\%`).replaceAll('_', String.raw`\_`)}%`;
 }
 
 export function normalizeSlug(slug: string | undefined, fallback: string) {

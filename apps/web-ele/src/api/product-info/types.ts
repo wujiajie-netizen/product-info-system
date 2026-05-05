@@ -131,7 +131,7 @@ export interface QuoteRecord {
 
 export interface QuoteWithRelations extends QuoteRecord {
   company?: CompanyRecord | null;
-  product?: ProductRecord | null;
+  product?: null | ProductRecord;
 }
 
 export interface QuoteDocumentRecord {

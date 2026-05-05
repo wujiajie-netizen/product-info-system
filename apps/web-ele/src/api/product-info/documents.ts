@@ -1,9 +1,10 @@
+import type { DocumentFileType, DocumentRecord, ListParams } from './types';
+
 import {
   assertSupabaseClient,
   normalizeKeyword,
   toLikePattern,
 } from './client';
-import type { DocumentFileType, DocumentRecord, ListParams } from './types';
 
 const BUCKET = 'product-documents';
 

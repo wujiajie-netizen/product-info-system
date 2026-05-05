@@ -1,5 +1,7 @@
 import type { Component } from 'vue';
 
+import type { DocumentRecord, UpdateRecord } from '#/api/product-info';
+
 import {
   AlarmClock,
   BatteryCharging,
@@ -8,8 +10,8 @@ import {
   Boxes,
   BriefcaseBusiness,
   Building2,
-  CircuitBoard,
   CircleDollarSign,
+  CircuitBoard,
   ClipboardList,
   CloudUpload,
   Download,
@@ -34,16 +36,14 @@ import {
   PackageSearch,
   Radio,
   RefreshCw,
-  ScanSearch,
   Scale,
+  ScanSearch,
   Search,
   Share2,
   ShieldCheck,
   Star,
   Users,
 } from 'lucide-vue-next';
-
-import type { DocumentRecord, UpdateRecord } from '#/api/product-info';
 
 export const navIcons: Record<string, Component> = {
   '/': House,

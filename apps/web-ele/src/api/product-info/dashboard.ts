@@ -1,7 +1,7 @@
 import { countDocuments } from './documents';
 import { countProducts } from './products';
 import { countQuotes } from './quotes';
-import { listUpdates, countThisWeekUpdates } from './updates';
+import { countThisWeekUpdates, listUpdates } from './updates';
 
 export async function getDashboardSummary() {
   const [

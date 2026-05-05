@@ -705,9 +705,9 @@ function buildProductSummary(record: ProductRecord, specEntries: SpecEntry[]) {
   const summary =
     typeof record.spec_json.summary === 'string'
       ? record.spec_json.summary
-      : typeof record.description === 'string'
+      : (typeof record.description === 'string'
         ? record.description
-        : '';
+        : '');
 
   if (summary.trim()) {
     return summary.trim();
@@ -820,7 +820,7 @@ function buildCategories(
         product.categoryId === category.id ||
         product.category === category.name,
     );
-    const sortedItems = [...items].sort((left, right) =>
+    const sortedItems = [...items].toSorted((left, right) =>
       right.updatedAt.localeCompare(left.updatedAt),
     );
     const latestUpdatedAt = sortedItems[0]?.updatedAt || '';
@@ -837,7 +837,7 @@ function buildCategories(
     };
   });
 
-  return summaries.sort((left, right) => right.count - left.count);
+  return summaries.toSorted((left, right) => right.count - left.count);
 }
 
 function buildBrands(products: ProductListItem[], brands: BrandRecord[]) {
@@ -854,7 +854,7 @@ function buildBrands(products: ProductListItem[], brands: BrandRecord[]) {
         slug: brand.slug,
       };
     })
-    .sort(
+    .toSorted(
       (left, right) =>
         right.count - left.count || left.name.localeCompare(right.name),
     );
@@ -887,7 +887,9 @@ async function queryTable<T extends { status?: string }>(
   { activeOnly = false }: { activeOnly?: boolean } = {},
 ) {
   if (!isSupabaseConfigured) {
-    return activeOnly ? fallback.filter(isActiveRecord) : fallback;
+    return activeOnly
+      ? fallback.filter((record) => isActiveRecord(record))
+      : fallback;
   }
 
   const client = assertSupabaseClient();
@@ -938,11 +940,11 @@ export function formatCompanyType(type: string) {
     case 'manufacturer': {
       return '制造商';
     }
-    case 'supplier': {
-      return '供应商';
-    }
     case 'other': {
       return '其他';
+    }
+    case 'supplier': {
+      return '供应商';
     }
     default: {
       return type;
@@ -1019,7 +1021,9 @@ export async function listProducts() {
 
   return Promise.all(
     records
-      .sort((left, right) => right.updated_at.localeCompare(left.updated_at))
+      .toSorted((left, right) =>
+        right.updated_at.localeCompare(left.updated_at),
+      )
       .map((record) =>
         mapProduct(record, {
           brands,
@@ -1037,7 +1041,7 @@ export async function listCategories() {
   const data = await queryTable<CategoryRecord>('categories', demoCategories, {
     activeOnly: true,
   });
-  return data.sort(
+  return data.toSorted(
     (left, right) =>
       left.sort_order - right.sort_order || left.name.localeCompare(right.name),
   );
@@ -1047,14 +1051,14 @@ export async function listBrands() {
   const data = await queryTable<BrandRecord>('brands', demoBrands, {
     activeOnly: true,
   });
-  return data.sort((left, right) => left.name.localeCompare(right.name));
+  return data.toSorted((left, right) => left.name.localeCompare(right.name));
 }
 
 export async function listCompanies() {
   const data = await queryTable<CompanyRecord>('companies', demoCompanies, {
     activeOnly: true,
   });
-  return data.sort((left, right) => left.name.localeCompare(right.name));
+  return data.toSorted((left, right) => left.name.localeCompare(right.name));
 }
 
 export async function listProductCompanies({
@@ -1159,7 +1163,9 @@ export async function listQuotes({
     throw error;
   }
 
-  return ((data || []) as QuoteRecord[]).filter(isVisibleQuote);
+  return ((data || []) as QuoteRecord[]).filter((record) =>
+    isVisibleQuote(record),
+  );
 }
 
 export async function listQuoteDocuments({
@@ -1289,7 +1295,7 @@ export async function getProductDetail(idOrModel: string) {
         .map((item) =>
           documents.find((document) => document.id === item.document_id),
         )
-        .filter((item): item is DocumentRecord => Boolean(item)),
+        .filter(Boolean),
     })),
   } satisfies ProductDetailData;
 }
