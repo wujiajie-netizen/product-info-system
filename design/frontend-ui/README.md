@@ -5,9 +5,9 @@
 ## 使用原则
 
 - 涉及前台页面开发时，优先按本目录中的设计图实现页面结构、模块布局和视觉层级。
-- 如设计图与项目文档冲突，以 `PROJECT_SUMMARY.md`、`TECHNICAL_PLAN.md`、`ROUTE_PLAN.md` 中已确认的需求边界为准。
+- 如设计图与项目文档冲突，以 `docs/PRD.md`、`docs/ARCHITECTURE.md`、`docs/ROUTES.md` 中已确认的需求边界为准。
 - 当前设计图主要用于前台主链路，不代表所有个人协作能力都已进入 MVP。
-- 前台开发与验收时，同时参考 [IMPLEMENTATION_RULES.md](./IMPLEMENTATION_RULES.md) 中的开发规则、适配规则和验收规则。
+- 前台开发与验收时，同时参考 [UI_SPEC.md](./UI_SPEC.md) 中的布局规则、组件约束、设计令牌和验收规则。
 
 ## 文件对应关系
 
@@ -25,11 +25,13 @@
   - 资料、报价、动态联动场景参考。
 - `companies-quotes.png`
   - 公司库、报价总览、平台动态联动场景参考。
+- `ui-style-guide-board.png`
+  - 前台样式规范板：颜色、字体、间距、圆角、阴影、按钮、输入框、标签和状态样式参考。
 
 ## 配套文档
 
-- `IMPLEMENTATION_RULES.md`
-  - 前台实现规则、移动端适配规则、组件落地约束和页面验收标准。
+- `UI_SPEC.md`
+  - 前台主规范，包含通用色彩、字体、间距、圆角、阴影、组件、状态和响应式规则。
 
 ## 备注
 

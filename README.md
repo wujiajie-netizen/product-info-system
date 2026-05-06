@@ -25,10 +25,12 @@
 
 ## 文档入口
 
-- [PROJECT_SUMMARY.md](./PROJECT_SUMMARY.md)：项目背景、目标用户、业务边界、MVP 范围和当前阶段。
-- [TECHNICAL_PLAN.md](./TECHNICAL_PLAN.md)：前后台架构、页面结构、数据模型和实施顺序。
-- [DEVELOPMENT_TASKS.md](./DEVELOPMENT_TASKS.md)：开发任务清单、迭代顺序、当前状态和验收标准。
-- [design/frontend-ui/IMPLEMENTATION_RULES.md](./design/frontend-ui/IMPLEMENTATION_RULES.md)：前台设计基线、移动端适配规则、开发约束和页面验收标准。
+- [docs/README.md](./docs/README.md)：项目核心文档入口。
+- [docs/PRD.md](./docs/PRD.md)：项目背景、目标用户、业务边界、MVP 范围和当前阶段。
+- [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)：前后台架构、页面结构、数据模型和实施顺序。
+- [docs/ROUTES.md](./docs/ROUTES.md)：前后台路由规划和页面体系。
+- [docs/TASKS.md](./docs/TASKS.md)：开发任务清单、迭代顺序、当前状态和验收标准。
+- [design/frontend-ui/UI_SPEC.md](./design/frontend-ui/UI_SPEC.md)：前台设计规范、设计令牌、移动端适配规则和页面验收标准。
 - [supabase/README.md](./supabase/README.md)：Supabase 初始化、迁移、权限和存储细节。
 - [AGENTS.md](./AGENTS.md)：Codex 和其他 coding agent 的项目级开发约束。
 
@@ -51,8 +53,8 @@ pnpm run check:supabase
 
 当前已进入首批 MVP 联调、验收和收口阶段。前台核心页面、后台核心维护页、Supabase 数据模型与 migration 已具备基础闭环，后续重点不再是新增大模块，而是把真实数据链路、权限回归和设计稿还原逐项打磨稳定。
 
-1. 前台继续按 `design/frontend-ui/IMPLEMENTATION_RULES.md` 做桌面和移动端验收。
+1. 前台继续按 `design/frontend-ui/UI_SPEC.md` 做桌面和移动端验收。
 2. 打通后台维护到前台展示的细节链路：关联公司、报价附件、商品图片和资料入口。
 3. 保持前台默认只展示 `active` 业务数据，避免停用数据、草稿报价、归档报价进入用户浏览链路。
 4. 做 Supabase RLS 权限回归：匿名不可读写、普通用户只读、管理员可写。
-5. 每完成一个页面或链路，更新 `DEVELOPMENT_TASKS.md` 并用可见浏览器截图验收。
+5. 每完成一个页面或链路，更新 `docs/TASKS.md` 并用可见浏览器截图验收。

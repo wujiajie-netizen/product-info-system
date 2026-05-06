@@ -4,7 +4,7 @@
 
 当前开发阶段优先接入 Supabase Cloud，前端通过 `VITE_SUPABASE_URL` 和 `VITE_SUPABASE_ANON_KEY` 连接云端项目。不要在代码、文档示例或提交记录中写入 `service_role` key、真实 anon key、数据库密码或其他密钥。
 
-本文件是 Codex 和 coding agent 的项目级指令文档，应保持简洁、可执行、不过度记录业务背景。业务背景写入 `PROJECT_SUMMARY.md`，技术路线写入 `TECHNICAL_PLAN.md`，Supabase 操作细节写入 `supabase/README.md`。
+本文件是 Codex 和 coding agent 的项目级指令文档，应保持简洁、可执行、不过度记录业务背景。业务背景写入 `docs/PRD.md`，技术路线写入 `docs/ARCHITECTURE.md`，Supabase 操作细节写入 `supabase/README.md`，文档总入口写入 `docs/README.md`。
 
 ## 文本读取约束
 
