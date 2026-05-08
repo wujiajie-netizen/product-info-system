@@ -1,6 +1,5 @@
 import type { RouteRecordRaw } from 'vue-router';
 
-import BrandView from '#/views/brand/index.vue';
 import CategoryView from '#/views/category/index.vue';
 import CompanyListView from '#/views/company/index.vue';
 import DocumentListView from '#/views/document/index.vue';
@@ -40,15 +39,6 @@ export const routes: RouteRecordRaw[] = [
     path: '/categories/:slug?',
     name: 'categories',
     component: CategoryView,
-    props: true,
-    meta: {
-      siteHeader: true,
-    },
-  },
-  {
-    path: '/brands/:brand?',
-    name: 'brands',
-    component: BrandView,
     props: true,
     meta: {
       siteHeader: true,

@@ -179,10 +179,10 @@ export const productNavItems: ProductNavItem[] = [
   { label: '首页', to: '/' },
   { label: '产品', to: '/products' },
   { label: '分类', to: '/categories' },
-  { label: '品牌', to: '/brands' },
   { label: '资料', to: '/documents' },
-  { label: '公司', to: '/companies' },
-  { label: '行业', to: '/updates' },
+  { label: '报价', to: '/quotes' },
+  { label: '公司库', to: '/companies' },
+  { label: '资讯', to: '/updates' },
 ];
 
 export const productCategoryGroups: CategoryGroup[] = [

@@ -47,7 +47,6 @@ import {
 
 export const navIcons: Record<string, Component> = {
   '/': House,
-  '/brands': LayoutGrid,
   '/categories': FolderTree,
   '/companies': Building2,
   '/documents': BookOpen,

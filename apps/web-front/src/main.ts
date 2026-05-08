@@ -5,7 +5,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import App from './App.vue';
 import { initializeAuth } from './lib/auth';
 import { routes } from './router';
-import './styles/main.css';
+import './styles/main.scss';
 
 async function bootstrap() {
   await initializeAuth();

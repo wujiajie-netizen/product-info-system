@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build --mode production",
-    "dev": "vite --mode development",
+    "build": "pnpm -C ../.. run fix:sass && vite build --mode production",
+    "dev": "pnpm -C ../.. run fix:sass && vite --mode development",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit --skipLibCheck"
   },
@@ -20,6 +20,8 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "catalog:",
+    "sass": "catalog:",
+    "sass-embedded": "npm:sass@1.99.0",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vue-tsc": "catalog:"

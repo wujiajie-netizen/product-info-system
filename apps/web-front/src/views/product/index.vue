@@ -26,7 +26,6 @@ const BASE_RESULT_COUNT = 2156;
 const route = useRoute();
 const router = useRouter();
 const keyword = ref('');
-const scope = ref('全部');
 const selectedCategorySlug = ref('');
 const selectedBrandSlugs = ref<string[]>([]);
 const minPrice = ref('');
@@ -44,20 +43,35 @@ function normalizeQueryValue(value: unknown) {
   return value.trim();
 }
 
+function normalizeQueryValues(value: unknown) {
+  if (Array.isArray(value)) {
+    return value
+      .filter((item): item is string => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  const single = normalizeQueryValue(value);
+
+  return single ? [single] : [];
+}
+
 function getPriceNumber(value: string) {
   return Number(value.replaceAll(',', '')) || 0;
 }
 
-function syncRouteKeyword() {
+function syncRouteFilters() {
   keyword.value = normalizeQueryValue(route.query.keyword);
+  selectedCategorySlug.value = normalizeQueryValue(route.query.categorySlug);
+  selectedBrandSlugs.value = normalizeQueryValues(route.query.brandSlug);
 }
 
 watch(
-  () => route.query.keyword,
+  () => route.query,
   () => {
-    syncRouteKeyword();
+    syncRouteFilters();
   },
-  { immediate: true },
+  { deep: true, immediate: true },
 );
 
 const selectedCategoryLabel = computed(() => {
@@ -222,18 +236,11 @@ function applyFilters() {
     <section class="product-page__search-strip">
       <div class="product-page__search-inner">
         <div class="product-page__search-bar">
-          <select v-model="scope" aria-label="搜索范围">
-            <option value="全部">全部</option>
-            <option value="产品">产品</option>
-            <option value="参数">参数</option>
-            <option value="品牌">品牌</option>
-          </select>
-
           <div class="product-page__search-input">
             <input
               v-model="keyword"
               type="text"
-              placeholder="搜索产品 / 型号 / 参数"
+              placeholder="搜索产品名称 / 型号"
               @keyup.enter="submitSearch"
             />
             <button type="button" aria-label="清空搜索" @click="keyword = ''">
@@ -414,36 +421,24 @@ function applyFilters() {
 
 .product-page__search-bar {
   display: grid;
-  grid-template-columns: 76px minmax(0, 1fr) 92px;
+  grid-template-columns: minmax(0, 1fr) 92px;
   margin-bottom: 10px;
 }
 
-.product-page__search-bar select,
 .product-page__search-input,
 .product-page__search-button {
   height: 38px;
 }
 
-.product-page__search-bar select,
 .product-page__search-input {
   border: 1px solid #d9e2ef;
-}
-
-.product-page__search-bar select {
-  padding: 0 12px;
-  font: inherit;
-  font-size: 14px;
-  color: #24344f;
-  background: #fff;
-  border-right: 0;
-  border-radius: 6px 0 0 6px;
-  outline: none;
 }
 
 .product-page__search-input {
   display: flex;
   align-items: center;
   padding: 0 10px 0 14px;
+  border-radius: 6px 0 0 6px;
 }
 
 .product-page__search-input input {
@@ -777,14 +772,9 @@ function applyFilters() {
     grid-template-columns: 1fr;
   }
 
-  .product-page__search-bar select {
-    border-right: 1px solid #d9e2ef;
-    border-bottom: 0;
-    border-radius: 6px 6px 0 0;
-  }
-
   .product-page__search-input {
     border-bottom: 0;
+    border-radius: 6px 6px 0 0;
   }
 
   .product-page__search-button {

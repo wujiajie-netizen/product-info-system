@@ -27,7 +27,7 @@
   "scripts": {
     "bootstrap": "pnpm install",
     "build": "pnpm run build:ele",
-    "build:front": "pnpm -F @product-info/web-front run build",
+    "build:front": "pnpm run fix:sass && pnpm -F @product-info/web-front run build",
     "build:docker": "./scripts/deploy/build-local-docker-image.sh",
     "build:ele": "pnpm run fix:sass && pnpm -F @vben/web-ele run build",
     "changeset": "pnpm exec changeset",
@@ -41,7 +41,7 @@
     "commit": "czg",
     "dev": "pnpm run dev:ele",
     "dev:ele": "pnpm run fix:sass && pnpm -F @vben/web-ele run dev",
-    "dev:front": "pnpm -F @product-info/web-front run dev",
+    "dev:front": "pnpm run fix:sass && pnpm -F @product-info/web-front run dev",
     "fix:sass": "node ./scripts/local/remove-sass-embedded-links.mjs",
     "format": "vsh lint --format",
     "lint": "vsh lint",

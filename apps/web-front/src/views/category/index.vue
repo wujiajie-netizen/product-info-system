@@ -1,348 +1,639 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
-import { NCard, NEmpty, NSpin, NTag } from 'naive-ui';
+import { computed, ref } from 'vue';
+import { ChevronRight, Flame, Hash } from 'lucide-vue-next';
 import { RouterLink } from 'vue-router';
 
-import { getDashboardSummary, isUsingDemoData } from '#/api/product-info';
 import AppIcon from '#/components/AppIcon.vue';
 import FrontShell from '#/components/FrontShell.vue';
-import { getCategoryIcon } from '#/lib/front-icons';
-import { useAuthState } from '#/lib/auth';
-import { getErrorMessage } from '#/lib/errors';
+import CategoryBrandCard from '#/views/category/components/CategoryBrandCard.vue';
+import CategoryNavCard from '#/views/category/components/CategoryNavCard.vue';
+import CategoryQuickEntryCard from '#/views/category/components/CategoryQuickEntryCard.vue';
+import CategoryRecentUpdateItem from '#/views/category/components/CategoryRecentUpdateItem.vue';
+import {
+  allBrandItems,
+  brandIndexGroups,
+  brandLetters,
+  categoryKeywordColumns,
+  categoryNavigationItems,
+  hotBrandItems,
+  industryTopics,
+  platformStats,
+  quickEntryItems,
+  recentUpdateItems,
+} from '#/views/category/category-navigation-data';
 
 const props = defineProps<{
   slug?: string;
 }>();
 
-const auth = useAuthState();
-const loading = ref(false);
-const errorMessage = ref('');
-const summary = ref<Awaited<ReturnType<typeof getDashboardSummary>> | null>(
-  null,
+const brandTab = ref<'all' | 'hot'>('hot');
+const activeLetter = ref('全部');
+
+const visibleBrands = computed(() =>
+  brandTab.value === 'hot' ? hotBrandItems : allBrandItems,
 );
 
-const currentCategory = computed(() =>
-  summary.value?.categories.find(
-    (item) => item.slug === props.slug || item.name === props.slug,
-  ),
-);
-
-const visibleProducts = computed(() => {
-  const products = summary.value?.products || [];
-
-  if (!props.slug) {
-    return products;
+const visibleBrandGroups = computed(() => {
+  if (activeLetter.value === '全部') {
+    return brandIndexGroups;
   }
 
-  return products.filter(
-    (item) =>
-      item.categoryId === currentCategory.value?.id ||
-      item.category === currentCategory.value?.name,
-  );
+  return brandIndexGroups.filter((item) => item.letter === activeLetter.value);
 });
 
-const recentProducts = computed(() =>
-  [...visibleProducts.value]
-    .toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt))
-    .slice(0, 5),
-);
-
-const visibleBrands = computed(() => {
-  const sourceProducts = props.slug
-    ? visibleProducts.value
-    : summary.value?.products || [];
-  const counters = new Map<string, number>();
-
-  for (const item of sourceProducts) {
-    if (!item.brand) {
-      continue;
-    }
-
-    counters.set(item.brand, (counters.get(item.brand) || 0) + 1);
-  }
-
-  const rankedBrands = (summary.value?.brands || [])
-    .filter((item) => counters.has(item.name))
-    .toSorted((left, right) => {
-      return (counters.get(right.name) || 0) - (counters.get(left.name) || 0);
-    });
-
-  return rankedBrands.slice(0, props.slug ? 8 : 10);
-});
-
-const metrics = computed(() => [
-  {
-    label: props.slug ? '当前产品' : '全部产品',
-    value: visibleProducts.value.length,
-  },
-  {
-    label: '分类',
-    value: summary.value?.categories.length ?? 0,
-  },
-  {
-    label: '品牌',
-    value: visibleBrands.value.length || summary.value?.brands.length || 0,
-  },
-  {
-    label: '资料',
-    value: summary.value?.documentCount ?? 0,
-  },
-]);
-
-function buildCategoryProductListQuery() {
-  if (!currentCategory.value) {
-    return {};
-  }
-
+function buildProductQuery(slug: string) {
   return {
-    categoryId: currentCategory.value.id,
-    categorySlug: currentCategory.value.slug,
+    name: 'products',
+    query: {
+      categorySlug: slug,
+    },
   };
 }
 
-function buildBrandLabel(name: string) {
-  const compact = name.replace(/\s+/g, '');
-  return compact.slice(0, Math.min(compact.length, 2)).toUpperCase();
+function buildBrandQuery(slug: string) {
+  return {
+    name: 'products',
+    query: {
+      brandSlug: slug,
+    },
+  };
 }
-
-async function loadSummary() {
-  loading.value = true;
-  errorMessage.value = '';
-
-  try {
-    summary.value = await getDashboardSummary();
-  } catch (error) {
-    errorMessage.value = getErrorMessage(error);
-  } finally {
-    loading.value = false;
-  }
-}
-
-watch(
-  () => [auth.user?.id, isUsingDemoData()],
-  ([userId, demoMode]) => {
-    if (!userId && !demoMode) {
-      summary.value = null;
-      return;
-    }
-
-    void loadSummary();
-  },
-  { immediate: true },
-);
 </script>
 
 <template>
   <FrontShell>
-    <section class="content-section shell-container nav-page">
-      <n-spin :show="loading">
-        <div class="section-heading">
-          <div>
-            <h1>{{ currentCategory?.name ?? '分类导航' }}</h1>
-            <p>
-              {{
-                currentCategory?.description ||
-                '按产品目录浏览、切入分类结果，并继续进入产品列表查看更细筛选。'
-              }}
-            </p>
-          </div>
-          <n-tag>{{ visibleProducts.length }} 个产品</n-tag>
-        </div>
-
-        <div class="nav-switcher" aria-label="分类品牌切换">
-          <RouterLink :to="{ name: 'categories' }" class="active"
-            >分类</RouterLink
-          >
-          <RouterLink :to="{ name: 'brands' }">品牌</RouterLink>
-        </div>
-
-        <n-card v-if="errorMessage">
-          <n-empty :description="errorMessage" />
-        </n-card>
-
-        <template v-else>
-          <section class="nav-overview">
-            <div class="nav-panel">
-              <div class="section-heading compact-heading">
-                <h2>{{ currentCategory ? '当前分类' : '产品分类' }}</h2>
-                <RouterLink
-                  :to="{
-                    name: 'products',
-                    query: buildCategoryProductListQuery(),
-                  }"
-                >
-                  {{ currentCategory ? '查看分类产品' : '进入产品列表' }}
+    <section class="category-page">
+      <div class="shell-container category-page__container">
+        <div class="category-page__grid">
+          <div class="category-page__main">
+            <section class="category-panel">
+              <div class="category-panel__header">
+                <h2>分类导航</h2>
+                <RouterLink class="category-panel__link" :to="{ name: 'products' }">
+                  <span>查看全部分类</span>
+                  <AppIcon :icon="ChevronRight" :size="16" />
                 </RouterLink>
               </div>
 
-              <div v-if="currentCategory" class="nav-focus-card">
-                <div class="nav-directory-top">
-                  <span class="nav-badge">
-                    <AppIcon
-                      :icon="getCategoryIcon(currentCategory.name)"
-                      :size="24"
-                    />
-                  </span>
-                  <div>
-                    <strong>{{ currentCategory.name }}</strong>
-                    <p>{{ currentCategory.count }} 个产品</p>
+              <div class="category-page__nav-grid">
+                <CategoryNavCard
+                  v-for="item in categoryNavigationItems"
+                  :key="item.slug"
+                  :active="item.slug === props.slug"
+                  :count="item.count"
+                  :icon="item.icon"
+                  :label="item.label"
+                  :to="buildProductQuery(item.slug)"
+                />
+              </div>
+            </section>
+
+            <section class="category-panel">
+              <div class="category-panel__header">
+                <div class="category-panel__title-stack">
+                  <h2>品牌导航</h2>
+                  <div class="category-page__tabs">
+                    <button
+                      type="button"
+                      :class="{ 'is-active': brandTab === 'hot' }"
+                      @click="brandTab = 'hot'"
+                    >
+                      热门品牌
+                    </button>
+                    <button
+                      type="button"
+                      :class="{ 'is-active': brandTab === 'all' }"
+                      @click="brandTab = 'all'"
+                    >
+                      全部品牌
+                    </button>
                   </div>
-                  <n-tag size="small" type="info">
-                    最近更新 {{ currentCategory.latestUpdatedAtLabel }}
-                  </n-tag>
-                </div>
-                <p class="nav-focus-description">
-                  {{
-                    currentCategory.description ||
-                    '当前分类下保留产品预览、品牌入口和最近更新，方便继续纵向浏览。'
-                  }}
-                </p>
-                <div class="nav-directory-samples">
-                  <span
-                    v-for="model in currentCategory.sampleModels"
-                    :key="model"
-                    >{{ model }}</span
-                  >
                 </div>
               </div>
 
-              <div
-                v-else-if="summary?.categories?.length"
-                class="nav-collection-grid"
-              >
-                <RouterLink
-                  v-for="item in summary.categories"
-                  :key="item.id"
-                  :to="{ name: 'categories', params: { slug: item.slug } }"
-                  class="nav-directory-card"
-                >
-                  <div class="nav-directory-top">
-                    <span class="nav-badge">
-                      <AppIcon :icon="getCategoryIcon(item.name)" :size="22" />
-                    </span>
-                    <n-tag size="small">{{ item.count }} 个产品</n-tag>
-                  </div>
-                  <div>
-                    <strong>{{ item.name }}</strong>
-                    <p>
-                      {{
-                        item.description ||
-                        '目录式导航入口，支持进入分类结果和产品列表。'
-                      }}
-                    </p>
-                  </div>
-                  <div class="nav-directory-meta">
-                    <span>最近更新 {{ item.latestUpdatedAtLabel }}</span>
-                    <span>{{ item.sampleModels.slice(0, 2).join(' / ') }}</span>
-                  </div>
-                </RouterLink>
+              <div class="category-page__brand-grid">
+                <CategoryBrandCard
+                  v-for="item in visibleBrands"
+                  :key="item.slug"
+                  :accent="item.accent"
+                  :label="item.label"
+                  :to="buildBrandQuery(item.slug)"
+                  :wordmark="item.wordmark"
+                />
               </div>
 
-              <n-card v-else embedded>
-                <n-empty description="当前还没有分类数据。" />
-              </n-card>
-            </div>
-
-            <aside class="nav-side-stack">
-              <section class="nav-side-block">
-                <div class="section-heading compact-heading">
-                  <h3>最近更新</h3>
-                  <RouterLink to="/products">全部产品</RouterLink>
+              <div class="category-page__brand-index">
+                <div class="category-page__brand-index-title">
+                  <strong>全部品牌</strong>
                 </div>
-                <div v-if="recentProducts.length" class="nav-side-list">
-                  <RouterLink
-                    v-for="item in recentProducts"
-                    :key="item.id"
-                    :to="{
-                      name: 'product-detail',
-                      params: { productId: item.model },
-                    }"
+                <div class="category-page__letter-bar">
+                  <button
+                    v-for="item in brandLetters"
+                    :key="item"
+                    type="button"
+                    :class="{ 'is-active': activeLetter === item }"
+                    @click="activeLetter = item"
                   >
+                    {{ item }}
+                  </button>
+                </div>
+
+                <div class="category-page__brand-group-grid">
+                  <div
+                    v-for="group in visibleBrandGroups"
+                    :key="group.letter"
+                    class="category-page__brand-group"
+                  >
+                    <span>{{ group.letter }}</span>
                     <div>
-                      <strong>{{ item.name }}</strong>
-                      <span
-                        >{{ item.model }} ·
-                        {{ item.brand || item.category }}</span
+                      <RouterLink
+                        v-for="item in group.items"
+                        :key="item.slug"
+                        :to="buildBrandQuery(item.slug)"
                       >
+                        {{ item.label }}
+                      </RouterLink>
                     </div>
-                    <span>{{ item.updatedAt.slice(5, 10) }}</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="category-panel">
+              <div class="category-panel__header">
+                <div class="category-panel__title-stack">
+                  <h2>分类索引（热门）</h2>
+                </div>
+                <RouterLink class="category-panel__link" :to="{ name: 'products' }">
+                  <span>查看全部索引</span>
+                  <AppIcon :icon="ChevronRight" :size="16" />
+                </RouterLink>
+              </div>
+
+              <div class="category-page__keyword-grid">
+                <div
+                  v-for="(column, columnIndex) in categoryKeywordColumns"
+                  :key="columnIndex"
+                  class="category-page__keyword-column"
+                >
+                  <RouterLink
+                    v-for="item in column"
+                    :key="item.label"
+                    :to="{ name: 'products', query: { keyword: item.label } }"
+                    class="category-page__keyword-item"
+                  >
+                    <span class="category-page__keyword-name">
+                      <AppIcon :icon="columnIndex === 0 ? Hash : Flame" :size="14" />
+                      <span>{{ item.label }}</span>
+                    </span>
+                    <span>{{ item.count }}</span>
                   </RouterLink>
                 </div>
-                <n-empty v-else description="暂无最近更新。" />
-              </section>
+              </div>
+            </section>
+          </div>
 
-              <section class="nav-side-block">
-                <h3>导航概览</h3>
-                <div class="nav-metric-grid">
-                  <div v-for="item in metrics" :key="item.label">
-                    <strong>{{ item.value }}</strong>
-                    <span>{{ item.label }}</span>
-                  </div>
+          <aside class="category-page__side">
+            <section class="category-panel category-panel--side">
+              <div class="category-panel__header">
+                <h2>最近更新</h2>
+                <RouterLink class="category-panel__link" :to="{ name: 'updates' }">
+                  <span>查看全部</span>
+                  <AppIcon :icon="ChevronRight" :size="16" />
+                </RouterLink>
+              </div>
+
+              <div class="category-page__recent-list">
+                <CategoryRecentUpdateItem
+                  v-for="item in recentUpdateItems"
+                  :key="item.title"
+                  :image="item.image"
+                  :meta="item.meta"
+                  :time="item.time"
+                  :title="item.title"
+                  :to="item.to"
+                />
+              </div>
+            </section>
+
+            <section class="category-panel category-panel--side">
+              <div class="category-panel__header">
+                <h2>常用入口</h2>
+              </div>
+
+              <div class="category-page__quick-grid">
+                <CategoryQuickEntryCard
+                  v-for="item in quickEntryItems"
+                  :key="item.label"
+                  :icon="item.icon"
+                  :label="item.label"
+                  :to="item.to"
+                />
+              </div>
+            </section>
+
+            <section class="category-panel category-panel--side">
+              <div class="category-panel__header">
+                <h2>平台数据</h2>
+              </div>
+
+              <div class="category-page__stats-grid">
+                <div
+                  v-for="item in platformStats"
+                  :key="item.label"
+                  class="category-page__stat-card"
+                >
+                  <span>{{ item.label }}</span>
+                  <strong>{{ item.value }}</strong>
                 </div>
-              </section>
-            </aside>
-          </section>
+              </div>
+            </section>
 
-          <section class="content-section nav-subsection">
-            <div class="section-heading compact-heading">
-              <h2>{{ currentCategory ? '分类产品预览' : '分类产品总览' }}</h2>
-              <RouterLink
-                :to="{
-                  name: 'products',
-                  query: buildCategoryProductListQuery(),
-                }"
-              >
-                进入产品列表
-              </RouterLink>
-            </div>
-            <div v-if="visibleProducts.length" class="product-card-grid">
-              <RouterLink
-                v-for="item in visibleProducts.slice(0, 12)"
-                :key="item.id"
-                :to="{
-                  name: 'product-detail',
-                  params: { productId: item.model },
-                }"
-                class="mini-product-card nav-product-card"
-              >
-                <div class="nav-product-top">
-                  <strong>{{ item.name }}</strong>
-                  <n-tag size="small">{{ item.category }}</n-tag>
-                </div>
-                <p>{{ item.model }} · {{ item.brand || '待补品牌' }}</p>
-                <span>{{ item.summary }}</span>
-              </RouterLink>
-            </div>
-            <n-card v-else>
-              <n-empty description="当前分类下暂无产品。" />
-            </n-card>
-          </section>
+            <section class="category-panel category-panel--side">
+              <div class="category-panel__header">
+                <h2>行业热点</h2>
+              </div>
 
-          <section class="content-section nav-subsection">
-            <div class="section-heading compact-heading">
-              <h2>{{ currentCategory ? '相关品牌' : '品牌入口' }}</h2>
-              <RouterLink :to="{ name: 'brands' }">查看全部品牌</RouterLink>
-            </div>
-            <div v-if="visibleBrands.length" class="nav-logo-grid">
-              <RouterLink
-                v-for="item in visibleBrands"
-                :key="item.id"
-                :to="{ name: 'brands', params: { brand: item.slug } }"
-                class="nav-logo-card"
-              >
-                <span class="nav-logo-mark">{{
-                  buildBrandLabel(item.name)
-                }}</span>
-                <strong>{{ item.name }}</strong>
-                <p>{{ item.count }} 个产品</p>
-              </RouterLink>
-            </div>
-            <n-card v-else>
-              <n-empty description="暂无可用品牌入口。" />
-            </n-card>
-          </section>
-        </template>
-      </n-spin>
+              <div class="category-page__topic-grid">
+                <RouterLink
+                  v-for="item in industryTopics"
+                  :key="item"
+                  :to="{ name: 'updates' }"
+                  class="category-page__topic-chip"
+                >
+                  {{ item }}
+                </RouterLink>
+              </div>
+            </section>
+          </aside>
+        </div>
+      </div>
     </section>
   </FrontShell>
 </template>
+
+<style scoped>
+.category-page {
+  padding: 12px 0 22px;
+}
+
+.category-page__container {
+  position: relative;
+}
+
+.category-page__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 430px;
+  gap: 14px;
+  align-items: start;
+}
+
+.category-page__main,
+.category-page__side {
+  display: grid;
+  gap: 14px;
+}
+
+.category-panel {
+  background: linear-gradient(180deg, #fff 0%, #fbfcff 100%);
+  border: 1px solid #e3ebf6;
+  border-radius: 12px;
+  box-shadow: 0 10px 28px rgb(18 33 61 / 0.04);
+}
+
+.category-panel--side {
+  padding: 14px 16px;
+}
+
+.category-panel__header {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 18px 18px 0;
+}
+
+.category-panel__header h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #12213d;
+}
+
+.category-panel__title-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.category-panel__link {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1664d9;
+  white-space: nowrap;
+}
+
+.category-page__nav-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px 14px 18px;
+}
+
+.category-page__tabs {
+  display: inline-flex;
+  gap: 24px;
+  align-items: center;
+  border-bottom: 1px solid #edf2f8;
+}
+
+.category-page__tabs button {
+  position: relative;
+  padding: 0 2px 10px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: #60708d;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+}
+
+.category-page__tabs button::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 3px;
+  content: '';
+  background: #1664d9;
+  border-radius: 999px;
+  opacity: 0;
+  transform: scaleX(0.5);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.category-page__tabs button.is-active {
+  color: #1664d9;
+}
+
+.category-page__tabs button.is-active::after {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+.category-page__brand-grid {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 10px;
+  padding: 14px 14px 10px;
+}
+
+.category-page__brand-index {
+  display: grid;
+  gap: 12px;
+  padding: 10px 14px 14px;
+}
+
+.category-page__brand-index-title strong {
+  font-size: 15px;
+  color: #12213d;
+}
+
+.category-page__letter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+}
+
+.category-page__letter-bar button {
+  position: relative;
+  padding: 0 2px 8px;
+  font: inherit;
+  font-size: 13px;
+  color: #40516d;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+}
+
+.category-page__letter-bar button.is-active {
+  color: #1664d9;
+  font-weight: 700;
+}
+
+.category-page__letter-bar button.is-active::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  content: '';
+  background: #1664d9;
+  border-radius: 999px;
+}
+
+.category-page__brand-group-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  border: 1px solid #edf2f8;
+  border-radius: 12px;
+}
+
+.category-page__brand-group {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 14px;
+  min-height: 106px;
+  padding: 14px 14px;
+}
+
+.category-page__brand-group + .category-page__brand-group {
+  border-left: 1px solid #edf2f8;
+}
+
+.category-page__brand-group > span {
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+  color: #1849a4;
+}
+
+.category-page__brand-group div {
+  display: grid;
+  gap: 10px;
+  align-content: flex-start;
+}
+
+.category-page__brand-group a {
+  font-size: 13px;
+  color: #3f526e;
+}
+
+.category-page__keyword-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  padding: 12px 14px 14px;
+}
+
+.category-page__keyword-column {
+  display: grid;
+  gap: 12px;
+}
+
+.category-page__keyword-item {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #465975;
+}
+
+.category-page__keyword-name {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.category-page__keyword-name .app-icon {
+  color: #506b95;
+}
+
+.category-page__recent-list {
+  display: grid;
+}
+
+.category-page__quick-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.category-page__stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.category-page__stat-card {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  min-height: 72px;
+  padding: 12px 8px 10px;
+  text-align: center;
+  background: #f8fbff;
+  border: 1px solid #e5edf8;
+  border-radius: 10px;
+}
+
+.category-page__stat-card span {
+  font-size: 13px;
+  color: #52627d;
+}
+
+.category-page__stat-card strong {
+  font-size: 16px;
+  color: #12213d;
+}
+
+.category-page__topic-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.category-page__topic-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+  color: #4f607c;
+  background: #f7faff;
+  border: 1px solid #e4ebf6;
+  border-radius: 10px;
+}
+
+@media (max-width: 1380px) {
+  .category-page__grid {
+    grid-template-columns: minmax(0, 1fr) 360px;
+  }
+
+  .category-page__nav-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .category-page__brand-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .category-page__brand-group-grid,
+  .category-page__stats-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1024px) {
+  .category-page {
+    padding-top: 14px;
+  }
+
+  .category-page__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .category-page__nav-grid,
+  .category-page__keyword-grid,
+  .category-page__stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .category-page__brand-group-grid,
+  .category-page__quick-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .category-page__brand-group + .category-page__brand-group {
+    border-left: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .category-panel__header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 18px 16px 0;
+  }
+
+  .category-page__nav-grid,
+  .category-page__brand-grid,
+  .category-page__keyword-grid,
+  .category-page__brand-group-grid,
+  .category-page__quick-grid,
+  .category-page__stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .category-page__brand-group {
+    min-height: 0;
+    border-top: 1px solid #edf2f8;
+  }
+
+  .category-page__brand-group:first-child {
+    border-top: 0;
+  }
+
+  .category-page__letter-bar {
+    gap: 6px 12px;
+  }
+}
+</style>
