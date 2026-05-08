@@ -186,13 +186,6 @@ a {
 .home-hero {
   position: relative;
   padding: 60px 0 36px;
-  background: linear-gradient(
-    120deg,
-    rgb(255 255 255 / 92%) 0%,
-    rgb(238 246 255 / 94%) 58%,
-    rgb(230 241 255 / 90%) 100%
-  );
-  border-bottom: 1px solid #e3eaf5;
 }
 
 .home-hero::after {
@@ -525,8 +518,6 @@ a {
 .home-feature-strip div {
   padding: 22px 24px;
   background: #fff;
-  border: 1px solid #e1e8f3;
-  border-radius: 8px;
 }
 
 .feature-icon {

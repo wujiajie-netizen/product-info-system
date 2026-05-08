@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import type { GlobalThemeOverrides } from 'naive-ui';
+import { computed } from 'vue';
 import { NConfigProvider, NGlobalStyle, NMessageProvider } from 'naive-ui';
+import { useRoute } from 'vue-router';
+
+import ProductSiteHeader from '#/views/product/components/ProductSiteHeader.vue';
+
+const route = useRoute();
+const showSiteHeader = computed(() => route.meta.siteHeader !== false);
 
 const themeOverrides: GlobalThemeOverrides = {
   common: {
@@ -43,6 +50,7 @@ const themeOverrides: GlobalThemeOverrides = {
   <n-config-provider :theme-overrides="themeOverrides">
     <n-global-style />
     <n-message-provider>
+      <ProductSiteHeader v-if="showSiteHeader" />
       <router-view />
     </n-message-provider>
   </n-config-provider>
