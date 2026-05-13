@@ -1,0 +1,226 @@
+[
+  {
+    "documentKey": "hdm-215b-image",
+    "localPath": "demo-data/assets/images/hdm-215b-main.png",
+    "mimeType": "image/png",
+    "storagePath": "images/hdm-215b-main.png",
+    "title": "HDM-215B 主图"
+  },
+  {
+    "documentKey": "hdm-215b-spec",
+    "localPath": "demo-data/assets/specs/hdm-215b-spec.pdf",
+    "mimeType": "application/pdf",
+    "storagePath": "specs/hdm-215b-spec.pdf",
+    "title": "HDM-215B 规格书"
+  },
+  {
+    "documentKey": "hdm-215b-tech",
+    "localPath": "demo-data/assets/technical/hdm-215b-touch.txt",
+    "mimeType": "text/plain",
+    "storagePath": "technical/hdm-215b-touch.txt",
+    "title": "HDM-215B 触控说明"
+  },
+  {
+    "documentKey": "tab-r10-4g-image",
+    "localPath": "demo-data/assets/images/tab-r10-4g-main.png",
+    "mimeType": "image/png",
+    "storagePath": "images/tab-r10-4g-main.png",
+    "title": "TAB-R10-4G 主图"
+  },
+  {
+    "documentKey": "tab-r10-4g-spec",
+    "localPath": "demo-data/assets/specs/tab-r10-4g-spec.pdf",
+    "mimeType": "application/pdf",
+    "storagePath": "specs/tab-r10-4g-spec.pdf",
+    "title": "TAB-R10-4G 规格书"
+  },
+  {
+    "documentKey": "tab-r10-4g-tech",
+    "localPath": "demo-data/assets/technical/tab-r10-4g-selection.txt",
+    "mimeType": "text/plain",
+    "storagePath": "technical/tab-r10-4g-selection.txt",
+    "title": "TAB-R10-4G 选型说明"
+  },
+  {
+    "documentKey": "tab-r10-4g-quote",
+    "localPath": "demo-data/assets/quotes/tab-r10-4g-quote.txt",
+    "mimeType": "text/plain",
+    "storagePath": "quotes/tab-r10-4g-quote.txt",
+    "title": "TAB-R10-4G 报价附件"
+  },
+  {
+    "documentKey": "dt312-128-image",
+    "localPath": "demo-data/assets/images/dt312-128-main.png",
+    "mimeType": "image/png",
+    "storagePath": "images/dt312-128-main.png",
+    "title": "DT312-128 主图"
+  },
+  {
+    "documentKey": "dt312-128-spec",
+    "localPath": "demo-data/assets/specs/dt312-128-spec.pdf",
+    "mimeType": "application/pdf",
+    "storagePath": "specs/dt312-128-spec.pdf",
+    "title": "DT312-128 规格书 V1.3"
+  },
+  {
+    "documentKey": "dt312-128-tech",
+    "localPath": "demo-data/assets/technical/dt312-128-integration.txt",
+    "mimeType": "text/plain",
+    "storagePath": "technical/dt312-128-integration.txt",
+    "title": "DT312-128 集成说明"
+  },
+  {
+    "documentKey": "dt312-128-quote",
+    "localPath": "demo-data/assets/quotes/dt312-128-quote.txt",
+    "mimeType": "text/plain",
+    "storagePath": "quotes/dt312-128-quote.txt",
+    "title": "DT312-128 报价单"
+  },
+  {
+    "documentKey": "ax20-p-image",
+    "localPath": "demo-data/assets/images/ax20-p-main.png",
+    "mimeType": "image/png",
+    "storagePath": "images/ax20-p-main.png",
+    "title": "AX20-P 主图"
+  },
+  {
+    "documentKey": "ax20-p-spec",
+    "localPath": "demo-data/assets/specs/ax20-p-spec.pdf",
+    "mimeType": "application/pdf",
+    "storagePath": "specs/ax20-p-spec.pdf",
+    "title": "AX20-P 规格书"
+  },
+  {
+    "documentKey": "ax20-p-tech",
+    "localPath": "demo-data/assets/technical/ax20-p-api.txt",
+    "mimeType": "text/plain",
+    "storagePath": "technical/ax20-p-api.txt",
+    "title": "AX20-P 接口说明"
+  },
+  {
+    "documentKey": "ax20-p-quote",
+    "localPath": "demo-data/assets/quotes/ax20-p-quote.txt",
+    "mimeType": "text/plain",
+    "storagePath": "quotes/ax20-p-quote.txt",
+    "title": "AX20-P 渠道报价"
+  },
+  {
+    "documentKey": "bat-x6-6800-image",
+    "localPath": "demo-data/assets/images/bat-x6-6800-main.png",
+    "mimeType": "image/png",
+    "storagePath": "images/bat-x6-6800-main.png",
+    "title": "BAT-X6-6800 主图"
+  },
+  {
+    "documentKey": "bat-x6-6800-spec",
+    "localPath": "demo-data/assets/specs/bat-x6-6800-spec.pdf",
+    "mimeType": "application/pdf",
+    "storagePath": "specs/bat-x6-6800-spec.pdf",
+    "title": "BAT-X6-6800 规格书"
+  },
+  {
+    "documentKey": "bat-x6-6800-tech",
+    "localPath": "demo-data/assets/technical/bat-x6-6800-test.txt",
+    "mimeType": "text/plain",
+    "storagePath": "technical/bat-x6-6800-test.txt",
+    "title": "BAT-X6-6800 测试摘要"
+  },
+  {
+    "documentKey": "bat-x6-6800-quote",
+    "localPath": "demo-data/assets/quotes/bat-x6-6800-quote.txt",
+    "mimeType": "text/plain",
+    "storagePath": "quotes/bat-x6-6800-quote.txt",
+    "title": "BAT-X6-6800 历史报价附件"
+  },
+  {
+    "documentKey": "ctrl-200b-image",
+    "localPath": "demo-data/assets/images/ctrl-200b-main.png",
+    "mimeType": "image/png",
+    "storagePath": "images/ctrl-200b-main.png",
+    "title": "CTRL-200B 主图"
+  },
+  {
+    "documentKey": "ctrl-200b-spec",
+    "localPath": "demo-data/assets/specs/ctrl-200b-spec.pdf",
+    "mimeType": "application/pdf",
+    "storagePath": "specs/ctrl-200b-spec.pdf",
+    "title": "CTRL-200B 规格书"
+  },
+  {
+    "documentKey": "ctrl-200b-tech",
+    "localPath": "demo-data/assets/technical/ctrl-200b-wiring.txt",
+    "mimeType": "text/plain",
+    "storagePath": "technical/ctrl-200b-wiring.txt",
+    "title": "CTRL-200B 接线说明"
+  },
+  {
+    "documentKey": "hdm-215a-spec",
+    "localPath": "demo-data/assets/specs/hdm-215a-spec.pdf",
+    "mimeType": "application/pdf",
+    "storagePath": "specs/hdm-215a-spec.pdf",
+    "title": "HDM-215A 规格书"
+  },
+  {
+    "documentKey": "hdm-270b-image",
+    "localPath": "demo-data/assets/images/hdm-270b-main.png",
+    "mimeType": "image/png",
+    "storagePath": "images/hdm-270b-main.png",
+    "title": "HDM-270B 主图"
+  },
+  {
+    "documentKey": "hdm-270b-spec",
+    "localPath": "demo-data/assets/specs/hdm-270b-spec.pdf",
+    "mimeType": "application/pdf",
+    "storagePath": "specs/hdm-270b-spec.pdf",
+    "title": "HDM-270B 规格书"
+  },
+  {
+    "documentKey": "ht-156b-image",
+    "localPath": "demo-data/assets/images/ht-156b-main.png",
+    "mimeType": "image/png",
+    "storagePath": "images/ht-156b-main.png",
+    "title": "HT-156B 主图"
+  },
+  {
+    "documentKey": "ht-156b-spec",
+    "localPath": "demo-data/assets/specs/ht-156b-spec.pdf",
+    "mimeType": "application/pdf",
+    "storagePath": "specs/ht-156b-spec.pdf",
+    "title": "HT-156B 规格书"
+  },
+  {
+    "documentKey": "tab-m8-128-image",
+    "localPath": "demo-data/assets/images/tab-m8-128-main.png",
+    "mimeType": "image/png",
+    "storagePath": "images/tab-m8-128-main.png",
+    "title": "TAB-M8-128 主图"
+  },
+  {
+    "documentKey": "tab-m8-128-spec",
+    "localPath": "demo-data/assets/specs/tab-m8-128-spec.pdf",
+    "mimeType": "application/pdf",
+    "storagePath": "specs/tab-m8-128-spec.pdf",
+    "title": "TAB-M8-128 规格书"
+  },
+  {
+    "documentKey": "ax20-s-image",
+    "localPath": "demo-data/assets/images/ax20-s-main.png",
+    "mimeType": "image/png",
+    "storagePath": "images/ax20-s-main.png",
+    "title": "AX20-S 主图"
+  },
+  {
+    "documentKey": "mb-imx-b-spec",
+    "localPath": "demo-data/assets/specs/mb-imx-b-spec.pdf",
+    "mimeType": "application/pdf",
+    "storagePath": "specs/mb-imx-b-spec.pdf",
+    "title": "MB-IMX-B 规格书"
+  },
+  {
+    "documentKey": "sen-t100-o-spec",
+    "localPath": "demo-data/assets/specs/sen-t100-o-spec.pdf",
+    "mimeType": "application/pdf",
+    "storagePath": "specs/sen-t100-o-spec.pdf",
+    "title": "SEN-T100-O 规格书"
+  }
+]

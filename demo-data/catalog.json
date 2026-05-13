@@ -1,0 +1,1717 @@
+{
+  "metadata": {
+    "generatedAt": "2026-05-12T00:00:00.000Z",
+    "testUsers": [
+      {
+        "description": "管理员演示账号",
+        "email": "admin@example.com",
+        "role": "admin"
+      },
+      {
+        "description": "普通用户只读账号",
+        "email": "user@example.com",
+        "role": "user"
+      }
+    ],
+    "searchKeywords": {
+      "brands": [
+        "AOC",
+        "ASUS",
+        "DT"
+      ],
+      "business": [
+        "三防平板",
+        "云台相机",
+        "工业主板"
+      ],
+      "models": [
+        "DT312",
+        "TAB-R10",
+        "AX20"
+      ],
+      "params": [
+        "10.1寸",
+        "1920x1080",
+        "4G",
+        "6800mAh"
+      ]
+    },
+    "focusVariants": [
+      "HDM-215B",
+      "TAB-R10-4G",
+      "DT312-128",
+      "AX20-P",
+      "BAT-X6-6800",
+      "CTRL-200B"
+    ]
+  },
+  "categories": [
+    {
+      "slug": "lcd-display",
+      "name": "LCD 显示器",
+      "description": "覆盖工业显示器、便携显示器和工控显示器",
+      "sortOrder": 10
+    },
+    {
+      "slug": "android-tablet",
+      "name": "安卓平板",
+      "description": "覆盖行业平板、三防平板和 Windows 终端",
+      "sortOrder": 20
+    },
+    {
+      "slug": "drone-parts",
+      "name": "无人机配件",
+      "description": "覆盖云台、电池和图传等无人机配件",
+      "sortOrder": 30
+    },
+    {
+      "slug": "industrial-components",
+      "name": "工业元件",
+      "description": "覆盖主板、传感器和控制模块等工业元件",
+      "sortOrder": 40
+    }
+  ],
+  "brands": [
+    {
+      "slug": "aoc",
+      "name": "AOC",
+      "aliases": [
+        "AOC"
+      ],
+      "description": "商用显示器品牌"
+    },
+    {
+      "slug": "asus",
+      "name": "ASUS",
+      "aliases": [
+        "ASUS"
+      ],
+      "description": "消费与行业终端品牌"
+    },
+    {
+      "slug": "dt-research",
+      "name": "DT Research",
+      "aliases": [
+        "DT",
+        "DT Research"
+      ],
+      "description": "行业平板与移动终端品牌"
+    },
+    {
+      "slug": "advantech",
+      "name": "研华 Advantech",
+      "aliases": [
+        "Advantech",
+        "研华"
+      ],
+      "description": "工业计算与嵌入式平台品牌"
+    },
+    {
+      "slug": "zhifei",
+      "name": "智飞科技",
+      "aliases": [
+        "智飞",
+        "Zhifei"
+      ],
+      "description": "无人机配件与图传设备品牌"
+    },
+    {
+      "slug": "tianyue",
+      "name": "天域电子",
+      "aliases": [
+        "天域",
+        "Tianyu"
+      ],
+      "description": "三防平板与行业设备品牌"
+    },
+    {
+      "slug": "xinkong",
+      "name": "芯控科技",
+      "aliases": [
+        "芯控",
+        "Xinkong"
+      ],
+      "description": "工业控制与传感器品牌"
+    },
+    {
+      "slug": "haituo",
+      "name": "海拓显示",
+      "aliases": [
+        "海拓",
+        "Haituo"
+      ],
+      "description": "工业显示器与触控终端品牌"
+    }
+  ],
+  "companies": [
+    {
+      "slug": "shenzhen-haituo",
+      "name": "深圳海拓显示有限公司",
+      "type": "manufacturer",
+      "description": "工业显示器制造与组装工厂"
+    },
+    {
+      "slug": "shanghai-yankong",
+      "name": "上海研控电子有限公司",
+      "type": "supplier",
+      "description": "行业终端与方案整合供应商"
+    },
+    {
+      "slug": "shenzhen-zhifei",
+      "name": "深圳智飞科技有限公司",
+      "type": "brand_owner",
+      "description": "无人机配件品牌方与方案商"
+    },
+    {
+      "slug": "suzhou-tianyue",
+      "name": "苏州天域智能设备有限公司",
+      "type": "manufacturer",
+      "description": "三防平板与行业设备制造商"
+    },
+    {
+      "slug": "guangzhou-xinkong",
+      "name": "广州芯控科技有限公司",
+      "type": "supplier",
+      "description": "工业元件与控制模组供应商"
+    },
+    {
+      "slug": "beijing-shulian",
+      "name": "北京数联渠道有限公司",
+      "type": "distributor",
+      "description": "区域渠道与项目交付服务商"
+    }
+  ],
+  "series": [
+    {
+      "seriesCode": "HDM-215",
+      "seriesName": "HDM-215 工业显示器",
+      "categorySlug": "lcd-display",
+      "brandSlug": "haituo",
+      "companySlug": "shenzhen-haituo",
+      "productType": "工业显示器",
+      "baseDescription": "21.5 寸工业显示器系列，适用于产线与设备配套。",
+      "variants": [
+        {
+          "modelCode": "HDM-215A",
+          "displayName": "HDM-215A 21.5 寸标准版",
+          "sizeInch": 21.5,
+          "brightnessNits": 250,
+          "resolutionWidth": 1920,
+          "resolutionHeight": 1080,
+          "chipset": null,
+          "ramGb": null,
+          "storageGb": null,
+          "osName": null,
+          "summaryConfigText": "21.5 寸，1920x1080，250nit，工业标准版",
+          "tags": [
+            "21.5寸",
+            "1920x1080",
+            "工业显示器",
+            "标准版"
+          ],
+          "productCompanies": [
+            "shenzhen-haituo",
+            "beijing-shulian"
+          ],
+          "specs": {
+            "screen_size": "21.5寸",
+            "resolution": "1920x1080",
+            "brightness": "250nit",
+            "interface": "HDMI / VGA / USB",
+            "panel": "IPS",
+            "mounting": "VESA 100",
+            "keyword_hint": "工业显示 产线"
+          }
+        },
+        {
+          "modelCode": "HDM-215B",
+          "displayName": "HDM-215B 21.5 寸触控版",
+          "sizeInch": 21.5,
+          "brightnessNits": 350,
+          "resolutionWidth": 1920,
+          "resolutionHeight": 1080,
+          "summaryConfigText": "21.5 寸，1920x1080，350nit，电容触控",
+          "tags": [
+            "21.5寸",
+            "1920x1080",
+            "触控",
+            "工业显示器"
+          ],
+          "productCompanies": [
+            "shenzhen-haituo",
+            "beijing-shulian"
+          ],
+          "specs": {
+            "screen_size": "21.5寸",
+            "resolution": "1920x1080",
+            "brightness": "350nit",
+            "interface": "HDMI / DP / USB",
+            "touch": "10点电容触控",
+            "panel": "IPS",
+            "mounting": "VESA 100",
+            "keyword_hint": "工业显示 触控"
+          }
+        }
+      ]
+    },
+    {
+      "seriesCode": "HDM-270",
+      "seriesName": "HDM-270 工控显示器",
+      "categorySlug": "lcd-display",
+      "brandSlug": "aoc",
+      "companySlug": "shenzhen-haituo",
+      "productType": "工控显示器",
+      "baseDescription": "27 寸工控显示器系列，覆盖标准版与高亮版。",
+      "variants": [
+        {
+          "modelCode": "HDM-270A",
+          "displayName": "HDM-270A 27 寸标准版",
+          "sizeInch": 27,
+          "brightnessNits": 300,
+          "resolutionWidth": 1920,
+          "resolutionHeight": 1080,
+          "summaryConfigText": "27 寸，1920x1080，工控标准版",
+          "tags": [
+            "27寸",
+            "1920x1080",
+            "工控显示器"
+          ],
+          "productCompanies": [
+            "shenzhen-haituo"
+          ],
+          "specs": {
+            "screen_size": "27寸",
+            "resolution": "1920x1080",
+            "brightness": "300nit",
+            "interface": "HDMI / VGA",
+            "panel": "IPS",
+            "mounting": "VESA 100"
+          }
+        },
+        {
+          "modelCode": "HDM-270B",
+          "displayName": "HDM-270B 27 寸高亮版",
+          "sizeInch": 27,
+          "brightnessNits": 500,
+          "resolutionWidth": 2560,
+          "resolutionHeight": 1440,
+          "summaryConfigText": "27 寸，2560x1440，高亮版",
+          "tags": [
+            "27寸",
+            "2560x1440",
+            "高亮",
+            "工控显示器"
+          ],
+          "productCompanies": [
+            "shenzhen-haituo",
+            "beijing-shulian"
+          ],
+          "specs": {
+            "screen_size": "27寸",
+            "resolution": "2560x1440",
+            "brightness": "500nit",
+            "interface": "HDMI / DP",
+            "panel": "IPS",
+            "mounting": "VESA 100"
+          }
+        }
+      ]
+    },
+    {
+      "seriesCode": "HT-156",
+      "seriesName": "HT-156 便携显示器",
+      "categorySlug": "lcd-display",
+      "brandSlug": "asus",
+      "companySlug": "shenzhen-haituo",
+      "productType": "便携显示器",
+      "baseDescription": "15.6 寸便携显示器系列，适合移动办公与演示。",
+      "variants": [
+        {
+          "modelCode": "HT-156A",
+          "displayName": "HT-156A 15.6 寸轻薄版",
+          "sizeInch": 15.6,
+          "brightnessNits": 280,
+          "resolutionWidth": 1920,
+          "resolutionHeight": 1080,
+          "summaryConfigText": "15.6 寸便携显示器，Type-C 供电",
+          "tags": [
+            "15.6寸",
+            "便携显示器",
+            "Type-C"
+          ],
+          "productCompanies": [
+            "shenzhen-haituo"
+          ],
+          "specs": {
+            "screen_size": "15.6寸",
+            "resolution": "1920x1080",
+            "brightness": "280nit",
+            "interface": "Type-C / Mini HDMI",
+            "weight": "920g",
+            "keyword_hint": "便携显示器"
+          }
+        },
+        {
+          "modelCode": "HT-156B",
+          "displayName": "HT-156B 15.6 寸触控版",
+          "sizeInch": 15.6,
+          "brightnessNits": 320,
+          "resolutionWidth": 1920,
+          "resolutionHeight": 1080,
+          "summaryConfigText": "15.6 寸触控便携屏",
+          "tags": [
+            "15.6寸",
+            "触控",
+            "便携显示器"
+          ],
+          "productCompanies": [
+            "shenzhen-haituo",
+            "beijing-shulian"
+          ],
+          "specs": {
+            "screen_size": "15.6寸",
+            "resolution": "1920x1080",
+            "brightness": "320nit",
+            "interface": "Type-C / Mini HDMI",
+            "touch": "10点电容触控",
+            "weight": "980g"
+          }
+        }
+      ]
+    },
+    {
+      "seriesCode": "TAB-M8",
+      "seriesName": "TAB-M8 行业平板",
+      "categorySlug": "android-tablet",
+      "brandSlug": "asus",
+      "companySlug": "suzhou-tianyue",
+      "productType": "行业平板",
+      "baseDescription": "10.1 寸行业平板系列，覆盖 WiFi 与 4G 形态。",
+      "variants": [
+        {
+          "modelCode": "TAB-M8-64",
+          "displayName": "TAB-M8-64 10.1 寸基础版",
+          "sizeInch": 10.1,
+          "ramGb": 8,
+          "storageGb": 64,
+          "osName": "Android",
+          "osVersion": "13",
+          "summaryConfigText": "10.1 寸，8GB+64GB，WiFi 版",
+          "tags": [
+            "10.1寸",
+            "Android 13",
+            "行业平板",
+            "WiFi"
+          ],
+          "productCompanies": [
+            "suzhou-tianyue"
+          ],
+          "specs": {
+            "screen_size": "10.1寸",
+            "memory": "8GB",
+            "storage": "64GB",
+            "os": "Android 13",
+            "network": "WiFi",
+            "battery": "7000mAh",
+            "keyword_hint": "行业平板"
+          }
+        },
+        {
+          "modelCode": "TAB-M8-128",
+          "displayName": "TAB-M8-128 10.1 寸 4G 版",
+          "sizeInch": 10.1,
+          "ramGb": 8,
+          "storageGb": 128,
+          "osName": "Android",
+          "osVersion": "13",
+          "summaryConfigText": "10.1 寸，8GB+128GB，4G 全网通",
+          "tags": [
+            "10.1寸",
+            "Android 13",
+            "4G",
+            "行业平板"
+          ],
+          "productCompanies": [
+            "suzhou-tianyue",
+            "beijing-shulian"
+          ],
+          "specs": {
+            "screen_size": "10.1寸",
+            "memory": "8GB",
+            "storage": "128GB",
+            "os": "Android 13",
+            "network": "4G 全网通",
+            "battery": "7600mAh",
+            "keyword_hint": "10.1寸 4G 平板"
+          }
+        }
+      ]
+    },
+    {
+      "seriesCode": "TAB-R10",
+      "seriesName": "TAB-R10 三防平板",
+      "categorySlug": "android-tablet",
+      "brandSlug": "tianyue",
+      "companySlug": "suzhou-tianyue",
+      "productType": "三防平板",
+      "baseDescription": "10.1 寸三防平板系列，适合仓储、巡检与车载场景。",
+      "variants": [
+        {
+          "modelCode": "TAB-R10-WIFI",
+          "displayName": "TAB-R10-WIFI 10.1 寸 WiFi 版",
+          "sizeInch": 10.1,
+          "ramGb": 8,
+          "storageGb": 128,
+          "osName": "Android",
+          "osVersion": "13",
+          "brightnessNits": 500,
+          "summaryConfigText": "10.1 寸，WiFi，IP65 三防平板",
+          "tags": [
+            "10.1寸",
+            "三防平板",
+            "WiFi",
+            "IP65"
+          ],
+          "productCompanies": [
+            "suzhou-tianyue"
+          ],
+          "specs": {
+            "screen_size": "10.1寸",
+            "memory": "8GB",
+            "storage": "128GB",
+            "os": "Android 13",
+            "network": "WiFi",
+            "protection": "IP65",
+            "battery": "9000mAh",
+            "keyword_hint": "三防平板"
+          }
+        },
+        {
+          "modelCode": "TAB-R10-4G",
+          "displayName": "TAB-R10-4G 10.1 寸 4G 版",
+          "sizeInch": 10.1,
+          "ramGb": 8,
+          "storageGb": 128,
+          "osName": "Android",
+          "osVersion": "13",
+          "brightnessNits": 600,
+          "summaryConfigText": "10.1 寸，4G，IP65，600nit 高亮",
+          "tags": [
+            "10.1寸",
+            "三防平板",
+            "4G",
+            "IP65",
+            "高亮"
+          ],
+          "productCompanies": [
+            "suzhou-tianyue",
+            "beijing-shulian"
+          ],
+          "specs": {
+            "screen_size": "10.1寸",
+            "memory": "8GB",
+            "storage": "128GB",
+            "os": "Android 13",
+            "network": "4G 全网通",
+            "protection": "IP65",
+            "battery": "10000mAh",
+            "brightness": "600nit",
+            "keyword_hint": "4G 三防平板"
+          }
+        }
+      ]
+    },
+    {
+      "seriesCode": "DT312",
+      "seriesName": "DT312 行业终端",
+      "categorySlug": "android-tablet",
+      "brandSlug": "dt-research",
+      "companySlug": "shanghai-yankong",
+      "productType": "行业终端",
+      "baseDescription": "Windows 行业终端系列，适合移动作业与巡检。",
+      "variants": [
+        {
+          "modelCode": "DT312-64",
+          "displayName": "DT312-64 Windows 基础版",
+          "sizeInch": 10.1,
+          "ramGb": 8,
+          "storageGb": 64,
+          "osName": "Windows",
+          "osVersion": "11",
+          "summaryConfigText": "Windows 11，8GB+64GB，移动作业终端",
+          "tags": [
+            "DT312",
+            "Windows",
+            "基础版"
+          ],
+          "productCompanies": [
+            "shanghai-yankong"
+          ],
+          "specs": {
+            "screen_size": "10.1寸",
+            "memory": "8GB",
+            "storage": "64GB",
+            "os": "Windows 11",
+            "cpu": "Intel N200",
+            "network": "WiFi",
+            "keyword_hint": "DT312 Windows 平板"
+          }
+        },
+        {
+          "modelCode": "DT312-128",
+          "displayName": "DT312-128 Windows 高配版",
+          "sizeInch": 10.1,
+          "ramGb": 8,
+          "storageGb": 128,
+          "osName": "Windows",
+          "osVersion": "11",
+          "summaryConfigText": "Windows 11，8GB+128GB，现场运维终端",
+          "tags": [
+            "DT312",
+            "Windows",
+            "128GB",
+            "高配版"
+          ],
+          "productCompanies": [
+            "shanghai-yankong",
+            "beijing-shulian"
+          ],
+          "specs": {
+            "screen_size": "10.1寸",
+            "memory": "8GB",
+            "storage": "128GB",
+            "os": "Windows 11",
+            "cpu": "Intel N200",
+            "network": "WiFi / 蓝牙",
+            "keyword_hint": "DT312 128GB"
+          }
+        }
+      ]
+    },
+    {
+      "seriesCode": "AX20",
+      "seriesName": "AX20 云台相机模组",
+      "categorySlug": "drone-parts",
+      "brandSlug": "zhifei",
+      "companySlug": "shenzhen-zhifei",
+      "productType": "云台相机",
+      "baseDescription": "无人机云台相机模组系列，适合航拍、测绘与巡检。",
+      "variants": [
+        {
+          "modelCode": "AX20-S",
+          "displayName": "AX20-S 1080P 轻载版",
+          "summaryConfigText": "1080P 云台相机，适配轻载航拍",
+          "tags": [
+            "云台相机",
+            "1080P",
+            "轻载版"
+          ],
+          "productCompanies": [
+            "shenzhen-zhifei"
+          ],
+          "specs": {
+            "resolution": "1080P",
+            "zoom": "定焦",
+            "weight": "420g",
+            "interface": "UART / PWM",
+            "keyword_hint": "云台相机"
+          }
+        },
+        {
+          "modelCode": "AX20-P",
+          "displayName": "AX20-P 1080P 变焦版",
+          "summaryConfigText": "1080P 云台相机，支持 10x 变焦",
+          "tags": [
+            "云台相机",
+            "1080P",
+            "变焦版",
+            "测绘"
+          ],
+          "productCompanies": [
+            "shenzhen-zhifei",
+            "beijing-shulian"
+          ],
+          "specs": {
+            "resolution": "1080P",
+            "zoom": "10x 变焦",
+            "weight": "480g",
+            "interface": "UART / PWM / Ethernet",
+            "keyword_hint": "云台相机 变焦"
+          }
+        }
+      ]
+    },
+    {
+      "seriesCode": "BAT-X6",
+      "seriesName": "BAT-X6 无人机电池",
+      "categorySlug": "drone-parts",
+      "brandSlug": "zhifei",
+      "companySlug": "shenzhen-zhifei",
+      "productType": "无人机电池",
+      "baseDescription": "无人机电池系列，覆盖不同容量与续航需求。",
+      "variants": [
+        {
+          "modelCode": "BAT-X6-5200",
+          "displayName": "BAT-X6-5200 5200mAh 标准版",
+          "summaryConfigText": "5200mAh，无人机标准电池",
+          "tags": [
+            "无人机电池",
+            "5200mAh",
+            "标准版"
+          ],
+          "productCompanies": [
+            "shenzhen-zhifei"
+          ],
+          "specs": {
+            "capacity": "5200mAh",
+            "battery": "6S LiPo",
+            "voltage": "22.2V",
+            "endurance": "32min",
+            "keyword_hint": "无人机电池"
+          }
+        },
+        {
+          "modelCode": "BAT-X6-6800",
+          "displayName": "BAT-X6-6800 6800mAh 长航版",
+          "summaryConfigText": "6800mAh，无人机长航时电池",
+          "tags": [
+            "无人机电池",
+            "6800mAh",
+            "长航时"
+          ],
+          "productCompanies": [
+            "shenzhen-zhifei",
+            "beijing-shulian"
+          ],
+          "specs": {
+            "capacity": "6800mAh",
+            "battery": "6S LiPo",
+            "voltage": "22.2V",
+            "endurance": "42min",
+            "keyword_hint": "6800mAh 电池"
+          }
+        }
+      ]
+    },
+    {
+      "seriesCode": "TX-580",
+      "seriesName": "TX-580 图传模块",
+      "categorySlug": "drone-parts",
+      "brandSlug": "zhifei",
+      "companySlug": "shenzhen-zhifei",
+      "productType": "图传模块",
+      "baseDescription": "5.8G 图传模块系列，适合无人机实时回传。",
+      "variants": [
+        {
+          "modelCode": "TX-580A",
+          "displayName": "TX-580A 基础版",
+          "summaryConfigText": "无人机基础图传模块",
+          "tags": [
+            "图传模块",
+            "5.8G",
+            "基础版"
+          ],
+          "productCompanies": [
+            "shenzhen-zhifei"
+          ],
+          "specs": {
+            "frequency": "5.8GHz",
+            "latency": "120ms",
+            "interface": "HDMI",
+            "power": "1.5W",
+            "keyword_hint": "图传模块"
+          }
+        },
+        {
+          "modelCode": "TX-580B",
+          "displayName": "TX-580B 增强版，低延迟",
+          "summaryConfigText": "低延迟增强型图传模块",
+          "tags": [
+            "图传模块",
+            "5.8G",
+            "低延迟"
+          ],
+          "productCompanies": [
+            "shenzhen-zhifei",
+            "beijing-shulian"
+          ],
+          "specs": {
+            "frequency": "5.8GHz",
+            "latency": "80ms",
+            "interface": "HDMI / Ethernet",
+            "power": "1.8W",
+            "keyword_hint": "低延迟 图传"
+          }
+        }
+      ]
+    },
+    {
+      "seriesCode": "MB-IMX",
+      "seriesName": "MB-IMX 工业主板",
+      "categorySlug": "industrial-components",
+      "brandSlug": "advantech",
+      "companySlug": "guangzhou-xinkong",
+      "productType": "工业主板",
+      "baseDescription": "基于 i.MX8 的工业主板系列，覆盖基础接口与扩展 IO。",
+      "variants": [
+        {
+          "modelCode": "MB-IMX-A",
+          "displayName": "MB-IMX-A 基础接口版",
+          "summaryConfigText": "工业主板基础接口配置",
+          "tags": [
+            "工业主板",
+            "IMX",
+            "基础接口"
+          ],
+          "productCompanies": [
+            "guangzhou-xinkong",
+            "shanghai-yankong"
+          ],
+          "specs": {
+            "cpu": "NXP i.MX8",
+            "memory": "4GB",
+            "storage": "32GB eMMC",
+            "interface": "2xLAN / 4xUSB",
+            "keyword_hint": "工业主板"
+          }
+        },
+        {
+          "modelCode": "MB-IMX-B",
+          "displayName": "MB-IMX-B 扩展 IO 版",
+          "summaryConfigText": "扩展 IO 工业主板",
+          "tags": [
+            "工业主板",
+            "IMX",
+            "扩展IO"
+          ],
+          "productCompanies": [
+            "guangzhou-xinkong",
+            "shanghai-yankong"
+          ],
+          "specs": {
+            "cpu": "NXP i.MX8",
+            "memory": "8GB",
+            "storage": "64GB eMMC",
+            "interface": "2xLAN / CAN / RS485 / GPIO",
+            "keyword_hint": "工业主板 扩展IO"
+          }
+        }
+      ]
+    },
+    {
+      "seriesCode": "SEN-T100",
+      "seriesName": "SEN-T100 温湿度传感器",
+      "categorySlug": "industrial-components",
+      "brandSlug": "xinkong",
+      "companySlug": "guangzhou-xinkong",
+      "productType": "温湿度传感器",
+      "baseDescription": "温湿度传感器系列，覆盖室内与室外工业环境。",
+      "variants": [
+        {
+          "modelCode": "SEN-T100-I",
+          "displayName": "SEN-T100-I 室内监测版",
+          "summaryConfigText": "室内环境温湿度监测",
+          "tags": [
+            "温湿度传感器",
+            "室内版",
+            "RS485"
+          ],
+          "productCompanies": [
+            "guangzhou-xinkong"
+          ],
+          "specs": {
+            "voltage": "12V DC",
+            "protocol": "RS485 Modbus",
+            "temperature": "-10~60C",
+            "humidity": "0~95%RH",
+            "keyword_hint": "温湿度传感器"
+          }
+        },
+        {
+          "modelCode": "SEN-T100-O",
+          "displayName": "SEN-T100-O 室外工业版",
+          "summaryConfigText": "室外工业温湿度监测",
+          "tags": [
+            "温湿度传感器",
+            "室外版",
+            "工业环境"
+          ],
+          "productCompanies": [
+            "guangzhou-xinkong",
+            "shanghai-yankong"
+          ],
+          "specs": {
+            "voltage": "24V DC",
+            "protocol": "RS485 Modbus",
+            "temperature": "-40~85C",
+            "humidity": "0~100%RH",
+            "keyword_hint": "室外工业传感器"
+          }
+        }
+      ]
+    },
+    {
+      "seriesCode": "CTRL-200",
+      "seriesName": "CTRL-200 控制模块",
+      "categorySlug": "industrial-components",
+      "brandSlug": "xinkong",
+      "companySlug": "guangzhou-xinkong",
+      "productType": "控制模块",
+      "baseDescription": "工业控制模块系列，适合设备接入与远程控制。",
+      "variants": [
+        {
+          "modelCode": "CTRL-200A",
+          "displayName": "CTRL-200A 标准控制版",
+          "summaryConfigText": "标准控制模块，适合设备接入",
+          "tags": [
+            "控制模块",
+            "标准版",
+            "Modbus"
+          ],
+          "productCompanies": [
+            "guangzhou-xinkong"
+          ],
+          "specs": {
+            "voltage": "24V DC",
+            "protocol": "Modbus RTU",
+            "io": "8DI / 8DO",
+            "temperature": "-20~70C",
+            "keyword_hint": "控制模块"
+          }
+        },
+        {
+          "modelCode": "CTRL-200B",
+          "displayName": "CTRL-200B 高配通信版",
+          "summaryConfigText": "高配通信控制模块，支持 CAN",
+          "tags": [
+            "控制模块",
+            "高配通信版",
+            "远程控制"
+          ],
+          "productCompanies": [
+            "guangzhou-xinkong",
+            "shanghai-yankong"
+          ],
+          "specs": {
+            "voltage": "24V DC",
+            "protocol": "Modbus TCP / CAN",
+            "io": "16DI / 16DO",
+            "temperature": "-20~70C",
+            "keyword_hint": "控制模块 远程"
+          }
+        }
+      ]
+    }
+  ],
+  "documents": [
+    {
+      "key": "hdm-215b-image",
+      "variantModel": "HDM-215B",
+      "fileType": "image",
+      "documentKind": "product_image",
+      "category": "产品图片",
+      "storagePath": "images/hdm-215b-main.png",
+      "title": "HDM-215B 主图",
+      "tags": [
+        "主图",
+        "工业显示器"
+      ],
+      "isPrimary": true
+    },
+    {
+      "key": "hdm-215b-spec",
+      "variantModel": "HDM-215B",
+      "fileType": "spec",
+      "documentKind": "spec_sheet",
+      "category": "规格书",
+      "storagePath": "specs/hdm-215b-spec.pdf",
+      "title": "HDM-215B 规格书",
+      "tags": [
+        "规格书",
+        "1920x1080"
+      ],
+      "isPrimary": false
+    },
+    {
+      "key": "hdm-215b-tech",
+      "variantModel": "HDM-215B",
+      "fileType": "technical",
+      "documentKind": "technical",
+      "category": "技术资料",
+      "storagePath": "technical/hdm-215b-touch.txt",
+      "title": "HDM-215B 触控说明",
+      "tags": [
+        "触控说明",
+        "电容"
+      ],
+      "isPrimary": false
+    },
+    {
+      "key": "tab-r10-4g-image",
+      "variantModel": "TAB-R10-4G",
+      "fileType": "image",
+      "documentKind": "product_image",
+      "category": "产品图片",
+      "storagePath": "images/tab-r10-4g-main.png",
+      "title": "TAB-R10-4G 主图",
+      "tags": [
+        "主图",
+        "三防平板"
+      ],
+      "isPrimary": true
+    },
+    {
+      "key": "tab-r10-4g-spec",
+      "variantModel": "TAB-R10-4G",
+      "fileType": "spec",
+      "documentKind": "spec_sheet",
+      "category": "规格书",
+      "storagePath": "specs/tab-r10-4g-spec.pdf",
+      "title": "TAB-R10-4G 规格书",
+      "tags": [
+        "规格书",
+        "4G",
+        "10.1寸"
+      ],
+      "isPrimary": false
+    },
+    {
+      "key": "tab-r10-4g-tech",
+      "variantModel": "TAB-R10-4G",
+      "fileType": "technical",
+      "documentKind": "technical",
+      "category": "技术资料",
+      "storagePath": "technical/tab-r10-4g-selection.txt",
+      "title": "TAB-R10-4G 选型说明",
+      "tags": [
+        "选型说明",
+        "三防"
+      ],
+      "isPrimary": false
+    },
+    {
+      "key": "tab-r10-4g-quote",
+      "variantModel": "TAB-R10-4G",
+      "fileType": "quote",
+      "documentKind": "quote_workbook",
+      "category": "报价附件",
+      "storagePath": "quotes/tab-r10-4g-quote.txt",
+      "title": "TAB-R10-4G 报价附件",
+      "tags": [
+        "报价附件"
+      ],
+      "isPrimary": false,
+      "sourceSheetName": "TAB-R10-4G"
+    },
+    {
+      "key": "dt312-128-image",
+      "variantModel": "DT312-128",
+      "fileType": "image",
+      "documentKind": "product_image",
+      "category": "产品图片",
+      "storagePath": "images/dt312-128-main.png",
+      "title": "DT312-128 主图",
+      "tags": [
+        "主图",
+        "行业终端"
+      ],
+      "isPrimary": true
+    },
+    {
+      "key": "dt312-128-spec",
+      "variantModel": "DT312-128",
+      "fileType": "spec",
+      "documentKind": "spec_sheet",
+      "category": "规格书",
+      "storagePath": "specs/dt312-128-spec.pdf",
+      "title": "DT312-128 规格书 V1.3",
+      "tags": [
+        "规格书",
+        "Windows 11"
+      ],
+      "isPrimary": false
+    },
+    {
+      "key": "dt312-128-tech",
+      "variantModel": "DT312-128",
+      "fileType": "technical",
+      "documentKind": "technical",
+      "category": "技术资料",
+      "storagePath": "technical/dt312-128-integration.txt",
+      "title": "DT312-128 集成说明",
+      "tags": [
+        "集成说明"
+      ],
+      "isPrimary": false
+    },
+    {
+      "key": "dt312-128-quote",
+      "variantModel": "DT312-128",
+      "fileType": "quote",
+      "documentKind": "quote_workbook",
+      "category": "报价附件",
+      "storagePath": "quotes/dt312-128-quote.txt",
+      "title": "DT312-128 报价单",
+      "tags": [
+        "项目报价"
+      ],
+      "isPrimary": false,
+      "sourceSheetName": "DT312-128"
+    },
+    {
+      "key": "ax20-p-image",
+      "variantModel": "AX20-P",
+      "fileType": "image",
+      "documentKind": "product_image",
+      "category": "产品图片",
+      "storagePath": "images/ax20-p-main.png",
+      "title": "AX20-P 主图",
+      "tags": [
+        "主图",
+        "云台相机"
+      ],
+      "isPrimary": true
+    },
+    {
+      "key": "ax20-p-spec",
+      "variantModel": "AX20-P",
+      "fileType": "spec",
+      "documentKind": "spec_sheet",
+      "category": "规格书",
+      "storagePath": "specs/ax20-p-spec.pdf",
+      "title": "AX20-P 规格书",
+      "tags": [
+        "规格书",
+        "变焦版"
+      ],
+      "isPrimary": false
+    },
+    {
+      "key": "ax20-p-tech",
+      "variantModel": "AX20-P",
+      "fileType": "technical",
+      "documentKind": "technical",
+      "category": "技术资料",
+      "storagePath": "technical/ax20-p-api.txt",
+      "title": "AX20-P 接口说明",
+      "tags": [
+        "接口文档"
+      ],
+      "isPrimary": false
+    },
+    {
+      "key": "ax20-p-quote",
+      "variantModel": "AX20-P",
+      "fileType": "quote",
+      "documentKind": "quote_workbook",
+      "category": "报价附件",
+      "storagePath": "quotes/ax20-p-quote.txt",
+      "title": "AX20-P 渠道报价",
+      "tags": [
+        "渠道报价"
+      ],
+      "isPrimary": false,
+      "sourceSheetName": "AX20-P"
+    },
+    {
+      "key": "bat-x6-6800-image",
+      "variantModel": "BAT-X6-6800",
+      "fileType": "image",
+      "documentKind": "product_image",
+      "category": "产品图片",
+      "storagePath": "images/bat-x6-6800-main.png",
+      "title": "BAT-X6-6800 主图",
+      "tags": [
+        "主图",
+        "6800mAh"
+      ],
+      "isPrimary": true
+    },
+    {
+      "key": "bat-x6-6800-spec",
+      "variantModel": "BAT-X6-6800",
+      "fileType": "spec",
+      "documentKind": "spec_sheet",
+      "category": "规格书",
+      "storagePath": "specs/bat-x6-6800-spec.pdf",
+      "title": "BAT-X6-6800 规格书",
+      "tags": [
+        "规格书",
+        "6800mAh"
+      ],
+      "isPrimary": false
+    },
+    {
+      "key": "bat-x6-6800-tech",
+      "variantModel": "BAT-X6-6800",
+      "fileType": "technical",
+      "documentKind": "technical",
+      "category": "技术资料",
+      "storagePath": "technical/bat-x6-6800-test.txt",
+      "title": "BAT-X6-6800 测试摘要",
+      "tags": [
+        "测试摘要",
+        "续航说明"
+      ],
+      "isPrimary": false
+    },
+    {
+      "key": "bat-x6-6800-quote",
+      "variantModel": "BAT-X6-6800",
+      "fileType": "quote",
+      "documentKind": "quote_workbook",
+      "category": "报价附件",
+      "storagePath": "quotes/bat-x6-6800-quote.txt",
+      "title": "BAT-X6-6800 历史报价附件",
+      "tags": [
+        "历史报价"
+      ],
+      "isPrimary": false,
+      "sourceSheetName": "BAT-X6-6800"
+    },
+    {
+      "key": "ctrl-200b-image",
+      "variantModel": "CTRL-200B",
+      "fileType": "image",
+      "documentKind": "product_image",
+      "category": "产品图片",
+      "storagePath": "images/ctrl-200b-main.png",
+      "title": "CTRL-200B 主图",
+      "tags": [
+        "主图",
+        "控制模块"
+      ],
+      "isPrimary": true
+    },
+    {
+      "key": "ctrl-200b-spec",
+      "variantModel": "CTRL-200B",
+      "fileType": "spec",
+      "documentKind": "spec_sheet",
+      "category": "规格书",
+      "storagePath": "specs/ctrl-200b-spec.pdf",
+      "title": "CTRL-200B 规格书",
+      "tags": [
+        "规格书",
+        "控制模块"
+      ],
+      "isPrimary": false
+    },
+    {
+      "key": "ctrl-200b-tech",
+      "variantModel": "CTRL-200B",
+      "fileType": "technical",
+      "documentKind": "technical",
+      "category": "技术资料",
+      "storagePath": "technical/ctrl-200b-wiring.txt",
+      "title": "CTRL-200B 接线说明",
+      "tags": [
+        "接线说明",
+        "通信"
+      ],
+      "isPrimary": false
+    },
+    {
+      "key": "hdm-215a-spec",
+      "variantModel": "HDM-215A",
+      "fileType": "spec",
+      "documentKind": "spec_sheet",
+      "category": "规格书",
+      "storagePath": "specs/hdm-215a-spec.pdf",
+      "title": "HDM-215A 规格书",
+      "tags": [
+        "规格书"
+      ],
+      "isPrimary": false
+    },
+    {
+      "key": "hdm-270b-image",
+      "variantModel": "HDM-270B",
+      "fileType": "image",
+      "documentKind": "product_image",
+      "category": "产品图片",
+      "storagePath": "images/hdm-270b-main.png",
+      "title": "HDM-270B 主图",
+      "tags": [
+        "主图",
+        "高亮"
+      ],
+      "isPrimary": true
+    },
+    {
+      "key": "hdm-270b-spec",
+      "variantModel": "HDM-270B",
+      "fileType": "spec",
+      "documentKind": "spec_sheet",
+      "category": "规格书",
+      "storagePath": "specs/hdm-270b-spec.pdf",
+      "title": "HDM-270B 规格书",
+      "tags": [
+        "规格书",
+        "高亮"
+      ],
+      "isPrimary": false
+    },
+    {
+      "key": "ht-156b-image",
+      "variantModel": "HT-156B",
+      "fileType": "image",
+      "documentKind": "product_image",
+      "category": "产品图片",
+      "storagePath": "images/ht-156b-main.png",
+      "title": "HT-156B 主图",
+      "tags": [
+        "主图",
+        "便携显示器"
+      ],
+      "isPrimary": true
+    },
+    {
+      "key": "ht-156b-spec",
+      "variantModel": "HT-156B",
+      "fileType": "spec",
+      "documentKind": "spec_sheet",
+      "category": "规格书",
+      "storagePath": "specs/ht-156b-spec.pdf",
+      "title": "HT-156B 规格书",
+      "tags": [
+        "规格书"
+      ],
+      "isPrimary": false
+    },
+    {
+      "key": "tab-m8-128-image",
+      "variantModel": "TAB-M8-128",
+      "fileType": "image",
+      "documentKind": "product_image",
+      "category": "产品图片",
+      "storagePath": "images/tab-m8-128-main.png",
+      "title": "TAB-M8-128 主图",
+      "tags": [
+        "主图",
+        "4G 平板"
+      ],
+      "isPrimary": true
+    },
+    {
+      "key": "tab-m8-128-spec",
+      "variantModel": "TAB-M8-128",
+      "fileType": "spec",
+      "documentKind": "spec_sheet",
+      "category": "规格书",
+      "storagePath": "specs/tab-m8-128-spec.pdf",
+      "title": "TAB-M8-128 规格书",
+      "tags": [
+        "规格书",
+        "4G"
+      ],
+      "isPrimary": false
+    },
+    {
+      "key": "ax20-s-image",
+      "variantModel": "AX20-S",
+      "fileType": "image",
+      "documentKind": "product_image",
+      "category": "产品图片",
+      "storagePath": "images/ax20-s-main.png",
+      "title": "AX20-S 主图",
+      "tags": [
+        "主图"
+      ],
+      "isPrimary": true
+    },
+    {
+      "key": "mb-imx-b-spec",
+      "variantModel": "MB-IMX-B",
+      "fileType": "spec",
+      "documentKind": "spec_sheet",
+      "category": "规格书",
+      "storagePath": "specs/mb-imx-b-spec.pdf",
+      "title": "MB-IMX-B 规格书",
+      "tags": [
+        "规格书",
+        "工业主板"
+      ],
+      "isPrimary": false
+    },
+    {
+      "key": "sen-t100-o-spec",
+      "variantModel": "SEN-T100-O",
+      "fileType": "spec",
+      "documentKind": "spec_sheet",
+      "category": "规格书",
+      "storagePath": "specs/sen-t100-o-spec.pdf",
+      "title": "SEN-T100-O 规格书",
+      "tags": [
+        "规格书",
+        "温湿度传感器"
+      ],
+      "isPrimary": false
+    }
+  ],
+  "quoteBatches": [
+    {
+      "key": "hdm-215a-2026q2",
+      "batchTitle": "HDM-215A 项目价 2026Q2",
+      "companySlug": "beijing-shulian",
+      "currency": "CNY",
+      "publishedAt": "2026-05-06",
+      "effectiveFrom": "2026-05-06",
+      "status": "active",
+      "globalNote": "北京数联渠道交付，交期 2 周",
+      "lines": [
+        {
+          "variantModel": "HDM-215A",
+          "rowNote": "含基础支架",
+          "standardConfigText": "标准版",
+          "tiers": [
+            {
+              "minQuantity": 10,
+              "unitPrice": 1280
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "hdm-215b-2026q2",
+      "batchTitle": "HDM-215B 工厂价 2026Q2",
+      "companySlug": "shenzhen-haituo",
+      "currency": "CNY",
+      "publishedAt": "2026-05-08",
+      "effectiveFrom": "2026-05-08",
+      "status": "active",
+      "globalNote": "深圳海拓显示直供",
+      "lines": [
+        {
+          "variantModel": "HDM-215B",
+          "rowNote": "含触控玻璃",
+          "standardConfigText": "触控版",
+          "tiers": [
+            {
+              "minQuantity": 10,
+              "unitPrice": 1680
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "tab-m8-128-2026q2",
+      "batchTitle": "TAB-M8-128 渠道价 2026Q2",
+      "companySlug": "suzhou-tianyue",
+      "currency": "CNY",
+      "publishedAt": "2026-05-04",
+      "effectiveFrom": "2026-05-04",
+      "status": "active",
+      "globalNote": "4G 全网通，10 台起订",
+      "lines": [
+        {
+          "variantModel": "TAB-M8-128",
+          "rowNote": "4G 全网通",
+          "standardConfigText": "8GB + 128GB",
+          "tiers": [
+            {
+              "minQuantity": 10,
+              "unitPrice": 1899
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "tab-r10-4g-2026q2",
+      "batchTitle": "TAB-R10-4G 渠道价 2026Q2",
+      "companySlug": "suzhou-tianyue",
+      "currency": "CNY",
+      "publishedAt": "2026-05-10",
+      "effectiveFrom": "2026-05-10",
+      "status": "active",
+      "globalNote": "4G 版本支持阶梯报价",
+      "lines": [
+        {
+          "variantModel": "TAB-R10-4G",
+          "rowNote": "4G 全网通",
+          "standardConfigText": "8GB + 128GB / IP65",
+          "tiers": [
+            {
+              "minQuantity": 10,
+              "unitPrice": 2380
+            },
+            {
+              "minQuantity": 50,
+              "unitPrice": 2280
+            },
+            {
+              "minQuantity": 100,
+              "unitPrice": 2180
+            }
+          ],
+          "options": [
+            {
+              "scopeType": "batch",
+              "optionType": "accessory",
+              "deltaType": "increase",
+              "priceDelta": 120,
+              "currency": "CNY",
+              "optionName": "桌面充电底座",
+              "description": "选配件"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "dt312-128-2026q2",
+      "batchTitle": "DT312-128 项目价 2026Q2",
+      "companySlug": "shanghai-yankong",
+      "currency": "CNY",
+      "publishedAt": "2026-05-02",
+      "effectiveFrom": "2026-05-02",
+      "status": "active",
+      "globalNote": "Windows 高配版",
+      "lines": [
+        {
+          "variantModel": "DT312-128",
+          "rowNote": "Windows 11 / 128GB",
+          "standardConfigText": "高配版本",
+          "tiers": [
+            {
+              "minQuantity": 5,
+              "unitPrice": 3299
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "ax20-p-direct-2026q2",
+      "batchTitle": "AX20-P 直营价 2026Q2",
+      "companySlug": "shenzhen-zhifei",
+      "currency": "CNY",
+      "publishedAt": "2026-05-09",
+      "effectiveFrom": "2026-05-09",
+      "status": "active",
+      "globalNote": "深圳智飞品牌直供",
+      "lines": [
+        {
+          "variantModel": "AX20-P",
+          "rowNote": "含云台",
+          "standardConfigText": "变焦版",
+          "tiers": [
+            {
+              "minQuantity": 5,
+              "unitPrice": 6499
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "ax20-p-channel-2026q2",
+      "batchTitle": "AX20-P 渠道价 2026Q2",
+      "companySlug": "beijing-shulian",
+      "currency": "CNY",
+      "publishedAt": "2026-05-11",
+      "effectiveFrom": "2026-05-11",
+      "status": "active",
+      "globalNote": "北京数联渠道供货",
+      "lines": [
+        {
+          "variantModel": "AX20-P",
+          "rowNote": "含云台",
+          "standardConfigText": "变焦版",
+          "tiers": [
+            {
+              "minQuantity": 5,
+              "unitPrice": 6880
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "bat-x6-6800-2026q1",
+      "batchTitle": "BAT-X6-6800 历史价 2026Q1",
+      "companySlug": "shenzhen-zhifei",
+      "currency": "CNY",
+      "publishedAt": "2026-04-01",
+      "effectiveFrom": "2026-04-01",
+      "status": "expired",
+      "globalNote": "用于对比上一季度价格",
+      "lines": [
+        {
+          "variantModel": "BAT-X6-6800",
+          "rowNote": "2026Q1 批次",
+          "standardConfigText": "6800mAh 标准电芯",
+          "tiers": [
+            {
+              "minQuantity": 10,
+              "unitPrice": 1580
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "bat-x6-6800-2026q2",
+      "batchTitle": "BAT-X6-6800 最新价 2026Q2",
+      "companySlug": "shenzhen-zhifei",
+      "currency": "CNY",
+      "publishedAt": "2026-05-07",
+      "effectiveFrom": "2026-05-07",
+      "status": "active",
+      "globalNote": "新版电芯已切换",
+      "lines": [
+        {
+          "variantModel": "BAT-X6-6800",
+          "rowNote": "2026Q2 批次",
+          "standardConfigText": "6800mAh 新电芯",
+          "tiers": [
+            {
+              "minQuantity": 10,
+              "unitPrice": 1680
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "ctrl-200b-2026q2",
+      "batchTitle": "CTRL-200B 项目价 2026Q2",
+      "companySlug": "guangzhou-xinkong",
+      "currency": "CNY",
+      "publishedAt": "2026-05-05",
+      "effectiveFrom": "2026-05-05",
+      "status": "active",
+      "globalNote": "支持远程升级",
+      "lines": [
+        {
+          "variantModel": "CTRL-200B",
+          "rowNote": "含网关固件",
+          "standardConfigText": "Modbus TCP / CAN",
+          "tiers": [
+            {
+              "minQuantity": 10,
+              "unitPrice": 980
+            }
+          ],
+          "options": [
+            {
+              "scopeType": "line",
+              "optionType": "firmware",
+              "deltaType": "increase",
+              "priceDelta": 80,
+              "currency": "CNY",
+              "optionName": "远程升级固件",
+              "description": "选配功能"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "updates": [
+    {
+      "key": "upd-tab-r10-launch",
+      "type": "product",
+      "title": "TAB-R10 系列新增 4G 版本",
+      "content": "TAB-R10-4G 已补齐主图、4G、IP65 与 600nit 参数",
+      "variantModel": "TAB-R10-4G",
+      "seriesCode": "TAB-R10",
+      "createdAt": "2026-05-10T09:00:00.000Z"
+    },
+    {
+      "key": "upd-ax20-price",
+      "type": "price_update",
+      "title": "AX20-P 报价批次 2026Q2 已更新",
+      "content": "AX20-P 直营价已更新，可对比品牌直供与渠道报价",
+      "variantModel": "AX20-P",
+      "quoteBatchKey": "ax20-p-direct-2026q2",
+      "createdAt": "2026-05-11T10:20:00.000Z"
+    },
+    {
+      "key": "upd-dt312-doc",
+      "type": "product",
+      "title": "DT312-128 规格书更新至 V1.3",
+      "content": "已上传 DT312-128 最新规格书与集成说明",
+      "variantModel": "DT312-128",
+      "createdAt": "2026-05-08T08:10:00.000Z"
+    },
+    {
+      "key": "upd-notice-may",
+      "type": "notice",
+      "title": "五一后交期与报价同步通知",
+      "content": "五一假期后已同步恢复报价与交期，演示数据按 2026Q2 批次展示",
+      "createdAt": "2026-05-06T07:30:00.000Z"
+    },
+    {
+      "key": "upd-hdm215b-launch",
+      "type": "product",
+      "title": "HDM-215B 工业显示器触控版上架",
+      "content": "HDM-215B 已补齐触控版主图、规格书与参数说明",
+      "variantModel": "HDM-215B",
+      "createdAt": "2026-05-09T11:00:00.000Z"
+    },
+    {
+      "key": "upd-tab-r10-price",
+      "type": "price_update",
+      "title": "TAB-R10-4G 阶梯报价已更新",
+      "content": "10 / 50 / 100 台梯度价格已同步，可用于演示批量采购场景",
+      "variantModel": "TAB-R10-4G",
+      "quoteBatchKey": "tab-r10-4g-2026q2",
+      "createdAt": "2026-05-10T14:00:00.000Z"
+    },
+    {
+      "key": "upd-bat-price",
+      "type": "price_update",
+      "title": "BAT-X6-6800 最新批次报价生效",
+      "content": "已切换 BAT-X6-6800 新批次报价与电芯说明",
+      "variantModel": "BAT-X6-6800",
+      "quoteBatchKey": "bat-x6-6800-2026q2",
+      "createdAt": "2026-05-07T15:40:00.000Z"
+    },
+    {
+      "key": "upd-ctrl-price",
+      "type": "price_update",
+      "title": "CTRL-200B 项目报价已更新",
+      "content": "CTRL-200B 项目报价已同步远程升级固件选配",
+      "variantModel": "CTRL-200B",
+      "quoteBatchKey": "ctrl-200b-2026q2",
+      "createdAt": "2026-05-05T13:20:00.000Z"
+    },
+    {
+      "key": "upd-bat-doc",
+      "type": "product",
+      "title": "BAT-X6-6800 测试资料已补齐",
+      "content": "已上传 BAT-X6-6800 测试摘要与续航说明",
+      "variantModel": "BAT-X6-6800",
+      "createdAt": "2026-05-07T10:00:00.000Z"
+    },
+    {
+      "key": "upd-ctrl-doc",
+      "type": "product",
+      "title": "CTRL-200B 接线资料已发布",
+      "content": "已补充 CTRL-200B 接线说明与通信参数",
+      "variantModel": "CTRL-200B",
+      "createdAt": "2026-05-05T09:20:00.000Z"
+    },
+    {
+      "key": "upd-mb-launch",
+      "type": "product",
+      "title": "MB-IMX 新增扩展 IO 版本",
+      "content": "MB-IMX-B 已补齐 CAN、RS485 与 GPIO 扩展 IO 参数",
+      "variantModel": "MB-IMX-B",
+      "seriesCode": "MB-IMX",
+      "createdAt": "2026-05-04T16:20:00.000Z"
+    },
+    {
+      "key": "upd-ax20-doc",
+      "type": "product",
+      "title": "AX20-P 接口文档已补齐",
+      "content": "AX20-P 已新增 UART、PWM、Ethernet 接口说明",
+      "variantModel": "AX20-P",
+      "createdAt": "2026-05-09T08:30:00.000Z"
+    }
+  ]
+}
