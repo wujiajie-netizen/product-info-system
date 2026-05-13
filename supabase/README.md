@@ -12,10 +12,11 @@
 2. 在 SQL Editor 中执行 `migrations/001_initial_schema.sql`。
 3. 继续执行 `migrations/002_backend_requirements.sql`。
 4. 继续执行 `migrations/003_core_catalog_and_quotes.sql`。
-5. 可选执行 `seed.sql` 写入演示产品、文档记录和动态记录。
-6. 在 Supabase Auth 中创建测试用户。
-7. 将首个管理员提升为 `admin`。
-8. 在前端环境变量中配置 Supabase URL 和公开 key。Supabase 新版界面可能显示为 `PUBLISHABLE_KEY`，可写入本项目的 `VITE_SUPABASE_ANON_KEY`。
+5. 继续执行 `migrations/004_series_variant_quote_batches.sql`。
+6. 可选执行 `seed.sql` 写入演示产品、文档记录和动态记录。
+7. 在 Supabase Auth 中创建测试用户。
+8. 将首个管理员提升为 `admin`。
+9. 在前端环境变量中配置 Supabase URL 和公开 key。Supabase 新版界面可能显示为 `PUBLISHABLE_KEY`，可写入本项目的 `VITE_SUPABASE_ANON_KEY`。
 
 ```ini
 VITE_SUPABASE_URL=https://your-project-ref.supabase.co
@@ -30,7 +31,7 @@ set role = 'admin'
 where email = 'admin@example.com';
 ```
 
-只允许在前端使用 publishable/anon key，不得把 service role key 写入 `apps/web-ele`、文档示例或 Git 仓库。
+只允许在前端使用 publishable/anon key，不得把 service role key 写入 `apps/web-front`、`apps/web-ele`、文档示例或 Git 仓库。
 
 配置完成后可以在仓库根目录执行云端连通性检查：
 
@@ -38,7 +39,47 @@ where email = 'admin@example.com';
 pnpm run check:supabase
 ```
 
-该检查只读取 `apps/web-ele/.env`、`apps/web-ele/.env.development`、`apps/web-ele/.env.local`，不会打印完整 anon key。
+该检查会同时校验 `apps/web-front/.env.local` 和 `apps/web-ele/.env.local` 是否存在、值是否一致，并拦截把 `service_role` key 误放到前端环境变量中的情况。脚本只验证 Cloud URL 和浏览器公开 key 的连通性，不再把“匿名可读业务表”当作通过条件，也不会打印完整 anon key。
+
+如果你还想顺手做一次真实账号冒烟登录，可以临时追加以下环境变量再执行：
+
+```bash
+$env:SUPABASE_CHECK_EMAIL="user@gmail.com"
+$env:SUPABASE_CHECK_PASSWORD="你的测试密码"
+$env:SUPABASE_CHECK_EXPECT_ROLE="user"
+pnpm run check:supabase
+```
+
+## 演示环境初始化
+
+如果需要初始化完整演示环境，按下面顺序执行：
+
+```bash
+pnpm demo:seed
+pnpm demo:assets
+pnpm demo:upload
+```
+
+说明：
+
+- `pnpm demo:seed`：根据 `demo-data/catalog.json` 重新生成 `supabase/seed.sql`
+- `pnpm demo:assets`：在 `demo-data/assets/` 生成 32 份本地演示图片、规格书、技术资料和报价附件
+- `pnpm demo:upload`：把本地演示资料上传到 `product-documents` bucket
+
+执行 `pnpm demo:upload` 前，需要在终端提供以下环境变量名：
+
+```ini
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_STORAGE_BUCKET=product-documents
+```
+
+随后在 Supabase SQL Editor 或受控脚本中执行 `supabase/seed.sql`，再在 Auth 中创建：
+
+- `admin@example.com`
+- `user@example.com`
+
+收尾验收时，建议直接打开 [cloud-final-acceptance.sql](/D:/project/dome/product-info-system/supabase/cloud-final-acceptance.sql) 复用账号角色、总量统计和 6 个重点型号抽查 SQL。
 
 ## Migration 内容
 
