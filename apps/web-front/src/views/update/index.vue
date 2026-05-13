@@ -1,29 +1,234 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { ChevronDown, Search } from 'lucide-vue-next';
 import { NTimeline } from 'naive-ui';
-import { RouterLink } from 'vue-router';
+import { RouterLink, useRoute } from 'vue-router';
 
 import AppIcon from '#/components/AppIcon.vue';
+import {
+  formatDate,
+  isUsingDemoData,
+  listCompanies,
+  listDocuments,
+  listProducts,
+  listQuotes,
+  listUpdates,
+} from '#/api/product-info';
 import FrontShell from '#/components/FrontShell.vue';
+import { useAuthState } from '#/lib/auth';
+import { getErrorMessage } from '#/lib/errors';
 import UpdatesSidePanel from '#/views/update/components/UpdatesSidePanel.vue';
 import UpdatesTimelineItem from '#/views/update/components/UpdatesTimelineItem.vue';
-import type { UpdateCategory } from '#/views/update/update-data';
-import {
-  hotProducts,
-  latestDigest,
-  pinnedNotice,
-  timelineItems,
-  updateFilterTabs,
-} from '#/views/update/update-data';
 
-const activeTab = ref(updateFilterTabs[0]?.value ?? 'new-product');
-const currentFilter = ref<UpdateCategory | 'all'>('all');
-const keyword = ref('');
+type UpdateCategory = 'all' | 'document' | 'new-product' | 'platform' | 'price';
+
+type TimelineItem = {
+  category: UpdateCategory;
+  createdAt: string;
+  description: string;
+  id: string;
+  image: string;
+  relatedLabel: string;
+  relatedValue: string;
+  section: string;
+  summary: string;
+  tagLabel: string;
+  timeLabel: string;
+  title: string;
+  to: string;
+  tone: 'blue' | 'green' | 'orange' | 'teal';
+};
+
+const route = useRoute();
+const auth = useAuthState();
+const loading = ref(false);
+const errorMessage = ref('');
+const activeTab = ref<UpdateCategory>('all');
+const currentFilter = ref<UpdateCategory>('all');
+const keyword = ref(typeof route.query.keyword === 'string' ? route.query.keyword : '');
+const updates = ref<Awaited<ReturnType<typeof listUpdates>>>([]);
+const products = ref<Awaited<ReturnType<typeof listProducts>>>([]);
+const documents = ref<Awaited<ReturnType<typeof listDocuments>>>([]);
+const quotes = ref<Awaited<ReturnType<typeof listQuotes>>>([]);
+const companies = ref<Awaited<ReturnType<typeof listCompanies>>>([]);
+
+const updateFilterTabs: Array<{ label: string; value: UpdateCategory }> = [
+  { label: '全部动态', value: 'all' },
+  { label: '新品发布', value: 'new-product' },
+  { label: '报价更新', value: 'price' },
+  { label: '资料更新', value: 'document' },
+  { label: '平台通知', value: 'platform' },
+];
+
+function inferCategory(update: (typeof updates.value)[number]): UpdateCategory {
+  if (update.type === 'notice') {
+    return 'platform';
+  }
+
+  if (update.type === 'price_update') {
+    return 'price';
+  }
+
+  const text = `${update.title} ${update.content || ''}`;
+  return /(规格书|资料|手册|接口|说明|测试|上传|选型|接线)/.test(text)
+    ? 'document'
+    : 'new-product';
+}
+
+function findProduct(update: (typeof updates.value)[number]) {
+  return (
+    products.value.find((item) => item.id === update.variant_id) ||
+    products.value.find((item) => item.model === update.product_model) ||
+    null
+  );
+}
+
+function findQuote(update: (typeof updates.value)[number]) {
+  return (
+    quotes.value.find((item) => item.batch_id === update.quote_batch_id) ||
+    (update.product_model
+      ? quotes.value.find(
+          (item) =>
+            item.product_model === update.product_model &&
+            item.status === 'active',
+        )
+      : null) ||
+    null
+  );
+}
+
+function findCompany(update: (typeof updates.value)[number]) {
+  const quote = findQuote(update);
+  const product = findProduct(update);
+  return (
+    companies.value.find((item) => item.id === quote?.company_id) ||
+    companies.value.find((item) => item.id === product?.companyId) ||
+    null
+  );
+}
+
+function updateTone(category: UpdateCategory) {
+  switch (category) {
+    case 'document':
+      return 'blue' as const;
+    case 'new-product':
+      return 'green' as const;
+    case 'platform':
+      return 'teal' as const;
+    case 'price':
+      return 'orange' as const;
+    default:
+      return 'blue' as const;
+  }
+}
+
+function updateTagLabel(category: UpdateCategory) {
+  switch (category) {
+    case 'document':
+      return '资料更新';
+    case 'new-product':
+      return '新品发布';
+    case 'platform':
+      return '平台通知';
+    case 'price':
+      return '报价更新';
+    default:
+      return '动态';
+  }
+}
+
+function updateTarget(update: (typeof updates.value)[number]) {
+  const product = findProduct(update);
+  const category = inferCategory(update);
+  if (category === 'price') {
+    return '/quotes';
+  }
+
+  if (category === 'document') {
+    return '/documents';
+  }
+
+  return product ? `/products/${product.model}` : '/updates';
+}
+
+function sectionLabel(dateValue: string) {
+  const date = new Date(dateValue);
+  const compareDate = new Date(date);
+  const compareNow = new Date();
+  const diffDays = Math.floor(
+    (compareNow.setHours(0, 0, 0, 0) - compareDate.setHours(0, 0, 0, 0)) /
+      86400000,
+  );
+
+  if (diffDays <= 0) {
+    return '今日';
+  }
+
+  if (diffDays <= 7) {
+    return '本周';
+  }
+
+  return formatDate(dateValue);
+}
+
+function buildTimeLabel(dateValue: string) {
+  const date = new Date(dateValue);
+  const time = date.toLocaleTimeString('zh-CN', {
+    hour: '2-digit',
+    hour12: false,
+    minute: '2-digit',
+  });
+  return `${formatDate(dateValue)}\n${time}`;
+}
+
+const timelineItems = computed<TimelineItem[]>(() =>
+  updates.value.map((update) => {
+    const category = inferCategory(update);
+    const product = findProduct(update);
+    const quote = findQuote(update);
+    const company = findCompany(update);
+    const relatedDocument = documents.value.find(
+      (item) => item.product_model === update.product_model && item.is_primary,
+    );
+
+    return {
+      category,
+      createdAt: update.created_at,
+      description:
+        update.content ||
+        quote?.remarks ||
+        product?.summary ||
+        '暂无补充说明。',
+      id: update.id,
+      image:
+        product?.imageUrl ||
+        relatedDocument?.file_url ||
+        'data:image/gif;base64,R0lGODlhAQABAAAAACw=',
+      relatedLabel:
+        category === 'price'
+          ? company?.name || '报价批次'
+          : product?.model || update.product_model || '未关联对象',
+      relatedValue:
+        category === 'price'
+          ? quote?.batch_title || ''
+          : product?.category || '',
+      section: sectionLabel(update.created_at),
+      summary:
+        company?.name
+          ? `关联公司：${company.name}`
+          : product?.name || '未关联产品',
+      tagLabel: updateTagLabel(category),
+      timeLabel: buildTimeLabel(update.created_at),
+      title: update.title,
+      to: updateTarget(update),
+      tone: updateTone(category),
+    };
+  }),
+);
 
 const filteredTimelineSections = computed(() => {
   const query = keyword.value.trim().toLowerCase();
-  const filtered = timelineItems.filter((item) => {
+  const filtered = timelineItems.value.filter((item) => {
     const matchesTab = currentFilter.value === 'all' || item.category === currentFilter.value;
     const haystack = [
       item.title,
@@ -38,26 +243,138 @@ const filteredTimelineSections = computed(() => {
     return matchesTab && (!query || haystack.includes(query));
   });
 
-  return filtered.reduce<Array<{ items: typeof filtered; title: string }>>((sections, item) => {
-    const current = sections[sections.length - 1];
+  return filtered.reduce<Array<{ items: TimelineItem[]; title: string }>>(
+    (sections, item) => {
+      const current = sections[sections.length - 1];
 
-    if (!current || current.title !== item.section) {
-      sections.push({
-        items: [item],
-        title: item.section,
-      });
+      if (!current || current.title !== item.section) {
+        sections.push({
+          items: [item],
+          title: item.section,
+        });
+        return sections;
+      }
+
+      current.items.push(item);
       return sections;
-    }
-
-    current.items.push(item);
-    return sections;
-  }, []);
+    },
+    [],
+  );
 });
+
+const pinnedNotice = computed(() => {
+  const notice =
+    timelineItems.value.find((item) => item.category === 'platform') ||
+    timelineItems.value[0];
+
+  if (!notice) {
+    return {
+      badge: '置顶',
+      categoryLabel: '平台通知',
+      date: '--',
+      summary: '暂无动态',
+      time: '--:--',
+      title: '暂无可展示的动态',
+      to: '/updates',
+    };
+  }
+
+  const [date, time = '00:00'] = notice.timeLabel.split('\n');
+  return {
+    badge: '置顶',
+    categoryLabel: updateTagLabel(notice.category),
+    date,
+    summary: notice.description,
+    time,
+    title: notice.title,
+    to: notice.to,
+  };
+});
+
+const hotProducts = computed(() => {
+  const countByModel = new Map<string, number>();
+  for (const item of timelineItems.value) {
+    if (!item.relatedLabel) {
+      continue;
+    }
+    countByModel.set(item.relatedLabel, (countByModel.get(item.relatedLabel) || 0) + 1);
+  }
+
+  return products.value
+    .map((product) => ({
+      image: product.imageUrl,
+      name: product.name,
+      to: `/products/${product.model}`,
+      updateCount: `${countByModel.get(product.model) || 0} 条动态`,
+    }))
+    .sort((left, right) => Number.parseInt(right.updateCount, 10) - Number.parseInt(left.updateCount, 10))
+    .slice(0, 4);
+});
+
+const latestDigest = computed(() =>
+  timelineItems.value.slice(0, 5).map((item) => ({
+    date: formatDate(item.createdAt),
+    tagLabel: item.tagLabel,
+    title: item.title,
+    to: item.to,
+    tone: item.tone,
+  })),
+);
 
 function handleTabClick(value: UpdateCategory) {
   activeTab.value = value;
   currentFilter.value = value;
 }
+
+async function loadUpdateData() {
+  loading.value = true;
+  errorMessage.value = '';
+
+  try {
+    const [updateData, productData, documentData, quoteData, companyData] =
+      await Promise.all([
+        listUpdates(),
+        listProducts(),
+        listDocuments(),
+        listQuotes(),
+        listCompanies(),
+      ]);
+    updates.value = updateData;
+    products.value = productData;
+    documents.value = documentData;
+    quotes.value = quoteData;
+    companies.value = companyData;
+  } catch (error) {
+    updates.value = [];
+    products.value = [];
+    documents.value = [];
+    quotes.value = [];
+    companies.value = [];
+    errorMessage.value = getErrorMessage(error);
+  } finally {
+    loading.value = false;
+  }
+}
+
+watch(
+  () => route.query.keyword,
+  (value) => {
+    keyword.value = typeof value === 'string' ? value : '';
+  },
+  { immediate: true },
+);
+
+watch(
+  () => [auth.initialized, isUsingDemoData()],
+  ([initialized, demoMode]) => {
+    if (!initialized && !demoMode) {
+      return;
+    }
+
+    void loadUpdateData();
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -131,6 +448,10 @@ function handleTabClick(value: UpdateCategory) {
           </section>
 
           <section class="updates-card updates-feed">
+            <div v-if="errorMessage" class="updates-feed__empty">
+              <strong>动态加载失败</strong>
+              <p>{{ errorMessage }}</p>
+            </div>
             <template v-if="filteredTimelineSections.length">
               <section
                 v-for="section in filteredTimelineSections"

@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { NCard, NEmpty, NInput, NTag } from 'naive-ui';
+import { useRoute } from 'vue-router';
 
 import {
   formatMoney,
   isUsingDemoData,
   listCompanies,
   listProducts,
+  listQuotes,
+  listUpdates,
 } from '#/api/product-info';
 import AppIcon from '#/components/AppIcon.vue';
 import FrontShell from '#/components/FrontShell.vue';
@@ -19,11 +22,14 @@ import { useAuthState } from '#/lib/auth';
 import { getErrorMessage } from '#/lib/errors';
 
 const auth = useAuthState();
+const route = useRoute();
 const loading = ref(false);
 const errorMessage = ref('');
-const keyword = ref('');
+const keyword = ref(typeof route.query.keyword === 'string' ? route.query.keyword : '');
 const companies = ref<Awaited<ReturnType<typeof listCompanies>>>([]);
 const products = ref<Awaited<ReturnType<typeof listProducts>>>([]);
+const quotes = ref<Awaited<ReturnType<typeof listQuotes>>>([]);
+const updates = ref<Awaited<ReturnType<typeof listUpdates>>>([]);
 
 const visibleCompanies = computed(() => {
   const value = keyword.value.trim().toLowerCase();
@@ -41,8 +47,18 @@ const visibleCompanies = computed(() => {
 
 function productsForCompany(companyId: string) {
   return products.value.filter(
-    (item) => item.latestQuote?.company_id === companyId,
+    (item) =>
+      item.companyId === companyId || item.latestQuote?.company_id === companyId,
   );
+}
+
+function quotesForCompany(companyId: string) {
+  return quotes.value.filter((item) => item.company_id === companyId);
+}
+
+function updatesForCompany(companyId: string) {
+  const models = new Set(productsForCompany(companyId).map((item) => item.model));
+  return updates.value.filter((item) => item.product_model && models.has(item.product_model));
 }
 
 async function loadCompanies() {
@@ -50,12 +66,16 @@ async function loadCompanies() {
   errorMessage.value = '';
 
   try {
-    const [companyData, productData] = await Promise.all([
+    const [companyData, productData, quoteData, updateData] = await Promise.all([
       listCompanies(),
       listProducts(),
+      listQuotes(),
+      listUpdates(),
     ]);
     companies.value = companyData;
     products.value = productData;
+    quotes.value = quoteData;
+    updates.value = updateData;
   } catch (error) {
     errorMessage.value = getErrorMessage(error);
   } finally {
@@ -64,11 +84,17 @@ async function loadCompanies() {
 }
 
 watch(
-  () => [auth.user?.id, isUsingDemoData()],
-  ([userId, demoMode]) => {
-    if (!userId && !demoMode) {
-      companies.value = [];
-      products.value = [];
+  () => route.query.keyword,
+  (value) => {
+    keyword.value = typeof value === 'string' ? value : '';
+  },
+  { immediate: true },
+);
+
+watch(
+  () => [auth.initialized, isUsingDemoData()],
+  ([initialized, demoMode]) => {
+    if (!initialized && !demoMode) {
       return;
     }
 
@@ -126,6 +152,18 @@ watch(
           </div>
           <p>{{ company.description || '暂无公司说明' }}</p>
           <div class="quote-mini-list">
+            <div>
+              <span>关联产品</span>
+              <strong>{{ productsForCompany(company.id).length }} 个</strong>
+            </div>
+            <div>
+              <span>关联报价</span>
+              <strong>{{ quotesForCompany(company.id).length }} 条</strong>
+            </div>
+            <div>
+              <span>相关动态</span>
+              <strong>{{ updatesForCompany(company.id).length }} 条</strong>
+            </div>
             <div
               v-for="product in productsForCompany(company.id).slice(0, 3)"
               :key="product.id"

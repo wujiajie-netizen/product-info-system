@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { NCard, NEmpty, NInput, NTag } from 'naive-ui';
-import { RouterLink } from 'vue-router';
+import { RouterLink, useRoute } from 'vue-router';
 
 import {
   formatDate,
@@ -22,9 +22,10 @@ import { useAuthState } from '#/lib/auth';
 import { getErrorMessage } from '#/lib/errors';
 
 const auth = useAuthState();
+const route = useRoute();
 const loading = ref(false);
 const errorMessage = ref('');
-const keyword = ref('');
+const keyword = ref(typeof route.query.keyword === 'string' ? route.query.keyword : '');
 const quotes = ref<Awaited<ReturnType<typeof listQuotes>>>([]);
 const products = ref<Awaited<ReturnType<typeof listProducts>>>([]);
 const companies = ref<Awaited<ReturnType<typeof listCompanies>>>([]);
@@ -77,12 +78,17 @@ async function loadQuotes() {
 }
 
 watch(
-  () => [auth.user?.id, isUsingDemoData()],
-  ([userId, demoMode]) => {
-    if (!userId && !demoMode) {
-      quotes.value = [];
-      products.value = [];
-      companies.value = [];
+  () => route.query.keyword,
+  (value) => {
+    keyword.value = typeof value === 'string' ? value : '';
+  },
+  { immediate: true },
+);
+
+watch(
+  () => [auth.initialized, isUsingDemoData()],
+  ([initialized, demoMode]) => {
+    if (!initialized && !demoMode) {
       return;
     }
 
@@ -157,13 +163,20 @@ watch(
               {{ formatMoney(quote) }}
             </strong>
             <p>{{ quote.remarks || '暂无备注' }}</p>
+            <p v-if="quote.quote_tiers?.length">
+              {{
+                quote.quote_tiers
+                  .map((tier) => `${tier.min_quantity}+ / ${tier.currency} ${tier.unit_price}`)
+                  .join(' · ')
+              }}
+            </p>
           </div>
           <div>
             <span class="inline-info">
               <AppIcon :icon="getQuoteMetaIcon('valid')" :size="16" />
-              有效期
+              批次/有效期
             </span>
-            <strong>{{ quote.valid_until || '-' }}</strong>
+            <strong>{{ quote.batch_title || quote.valid_until || '-' }}</strong>
             <p class="inline-info">
               <AppIcon :icon="getQuoteMetaIcon('updated')" :size="14" />
               更新于 {{ formatDate(quote.updated_at) }}

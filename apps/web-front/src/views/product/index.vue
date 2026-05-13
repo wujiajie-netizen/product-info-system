@@ -11,21 +11,37 @@ import {
 } from 'lucide-vue-next';
 import { useRoute, useRouter } from 'vue-router';
 
+import type {
+  BrandFilter,
+  CatalogProduct,
+  CategoryGroup,
+} from '#/views/product/product-list-data';
+
+import {
+  isUsingDemoData,
+  listProducts,
+  type ProductListItem,
+} from '#/api/product-info';
 import AppIcon from '#/components/AppIcon.vue';
+import { useAuthState } from '#/lib/auth';
+import { getErrorMessage } from '#/lib/errors';
 import ProductSidebarFilters from '#/views/product/components/ProductSidebarFilters.vue';
 import ProductTableRow from '#/views/product/components/ProductTableRow.vue';
 import {
   productBrands,
   productCategoryGroups,
-  productList,
 } from '#/views/product/product-list-data';
 
 const DEFAULT_CATEGORY_SUMMARY = '电脑显示屏、平板、无人机配件';
 const BASE_RESULT_COUNT = 2156;
 
+const auth = useAuthState();
 const route = useRoute();
 const router = useRouter();
+const loading = ref(false);
+const errorMessage = ref('');
 const keyword = ref('');
+const products = ref<ProductListItem[]>([]);
 const selectedCategorySlug = ref('');
 const selectedBrandSlugs = ref<string[]>([]);
 const minPrice = ref('');
@@ -34,6 +50,61 @@ const sortBy = ref('相关度');
 const mobileFilterOpen = ref(false);
 
 const sortOptions = ['相关度', '最新更新', '价格从低到高'];
+
+const brandOptions = computed<BrandFilter[]>(() => {
+  if (products.value.length === 0) {
+    return productBrands;
+  }
+
+  const map = new Map<string, { count: number; label: string }>();
+  for (const item of products.value) {
+    if (!item.brandSlug || !item.brand) {
+      continue;
+    }
+
+    const current = map.get(item.brandSlug) || { count: 0, label: item.brand };
+    current.count += 1;
+    map.set(item.brandSlug, current);
+  }
+
+  return [...map.entries()].map(([slug, value]) => ({
+    count: value.count,
+    label: value.label,
+    slug,
+  }));
+});
+
+const categoryOptions = computed<CategoryGroup[]>(() => {
+  if (products.value.length === 0) {
+    return productCategoryGroups;
+  }
+
+  const map = new Map<string, { count: number; label: string }>();
+  for (const item of products.value) {
+    if (!item.categorySlug) {
+      continue;
+    }
+
+    const current = map.get(item.categorySlug) || {
+      count: 0,
+      label: item.category,
+    };
+    current.count += 1;
+    map.set(item.categorySlug, current);
+  }
+
+  return [
+    {
+      count: products.value.length,
+      label: '产品分类',
+      options: [...map.entries()].map(([slug, value]) => ({
+        count: value.count,
+        label: value.label,
+        slug,
+      })),
+    },
+  ];
+});
 
 function normalizeQueryValue(value: unknown) {
   if (typeof value !== 'string') {
@@ -75,7 +146,7 @@ watch(
 );
 
 const selectedCategoryLabel = computed(() => {
-  for (const group of productCategoryGroups) {
+  for (const group of categoryOptions.value) {
     const matched = group.options.find(
       (option) => option.slug === selectedCategorySlug.value,
     );
@@ -93,18 +164,18 @@ const selectedBrandLabel = computed(() => {
     return '全部';
   }
 
-  return productBrands
+  return brandOptions.value
     .filter((item) => selectedBrandSlugs.value.includes(item.slug))
     .map((item) => item.label)
     .join('、');
 });
 
-const rows = computed(() => {
+const rows = computed<CatalogProduct[]>(() => {
   const normalizedKeyword = keyword.value.trim().toLowerCase();
   const minimum = Number(minPrice.value) || 0;
   const maximum = Number(maxPrice.value) || Number.POSITIVE_INFINITY;
 
-  const filtered = productList.filter((product) => {
+  const filtered = products.value.filter((product) => {
     if (
       selectedCategorySlug.value &&
       product.categorySlug !== selectedCategorySlug.value
@@ -114,12 +185,12 @@ const rows = computed(() => {
 
     if (
       selectedBrandSlugs.value.length > 0 &&
-      !selectedBrandSlugs.value.includes(product.brandSlug)
+      !selectedBrandSlugs.value.includes(product.brandSlug || '')
     ) {
       return false;
     }
 
-    const productPrice = getPriceNumber(product.price);
+    const productPrice = getPriceNumber(product.priceRange);
     if (productPrice < minimum || productPrice > maximum) {
       return false;
     }
@@ -132,10 +203,10 @@ const rows = computed(() => {
       product.name,
       product.model,
       product.summary,
-      product.brandName,
-      product.companyName,
+      product.brand || '',
+      product.company,
       ...product.tags,
-      ...product.specs.map((spec) => `${spec.label} ${spec.value}`),
+      ...product.specEntries.map((spec) => `${spec.label} ${spec.value}`),
     ]
       .join(' ')
       .toLowerCase();
@@ -143,19 +214,49 @@ const rows = computed(() => {
     return haystack.includes(normalizedKeyword);
   });
 
+  let sorted = filtered;
+
   if (sortBy.value === '价格从低到高') {
-    return [...filtered].sort(
-      (left, right) => getPriceNumber(left.price) - getPriceNumber(right.price),
+    sorted = [...filtered].sort(
+      (left, right) =>
+        getPriceNumber(left.priceRange) - getPriceNumber(right.priceRange),
+    );
+  } else if (sortBy.value === '最新更新') {
+    sorted = [...filtered].sort((left, right) =>
+      right.updatedAt.localeCompare(left.updatedAt),
     );
   }
 
-  if (sortBy.value === '最新更新') {
-    return [...filtered].sort((left, right) =>
-      right.updatedDate.localeCompare(left.updatedDate),
-    );
-  }
-
-  return filtered;
+  return sorted.map((product) => ({
+    brandName: product.brand || '未设置品牌',
+    brandSlug: product.brandSlug || 'unknown-brand',
+    categorySlug: product.categorySlug || 'uncategorized',
+    companyName: product.company,
+    companyRating: 4.8,
+    docCount: product.documentCount,
+    docs: [
+      { label: '规格书', tone: 'red' },
+      { label: '报价资料', tone: 'blue' },
+    ],
+    id: product.model,
+    image: product.imageUrl,
+    leadTime: '待确认',
+    minimumOrder: product.latestQuote?.min_order_quantity
+      ? `${product.latestQuote.min_order_quantity} 台`
+      : '待确认',
+    model: product.model,
+    name: product.name,
+    price: product.priceRange.replace(/^[^\d-]+/, '').trim() || '待报价',
+    quoteRole: '供应商',
+    specs: product.specEntries.slice(0, 4).map((item) => ({
+      label: item.label,
+      value: item.value,
+    })),
+    summary: product.summary,
+    tags: product.tags,
+    updatedAgo: '',
+    updatedDate: product.updatedAt,
+  }));
 });
 
 const activeFilterChips = computed(() => [
@@ -178,11 +279,14 @@ const totalResultsLabel = computed(() => {
     return '0';
   }
 
-  if (rows.value.length === productList.length) {
+  if (rows.value.length === products.value.length) {
     return BASE_RESULT_COUNT.toLocaleString('zh-CN');
   }
 
-  const reduced = Math.max(24, BASE_RESULT_COUNT - (productList.length - rows.value.length) * 164);
+  const reduced = Math.max(
+    24,
+    BASE_RESULT_COUNT - (products.value.length - rows.value.length) * 164,
+  );
   return reduced.toLocaleString('zh-CN');
 });
 
@@ -229,6 +333,32 @@ function clearAllFilters() {
 function applyFilters() {
   mobileFilterOpen.value = false;
 }
+
+async function loadProducts() {
+  loading.value = true;
+  errorMessage.value = '';
+
+  try {
+    products.value = await listProducts();
+  } catch (error) {
+    errorMessage.value = getErrorMessage(error);
+    products.value = [];
+  } finally {
+    loading.value = false;
+  }
+}
+
+watch(
+  () => [auth.initialized, isUsingDemoData()],
+  ([initialized, demoMode]) => {
+    if (!initialized && !demoMode) {
+      return;
+    }
+
+    void loadProducts();
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -278,8 +408,8 @@ function applyFilters() {
         <ProductSidebarFilters
           v-model:max-price="maxPrice"
           v-model:min-price="minPrice"
-          :brands="productBrands"
-          :category-groups="productCategoryGroups"
+          :brands="brandOptions"
+          :category-groups="categoryOptions"
           :selected-brand-slugs="selectedBrandSlugs"
           :selected-category-slug="selectedCategorySlug"
           @apply="applyFilters"
@@ -346,13 +476,26 @@ function applyFilters() {
             <span></span>
           </div>
 
-          <ProductTableRow
-            v-for="product in rows"
-            :key="product.id"
-            :product="product"
-          />
+          <div v-if="errorMessage" class="product-page__empty">
+            <strong>产品数据加载失败</strong>
+            <p>{{ errorMessage }}</p>
+            <button type="button" @click="loadProducts">重新加载</button>
+          </div>
 
-          <div v-if="rows.length === 0" class="product-page__empty">
+          <div v-else-if="loading" class="product-page__empty">
+            <strong>正在加载产品数据</strong>
+            <p>请稍候片刻。</p>
+          </div>
+
+          <template v-else>
+            <ProductTableRow
+              v-for="product in rows"
+              :key="product.id"
+              :product="product"
+            />
+          </template>
+
+          <div v-if="!loading && !errorMessage && rows.length === 0" class="product-page__empty">
             <strong>没有匹配的产品</strong>
             <p>尝试清空筛选条件，或者更换关键词继续搜索。</p>
             <button type="button" @click="clearAllFilters">重置筛选</button>
@@ -381,8 +524,8 @@ function applyFilters() {
       <ProductSidebarFilters
         v-model:max-price="maxPrice"
         v-model:min-price="minPrice"
-        :brands="productBrands"
-        :category-groups="productCategoryGroups"
+        :brands="brandOptions"
+        :category-groups="categoryOptions"
         :selected-brand-slugs="selectedBrandSlugs"
         :selected-category-slug="selectedCategorySlug"
         @apply="applyFilters"

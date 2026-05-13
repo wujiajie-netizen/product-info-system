@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { NButton, NCard, NEmpty, NInput, NSelect, NTag } from 'naive-ui';
-import { RouterLink } from 'vue-router';
+import { RouterLink, useRoute } from 'vue-router';
 
 import {
   createDocumentSignedUrl,
@@ -21,9 +21,10 @@ import { useAuthState } from '#/lib/auth';
 import { getErrorMessage } from '#/lib/errors';
 
 const auth = useAuthState();
+const route = useRoute();
 const loading = ref(false);
 const errorMessage = ref('');
-const keyword = ref('');
+const keyword = ref(typeof route.query.keyword === 'string' ? route.query.keyword : '');
 const fileType = ref<string | null>(null);
 const documents = ref<Awaited<ReturnType<typeof listDocuments>>>([]);
 
@@ -75,10 +76,17 @@ async function loadDocuments() {
 }
 
 watch(
-  () => [auth.user?.id, isUsingDemoData()],
-  ([userId, demoMode]) => {
-    if (!userId && !demoMode) {
-      documents.value = [];
+  () => route.query.keyword,
+  (value) => {
+    keyword.value = typeof value === 'string' ? value : '';
+  },
+  { immediate: true },
+);
+
+watch(
+  () => [auth.initialized, isUsingDemoData()],
+  ([initialized, demoMode]) => {
+    if (!initialized && !demoMode) {
       return;
     }
 

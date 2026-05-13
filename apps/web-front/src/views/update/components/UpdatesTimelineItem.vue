@@ -3,10 +3,19 @@ import { computed } from 'vue';
 import { NTimelineItem } from 'naive-ui';
 import { RouterLink } from 'vue-router';
 
-import type { UpdateTimelineItem } from '#/views/update/update-data';
-
 const props = defineProps<{
-  item: UpdateTimelineItem;
+  item: {
+    description: string;
+    image: string;
+    relatedLabel: string;
+    relatedValue: string;
+    summary: string;
+    tagLabel: string;
+    timeLabel: string;
+    title: string;
+    to: string;
+    tone: 'blue' | 'green' | 'orange' | 'teal';
+  };
 }>();
 
 const timeLines = computed(() => props.item.timeLabel.split('\n'));

@@ -39,14 +39,14 @@ defineProps<{
 .home-side-card {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 74px 20px;
+  grid-template-columns: minmax(0, 1fr) 68px 16px;
   align-items: center;
-  min-height: 118px;
-  padding: 18px 20px 18px 22px;
+  min-height: 110px;
+  padding: 16px 18px 16px 20px;
   overflow: hidden;
   background: linear-gradient(180deg, #fff 0%, #fbfcff 100%);
   border: 1px solid #e7edf6;
-  border-radius: 18px;
+  border-radius: 16px;
   box-shadow: 0 12px 28px rgb(18 33 61 / 0.05);
   transition:
     transform 0.2s ease,
@@ -62,16 +62,16 @@ defineProps<{
 
 .home-side-card__body strong {
   display: block;
-  margin-bottom: 6px;
-  font-size: 18px;
+  margin-bottom: 4px;
+  font-size: 17px;
   line-height: 1.2;
   color: #12213d;
 }
 
 .home-side-card__body p {
-  margin: 0 0 12px;
-  font-size: 13px;
-  line-height: 1.5;
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.45;
   color: #60708d;
 }
 
@@ -82,7 +82,7 @@ defineProps<{
 }
 
 .home-side-card__meta span {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 800;
 }
 
@@ -95,13 +95,13 @@ defineProps<{
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 60px;
-  height: 60px;
-  border-radius: 18px;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
 }
 
 .home-side-card__arrow {
-  font-size: 24px;
+  font-size: 20px;
   line-height: 1;
   color: #9aa7bc;
 }

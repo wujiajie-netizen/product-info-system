@@ -292,6 +292,24 @@
   padding-bottom: 48px;
 }
 
+.detail-refresh-banner {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 14px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #1664d9;
+  background: #edf4ff;
+  border: 1px solid #d8e7ff;
+  border-radius: 999px;
+}
+
+.detail-refresh-banner--warning {
+  color: #b86212;
+  background: #fff6ea;
+  border-color: #f5dcc0;
+}
+
 .detail-breadcrumbs {
   display: flex;
   flex-wrap: wrap;
@@ -493,6 +511,54 @@
   gap: 12px;
 }
 
+.detail-feedback {
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+  text-align: center;
+}
+
+.detail-feedback--error {
+  padding: 18px 0 6px;
+}
+
+.detail-feedback p {
+  max-width: 420px;
+  margin: 0;
+  line-height: 1.7;
+  color: #60708d;
+}
+
+.detail-feedback__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.detail-inline-empty {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  padding: 32px 22px;
+  text-align: center;
+  background: linear-gradient(180deg, #f9fbff 0%, #f4f8fe 100%);
+  border: 1px dashed #d7e4f5;
+  border-radius: 12px;
+}
+
+.detail-inline-empty strong {
+  font-size: 16px;
+  color: #1a2d4c;
+}
+
+.detail-inline-empty p {
+  max-width: 360px;
+  margin: 0;
+  line-height: 1.7;
+  color: #6a7b97;
+}
+
 .document-row {
   display: flex;
   gap: 14px;
@@ -568,6 +634,135 @@
   justify-content: space-between;
 }
 
+.detail-skeleton {
+  display: grid;
+  gap: 18px;
+}
+
+.detail-skeleton__breadcrumbs,
+.detail-skeleton__hero,
+.detail-skeleton__sections,
+.detail-skeleton__stats,
+.detail-skeleton__chips,
+.detail-skeleton__side {
+  display: grid;
+}
+
+.detail-skeleton__breadcrumbs {
+  grid-template-columns: 120px 16px 180px;
+  gap: 10px;
+}
+
+.detail-skeleton__hero {
+  grid-template-columns: 340px minmax(0, 1fr) 320px;
+  gap: 18px;
+}
+
+.detail-skeleton__panel,
+.detail-skeleton__card,
+.detail-skeleton__section,
+.detail-skeleton__breadcrumbs span,
+.detail-skeleton__title,
+.detail-skeleton__text,
+.detail-skeleton__chips span,
+.detail-skeleton__stats span {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(180deg, #f8fbff 0%, #f2f6fc 100%);
+  border: 1px solid #e4ebf6;
+  border-radius: 12px;
+}
+
+.detail-skeleton__panel::before,
+.detail-skeleton__card::before,
+.detail-skeleton__section::before,
+.detail-skeleton__breadcrumbs span::before,
+.detail-skeleton__title::before,
+.detail-skeleton__text::before,
+.detail-skeleton__chips span::before,
+.detail-skeleton__stats span::before {
+  position: absolute;
+  inset: 0;
+  content: '';
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    rgb(255 255 255 / 0.86) 38%,
+    transparent 72%
+  );
+  transform: translateX(-100%);
+  animation: detail-skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+.detail-skeleton__panel--image {
+  min-height: 328px;
+}
+
+.detail-skeleton__panel--main {
+  display: grid;
+  gap: 14px;
+  padding: 26px;
+}
+
+.detail-skeleton__title {
+  width: 56%;
+  height: 34px;
+}
+
+.detail-skeleton__text {
+  height: 14px;
+}
+
+.detail-skeleton__text--long {
+  width: 94%;
+}
+
+.detail-skeleton__text--short {
+  width: 72%;
+}
+
+.detail-skeleton__chips {
+  grid-template-columns: repeat(3, 88px);
+  gap: 10px;
+}
+
+.detail-skeleton__chips span {
+  height: 30px;
+}
+
+.detail-skeleton__stats {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.detail-skeleton__stats span {
+  min-height: 88px;
+}
+
+.detail-skeleton__side {
+  gap: 14px;
+}
+
+.detail-skeleton__card {
+  min-height: 148px;
+}
+
+.detail-skeleton__sections {
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 18px;
+}
+
+.detail-skeleton__section {
+  min-height: 260px;
+}
+
+@keyframes detail-skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 @media (max-width: 1023px) {
   .nav-page {
     padding-top: 20px;
@@ -576,7 +771,9 @@
   .nav-overview,
   .quote-list-card,
   .detail-hero,
-  .detail-content-grid {
+  .detail-content-grid,
+  .detail-skeleton__hero,
+  .detail-skeleton__sections {
     grid-template-columns: 1fr;
   }
 
@@ -642,6 +839,10 @@
     gap: 12px;
   }
 
+  .detail-skeleton__panel--main {
+    padding: 18px;
+  }
+
   .detail-main-panel {
     padding: 18px;
   }
@@ -663,7 +864,8 @@
   }
 
   .spec-kpi-grid,
-  .detail-stat-grid {
+  .detail-stat-grid,
+  .detail-skeleton__stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

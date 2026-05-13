@@ -36,12 +36,12 @@ withDefaults(
   gap: 16px;
   align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 
 .home-section-header h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   line-height: 1.2;
   color: #12213d;
@@ -57,8 +57,8 @@ withDefaults(
 .home-section-header__link {
   display: inline-flex;
   align-items: center;
-  padding-top: 3px;
-  font-size: 15px;
+  padding-top: 2px;
+  font-size: 14px;
   font-weight: 600;
   color: #1664d9;
 }
@@ -66,7 +66,7 @@ withDefaults(
 .home-section-header__link::after {
   margin-left: 4px;
   content: '›';
-  font-size: 17px;
+  font-size: 15px;
 }
 
 @media (max-width: 768px) {
@@ -75,7 +75,7 @@ withDefaults(
   }
 
   .home-section-header h2 {
-    font-size: 18px;
+    font-size: 17px;
   }
 
   .home-section-header p {

@@ -1,40 +1,153 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { NSelect } from 'naive-ui';
 import { Search } from 'lucide-vue-next';
 import { RouterLink, useRouter } from 'vue-router';
 
 import AppIcon from '#/components/AppIcon.vue';
+import {
+  getDashboardSummary,
+  isUsingDemoData,
+  listUpdates,
+} from '#/api/product-info';
 import FrontShell from '#/components/FrontShell.vue';
+import { useAuthState } from '#/lib/auth';
+import { getCategoryIcon, getUpdateTypeIcon } from '#/lib/front-icons';
 import HomeCategoryTile from '#/views/home/components/HomeCategoryTile.vue';
 import HomeProductCard from '#/views/home/components/HomeProductCard.vue';
 import HomeSectionHeader from '#/views/home/components/HomeSectionHeader.vue';
 import HomeSideCard from '#/views/home/components/HomeSideCard.vue';
 import {
-  categories,
   features,
   hotKeywords,
-  products,
   searchScopes,
-  sideLinks,
-  updates,
 } from '#/views/home/home-data';
+import { getErrorMessage } from '#/lib/errors';
 
+const auth = useAuthState();
 const router = useRouter();
+const loading = ref(false);
+const errorMessage = ref('');
+const dashboard = ref<Awaited<ReturnType<typeof getDashboardSummary>> | null>(
+  null,
+);
+const updates = ref<Awaited<ReturnType<typeof listUpdates>>>([]);
 const keyword = ref('');
+const hasLoadedOnce = ref(false);
 const searchScopeOptions = searchScopes.map((item) => ({
   label: item,
   value: item,
 }));
 const searchScope = ref(searchScopeOptions[1]?.value ?? searchScopeOptions[0]?.value ?? '产品');
+const showInitialSkeleton = computed(
+  () => loading.value && !hasLoadedOnce.value && !dashboard.value,
+);
+const showRefreshingBadge = computed(
+  () => loading.value && hasLoadedOnce.value && !errorMessage.value,
+);
 
-const categoryTiles = computed(() => categories.slice(0, 9));
+const categoryTiles = computed(() => {
+  const categories = dashboard.value?.categories || [];
+  if (categories.length === 0) {
+    return [];
+  }
+
+  return [
+    ...categories.slice(0, 8).map((item) => ({
+      count: `${item.count}`,
+      icon: getCategoryIcon(item.name),
+      label: item.name,
+      to: `/categories/${item.slug}`,
+    })),
+    {
+      count: '更多',
+      icon: getCategoryIcon('更多分类'),
+      label: '更多分类',
+      to: '/categories',
+    },
+  ];
+});
+
+const hotProducts = computed(() =>
+  (dashboard.value?.products || []).slice(0, 6).map((item) => ({
+    image: item.imageUrl,
+    name: item.name,
+    price: item.priceRange,
+    priceSuffix: item.latestQuote?.min_order_quantity
+      ? `${item.latestQuote.min_order_quantity}+`
+      : '待报价',
+    specs: item.specEntries.slice(0, 2).map((spec) => `${spec.label} ${spec.value}`),
+    to: `/products/${item.model}`,
+  })),
+);
+
+const sideLinks = computed(() => [
+  {
+    accent: 'blue' as const,
+    count: `${dashboard.value?.documentCount || 0}`,
+    description: '规格书、图片、图纸和原始工作簿统一沉淀',
+    icon: getUpdateTypeIcon('product'),
+    title: '资料中心',
+    to: '/documents',
+    unit: '份',
+  },
+  {
+    accent: 'orange' as const,
+    count: `${dashboard.value?.quoteCount || 0}`,
+    description: '按系列变体查看有效报价与阶梯价',
+    icon: getUpdateTypeIcon('price_update'),
+    title: '报价中心',
+    to: '/quotes',
+    unit: '条',
+  },
+  {
+    accent: 'teal' as const,
+    count: `${dashboard.value?.companies.length || 0}`,
+    description: '供应商、品牌方和合作公司统一查看',
+    icon: getUpdateTypeIcon('notice'),
+    title: '公司库',
+    to: '/companies',
+    unit: '家',
+  },
+]);
+
+const latestUpdates = computed(() =>
+  updates.value.slice(0, 6).map((item) => ({
+    date: item.created_at.slice(0, 10),
+    title: item.title,
+    tone:
+      item.type === 'price_update'
+        ? 'orange'
+        : item.type === 'notice'
+          ? 'cyan'
+          : 'blue',
+    type:
+      item.type === 'price_update'
+        ? '报价'
+        : item.type === 'notice'
+          ? '通知'
+      : '产品',
+  })),
+);
+const skeletonCategoryTiles = Array.from({ length: 6 }, (_, index) => index);
+const skeletonProductTiles = Array.from({ length: 4 }, (_, index) => index);
+const skeletonUpdateRows = Array.from({ length: 4 }, (_, index) => index);
 
 function handleSearch() {
   const query = keyword.value.trim();
+  const targetName =
+    searchScope.value === '资料'
+      ? 'documents'
+      : searchScope.value === '报价'
+        ? 'quotes'
+        : searchScope.value === '公司'
+          ? 'companies'
+          : searchScope.value === '全部'
+            ? 'products'
+            : 'products';
 
   void router.push({
-    name: 'products',
+    name: targetName,
     query: query ? { keyword: query, scope: searchScope.value } : {},
   });
 }
@@ -43,6 +156,41 @@ function handleKeywordClick(value: string) {
   keyword.value = value;
   handleSearch();
 }
+
+async function loadHomeData() {
+  loading.value = true;
+  errorMessage.value = '';
+
+  try {
+    const [dashboardSummary, latest] = await Promise.all([
+      getDashboardSummary(),
+      listUpdates(),
+    ]);
+    dashboard.value = dashboardSummary;
+    updates.value = latest;
+    hasLoadedOnce.value = true;
+  } catch (error) {
+    if (!hasLoadedOnce.value) {
+      dashboard.value = null;
+      updates.value = [];
+    }
+    errorMessage.value = getErrorMessage(error);
+  } finally {
+    loading.value = false;
+  }
+}
+
+watch(
+  () => [auth.initialized, isUsingDemoData()],
+  ([initialized, demoMode]) => {
+    if (!initialized && !demoMode) {
+      return;
+    }
+
+    void loadHomeData();
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -101,7 +249,14 @@ function handleKeywordClick(value: string) {
         <div class="home-main">
           <section class="home-panel">
             <HomeSectionHeader title="分类入口" link-label="查看全部" link-to="/categories" />
-            <div class="home-category-grid">
+            <div v-if="showInitialSkeleton" class="home-category-grid home-category-grid--skeleton">
+              <div
+                v-for="item in skeletonCategoryTiles"
+                :key="`category-skeleton-${item}`"
+                class="home-skeleton-card home-skeleton-card--tile"
+              ></div>
+            </div>
+            <div v-else-if="categoryTiles.length" class="home-category-grid">
               <HomeCategoryTile
                 v-for="item in categoryTiles"
                 :key="item.label"
@@ -111,13 +266,24 @@ function handleKeywordClick(value: string) {
                 :to="item.to"
               />
             </div>
+            <div v-else class="home-section-empty">
+              <strong>分类数据正在补充中</strong>
+              <p>当前还没有可展示的分类入口，稍后刷新后会自动显示最新内容。</p>
+            </div>
           </section>
 
           <section class="home-panel">
             <HomeSectionHeader title="热门产品" link-label="查看全部" link-to="/products" />
-            <div class="home-product-grid">
+            <div v-if="showInitialSkeleton" class="home-product-grid home-product-grid--skeleton">
+              <div
+                v-for="item in skeletonProductTiles"
+                :key="`product-skeleton-${item}`"
+                class="home-skeleton-card home-skeleton-card--product"
+              ></div>
+            </div>
+            <div v-else-if="hotProducts.length" class="home-product-grid">
               <HomeProductCard
-                v-for="item in products"
+                v-for="item in hotProducts"
                 :key="item.name"
                 :image="item.image"
                 :name="item.name"
@@ -126,6 +292,10 @@ function handleKeywordClick(value: string) {
                 :specs="item.specs"
                 :to="item.to"
               />
+            </div>
+            <div v-else class="home-section-empty">
+              <strong>暂时没有热门产品</strong>
+              <p>可以先通过上方搜索入口查找型号、资料或报价，热门区会随着数据积累自动更新。</p>
             </div>
           </section>
 
@@ -162,11 +332,27 @@ function handleKeywordClick(value: string) {
           />
 
           <section class="home-updates-card">
-            <HomeSectionHeader title="最新动态" link-label="查看全部" link-to="/updates" />
+            <div class="home-card-head">
+              <HomeSectionHeader title="最新动态" link-label="查看全部" link-to="/updates" />
+              <span v-if="showRefreshingBadge" class="home-refresh-badge">内容已缓存，正在刷新</span>
+            </div>
 
-            <div class="home-updates-list">
+            <div v-if="showInitialSkeleton" class="home-updates-list">
+              <div
+                v-for="item in skeletonUpdateRows"
+                :key="`update-skeleton-${item}`"
+                class="home-update-skeleton"
+              >
+                <span class="home-update-skeleton__tag"></span>
+                <div class="home-update-skeleton__content">
+                  <span></span>
+                  <span></span>
+                </div>
+              </div>
+            </div>
+            <div v-else-if="latestUpdates.length" class="home-updates-list">
               <RouterLink
-                v-for="item in updates"
+                v-for="item in latestUpdates"
                 :key="`${item.type}-${item.title}`"
                 to="/updates"
                 class="home-update-row"
@@ -183,6 +369,11 @@ function handleKeywordClick(value: string) {
                 <span class="home-update-row__date">{{ item.date }}</span>
               </RouterLink>
             </div>
+            <div v-else class="home-section-empty home-section-empty--compact">
+              <strong>还没有最新动态</strong>
+              <p>产品更新、报价变动和平台通知会在这里按时间自动汇总。</p>
+            </div>
+            <p v-if="errorMessage" class="home-load-error">{{ errorMessage }}</p>
           </section>
         </aside>
       </section>
@@ -193,7 +384,7 @@ function handleKeywordClick(value: string) {
 <style scoped>
 .home-page {
   position: relative;
-  padding-bottom: 36px;
+  padding-bottom: 28px;
   overflow: hidden;
 }
 
@@ -233,9 +424,9 @@ function handleKeywordClick(value: string) {
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  min-height: 214px;
-  padding-top: 24px;
-  padding-bottom: 14px;
+  min-height: 178px;
+  padding-top: 18px;
+  padding-bottom: 10px;
 }
 
 .home-hero__content {
@@ -248,7 +439,7 @@ function handleKeywordClick(value: string) {
 
 .home-hero__content h1 {
   margin: 0 0 6px;
-  font-size: clamp(28px, 2.6vw, 36px);
+  font-size: clamp(24px, 2.2vw, 32px);
   font-weight: 700;
   line-height: 1.28;
   color: #12213d;
@@ -264,8 +455,8 @@ function handleKeywordClick(value: string) {
 .home-search {
   display: grid;
   grid-template-columns: 94px minmax(0, 1fr) 126px;
-  max-width: 730px;
-  margin: 16px auto 0;
+  max-width: 690px;
+  margin: 14px auto 0;
   overflow: hidden;
   background: #fff;
   border: 1px solid #dbe5f4;
@@ -348,7 +539,7 @@ function handleKeywordClick(value: string) {
   gap: 10px;
   align-items: center;
   justify-content: center;
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
 .home-hot-keywords span {
@@ -462,9 +653,9 @@ function handleKeywordClick(value: string) {
 .home-board {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 16px;
+  gap: 14px;
   align-items: start;
-  padding-top: 10px;
+  padding-top: 8px;
 }
 
 .home-main,
@@ -473,10 +664,9 @@ function handleKeywordClick(value: string) {
 }
 
 .home-main {
-  height: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  gap: 14px;
 }
 
 .home-panel,
@@ -498,13 +688,13 @@ function handleKeywordClick(value: string) {
 
 .home-category-grid {
   display: grid;
-  grid-template-columns: repeat(9, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
 }
 
 .home-product-grid {
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -517,18 +707,136 @@ function handleKeywordClick(value: string) {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 16px 18px 8px;
+  padding: 16px 18px 10px;
+}
+
+.home-card-head {
+  display: grid;
+  gap: 10px;
+}
+
+.home-refresh-badge {
+  justify-self: start;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #1664d9;
+  background: #edf4ff;
+  border: 1px solid #d7e7ff;
+  border-radius: 999px;
 }
 
 .home-updates-list {
   display: grid;
 }
 
+.home-update-skeleton,
+.home-skeleton-card {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(180deg, #f8fbff 0%, #f2f6fc 100%);
+  border: 1px solid #e7eef8;
+  border-radius: 14px;
+}
+
+.home-update-skeleton::before,
+.home-skeleton-card::before {
+  position: absolute;
+  inset: 0;
+  content: '';
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    rgb(255 255 255 / 0.86) 40%,
+    transparent 75%
+  );
+  transform: translateX(-100%);
+  animation: home-skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+.home-skeleton-card--tile {
+  min-height: 116px;
+}
+
+.home-skeleton-card--product {
+  min-height: 248px;
+}
+
+.home-update-skeleton {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  min-height: 72px;
+  padding: 12px 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.home-update-skeleton + .home-update-skeleton {
+  border-top: 1px solid #edf2f8;
+}
+
+.home-update-skeleton__tag,
+.home-update-skeleton__content span {
+  display: block;
+  height: 14px;
+  background: #e6edf8;
+  border-radius: 999px;
+}
+
+.home-update-skeleton__tag {
+  width: 44px;
+  height: 22px;
+}
+
+.home-update-skeleton__content {
+  display: grid;
+  gap: 10px;
+}
+
+.home-update-skeleton__content span:first-child {
+  width: 82%;
+}
+
+.home-update-skeleton__content span:last-child {
+  width: 38%;
+}
+
+.home-section-empty {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  min-height: 164px;
+  padding: 28px 20px;
+  text-align: center;
+  background: linear-gradient(180deg, #f9fbff 0%, #f4f8fe 100%);
+  border: 1px dashed #d7e4f5;
+  border-radius: 14px;
+}
+
+.home-section-empty--compact {
+  min-height: 128px;
+}
+
+.home-section-empty strong {
+  font-size: 18px;
+  color: #1a2d4c;
+}
+
+.home-section-empty p {
+  max-width: 420px;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #6a7b97;
+}
+
 .home-update-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
   align-items: flex-start;
-  justify-content: space-between;
   padding: 10px 0;
 }
 
@@ -537,8 +845,9 @@ function handleKeywordClick(value: string) {
 }
 
 .home-update-row__main {
-  display: flex;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
   align-items: flex-start;
   min-width: 0;
 }
@@ -582,14 +891,17 @@ function handleKeywordClick(value: string) {
   line-height: 1.6;
   color: #3f4e68;
   overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 .home-update-row__date {
   flex: 0 0 auto;
   padding-top: 2px;
-  font-size: 14px;
+  font-size: 13px;
+  white-space: nowrap;
   color: #8d9cb4;
 }
 
@@ -638,9 +950,21 @@ function handleKeywordClick(value: string) {
   color: #60708d;
 }
 
+.home-load-error {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: #d84a4a;
+}
+
+@keyframes home-skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 @media (max-width: 1200px) {
   .home-category-grid {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .home-product-grid {
@@ -670,8 +994,8 @@ function handleKeywordClick(value: string) {
 @media (max-width: 860px) {
   .home-hero__container {
     min-height: auto;
-    padding-top: 22px;
-    padding-bottom: 18px;
+    padding-top: 18px;
+    padding-bottom: 14px;
   }
 
   .home-hero__content {
@@ -714,11 +1038,11 @@ function handleKeywordClick(value: string) {
   }
 
   .home-panel {
-    padding: 16px 14px;
+    padding: 14px;
   }
 
   .home-updates-card {
-    padding: 16px 16px 8px;
+    padding: 14px 14px 8px;
   }
 
   .home-feature-strip {

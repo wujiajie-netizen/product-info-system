@@ -8,7 +8,6 @@ import {
   NEmpty,
   NResult,
   NSpace,
-  NSpin,
   NTag,
 } from 'naive-ui';
 import { RouterLink } from 'vue-router';
@@ -58,19 +57,45 @@ const contentDocuments = computed(
 const primaryDocument = computed(
   () => contentDocuments.value[0] || imageDocuments.value[0] || null,
 );
+const detailViewState = computed(() => {
+  if (loading.value && !detail.value && !errorMessage.value) {
+    return 'loading' as const;
+  }
+
+  if (errorMessage.value && !detail.value) {
+    return 'error' as const;
+  }
+
+  if (!product.value) {
+    return 'empty' as const;
+  }
+
+  return 'ready' as const;
+});
+const isRefreshing = computed(
+  () => loading.value && detailViewState.value === 'ready',
+);
 
 function syncPhoneLayout() {
   isPhoneLayout.value = window.innerWidth < 768;
 }
 
 async function loadDetail() {
+  const activeDetail = detail.value?.product;
+  const canKeepPreviousDetail =
+    activeDetail?.id === props.productId || activeDetail?.model === props.productId;
+  const previousDetail = canKeepPreviousDetail ? detail.value : null;
+
   loading.value = true;
   errorMessage.value = '';
+  if (!canKeepPreviousDetail) {
+    detail.value = null;
+  }
 
   try {
     detail.value = await getProductDetail(props.productId);
   } catch (error) {
-    detail.value = null;
+    detail.value = previousDetail;
     errorMessage.value = getErrorMessage(error);
   } finally {
     loading.value = false;
@@ -95,13 +120,6 @@ async function openPrimaryDocument() {
   await openDocument(primaryDocument.value);
 }
 
-function scrollToSection(id: 'companies' | 'documents' | 'quotes' | 'specs') {
-  document.getElementById(id)?.scrollIntoView({
-    behavior: 'smooth',
-    block: 'start',
-  });
-}
-
 function findCompanyName(companyId: string) {
   return (
     detail.value?.companies.find((item) => item.id === companyId)?.name ||
@@ -122,11 +140,29 @@ function companyLatestQuote(companyId: string) {
   );
 }
 
+function updateTone(type: string) {
+  if (type === 'price_update') {
+    return 'warning';
+  }
+
+  if (type === 'notice') {
+    return 'info';
+  }
+
+  return 'success';
+}
+
+function scrollToSection(id: 'companies' | 'documents' | 'quotes' | 'specs' | 'updates') {
+  document.getElementById(id)?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'start',
+  });
+}
+
 watch(
-  () => [auth.user?.id, props.productId, isUsingDemoData()],
-  ([userId, _productId, demoMode]) => {
-    if (!userId && !demoMode) {
-      detail.value = null;
+  () => [auth.initialized, props.productId, isUsingDemoData()],
+  ([initialized, _productId, demoMode]) => {
+    if (!initialized && !demoMode) {
       return;
     }
 
@@ -148,17 +184,78 @@ onUnmounted(() => {
 <template>
   <FrontShell>
     <section class="content-section shell-container product-detail-page">
-      <n-spin :show="loading">
-        <n-card v-if="errorMessage">
+      <div v-if="detailViewState === 'loading'" class="detail-skeleton">
+        <div class="detail-skeleton__breadcrumbs">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <div class="detail-skeleton__hero">
+          <div class="detail-skeleton__panel detail-skeleton__panel--image"></div>
+          <div class="detail-skeleton__panel detail-skeleton__panel--main">
+            <span class="detail-skeleton__title"></span>
+            <span class="detail-skeleton__text detail-skeleton__text--long"></span>
+            <span class="detail-skeleton__text detail-skeleton__text--short"></span>
+            <div class="detail-skeleton__chips">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <div class="detail-skeleton__stats">
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </div>
+          <div class="detail-skeleton__side">
+            <div class="detail-skeleton__card"></div>
+            <div class="detail-skeleton__card"></div>
+            <div class="detail-skeleton__card"></div>
+          </div>
+        </div>
+        <div class="detail-skeleton__sections">
+          <div class="detail-skeleton__section"></div>
+          <div class="detail-skeleton__section"></div>
+        </div>
+      </div>
+
+      <n-card v-else-if="detailViewState === 'error'">
+        <div class="detail-feedback detail-feedback--error">
           <n-empty :description="errorMessage" />
-        </n-card>
-        <n-result
-          v-else-if="!product"
-          description="没有找到该型号对应的商品记录。"
-          status="404"
-          title="商品不存在"
-        />
-        <template v-else>
+          <n-button tertiary type="primary" @click="loadDetail">重新加载</n-button>
+        </div>
+      </n-card>
+
+      <n-result
+        v-else-if="detailViewState === 'empty'"
+        description="没有找到该型号对应的商品记录。"
+        status="404"
+        title="商品不存在"
+      >
+        <template #footer>
+          <div class="detail-feedback">
+            <p>可以返回产品列表继续浏览，也可以更换型号重新搜索。</p>
+            <div class="detail-feedback__actions">
+              <RouterLink to="/products">
+                <n-button type="primary">返回产品列表</n-button>
+              </RouterLink>
+              <RouterLink to="/">
+                <n-button secondary>回到首页</n-button>
+              </RouterLink>
+            </div>
+          </div>
+        </template>
+      </n-result>
+
+      <template v-else-if="product">
+        <div v-if="isRefreshing" class="detail-refresh-banner">
+          页面内容已缓存，正在为你刷新最新资料
+        </div>
+        <div v-else-if="errorMessage" class="detail-refresh-banner detail-refresh-banner--warning">
+          最新内容刷新失败，当前展示的是上次加载成功的数据
+        </div>
+
           <nav class="detail-breadcrumbs" aria-label="商品详情面包屑">
             <RouterLink to="/products">产品</RouterLink>
             <span>/</span>
@@ -304,6 +401,9 @@ onUnmounted(() => {
             <button type="button" @click="scrollToSection('documents')">
               相关资料
             </button>
+            <button type="button" @click="scrollToSection('updates')">
+              相关动态
+            </button>
             <button type="button" @click="scrollToSection('quotes')">
               报价记录
             </button>
@@ -367,7 +467,35 @@ onUnmounted(() => {
                     </n-button>
                   </div>
                 </div>
-                <n-empty v-else description="当前没有相关资料。" />
+                <div v-else class="detail-inline-empty">
+                  <strong>资料暂未上传</strong>
+                  <p>规格书、技术文件和补充附件会在归档后展示在这里。</p>
+                </div>
+              </n-card>
+
+              <n-card id="updates" title="相关动态" class="detail-block">
+                <div v-if="detail?.updates.length" class="document-list">
+                  <div
+                    v-for="item in detail.updates"
+                    :key="item.id"
+                    class="document-row"
+                  >
+                    <div>
+                      <strong>{{ item.title }}</strong>
+                      <p>
+                        <n-tag size="small" :type="updateTone(item.type)">
+                          {{ item.type === 'price_update' ? '报价更新' : item.type === 'notice' ? '平台通知' : '产品动态' }}
+                        </n-tag>
+                        <span>更新 {{ formatDate(item.created_at) }}</span>
+                      </p>
+                    </div>
+                    <span>{{ item.content || '暂无补充说明' }}</span>
+                  </div>
+                </div>
+                <div v-else class="detail-inline-empty">
+                  <strong>还没有相关动态</strong>
+                  <p>后续产品更新、报价通知和平台公告会在这里汇总显示。</p>
+                </div>
               </n-card>
             </main>
 
@@ -400,6 +528,19 @@ onUnmounted(() => {
                     </p>
                     <p v-if="item.remarks">{{ item.remarks }}</p>
                     <div
+                      v-if="item.quote_tiers?.length"
+                      class="quote-attachment-list"
+                    >
+                      <n-tag
+                        v-for="tier in item.quote_tiers"
+                        :key="`${item.id}-${tier.min_quantity}`"
+                        size="small"
+                        type="warning"
+                      >
+                        {{ tier.min_quantity }}+ / {{ tier.currency }} {{ tier.unit_price }}
+                      </n-tag>
+                    </div>
+                    <div
                       v-if="item.attachments.length"
                       class="quote-attachment-list"
                     >
@@ -416,7 +557,10 @@ onUnmounted(() => {
                     </div>
                   </div>
                 </div>
-                <n-empty v-else description="暂无报价记录。" />
+                <div v-else class="detail-inline-empty">
+                  <strong>暂无有效报价</strong>
+                  <p>当前型号还没有可展示的生效报价，后续录入后会自动更新。</p>
+                </div>
               </n-card>
 
               <n-card id="companies" title="关联公司" class="detail-block">
@@ -439,12 +583,14 @@ onUnmounted(() => {
                     </span>
                   </div>
                 </div>
-                <n-empty v-else description="暂无关联公司。" />
+                <div v-else class="detail-inline-empty">
+                  <strong>暂无关联公司</strong>
+                  <p>品牌方、供应商和合作公司建立关联后，会在这里同步展示。</p>
+                </div>
               </n-card>
             </aside>
           </div>
-        </template>
-      </n-spin>
+      </template>
     </section>
   </FrontShell>
 </template>
