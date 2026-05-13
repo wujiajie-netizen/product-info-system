@@ -28,6 +28,7 @@
 - [docs/README.md](./docs/README.md)：项目核心文档入口。
 - [docs/PRD.md](./docs/PRD.md)：项目背景、目标用户、业务边界、MVP 范围和当前阶段。
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)：前后台架构、页面结构、数据模型和实施顺序。
+- [docs/CLOUDFLARE_PAGES_DEPLOY.md](./docs/CLOUDFLARE_PAGES_DEPLOY.md)：Cloudflare Pages 双项目部署配置与发布约定。
 - [docs/ROUTES.md](./docs/ROUTES.md)：前后台路由规划和页面体系。
 - [docs/TASKS.md](./docs/TASKS.md)：开发任务清单、迭代顺序、当前状态和验收标准。
 - [design/frontend-ui/UI_SPEC.md](./design/frontend-ui/UI_SPEC.md)：前台设计规范、设计令牌、移动端适配规则和页面验收标准。
