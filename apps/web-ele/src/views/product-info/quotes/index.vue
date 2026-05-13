@@ -4,6 +4,7 @@ import type {
   DocumentRecord,
   ProductRecord,
   QuoteStatus,
+  SaveQuoteTierInput,
   QuoteWithRelations,
 } from '#/api';
 
@@ -72,6 +73,11 @@ const isAdmin = computed(() => userStore.userRoles.includes('admin'));
 const dialogTitle = computed(() =>
   editingQuote.value ? '编辑报价' : '新增报价',
 );
+type EditableTier = {
+  minQuantity?: number;
+  unitPrice?: number;
+};
+
 const filteredQuotes = computed(() => {
   const normalizedKeyword = keyword.value.trim().toLowerCase();
 
@@ -94,17 +100,18 @@ const filteredQuotes = computed(() => {
 });
 
 const form = reactive({
+  batchTitle: '',
   companyId: '',
   currency: 'CNY',
-  minOrderQuantity: undefined as number | undefined,
-  productId: '',
   documentId: '',
-  quoteNo: '',
+  firmwareNote: '',
+  productId: '',
+  publishedAt: '',
   remarks: '',
+  standardConfigText: '',
   status: 'active' as QuoteStatus,
-  unitPrice: undefined as number | undefined,
   validFrom: '',
-  validUntil: '',
+  tiers: [{ minQuantity: 1, unitPrice: undefined }] as EditableTier[],
 });
 
 function quoteStatusLabel(status: string) {
@@ -135,11 +142,16 @@ function formatDate(value?: null | string) {
 }
 
 function formatMoney(row: QuoteWithRelations) {
-  if (row.unit_price === null || row.unit_price === undefined) {
+  if (!row.quote_tiers?.length) {
     return '-';
   }
 
-  return `${row.currency} ${row.unit_price}`;
+  return row.quote_tiers
+    .map(
+      (tier) =>
+        `${tier.min_quantity}+ / ${tier.currency} ${tier.unit_price}`,
+    )
+    .join(' | ');
 }
 
 async function loadQuotes() {
@@ -184,17 +196,18 @@ async function loadOptions() {
 function resetForm() {
   editingQuote.value = undefined;
   editingDocumentId.value = '';
+  form.batchTitle = '';
   form.companyId = '';
   form.currency = 'CNY';
-  form.minOrderQuantity = undefined;
-  form.productId = '';
   form.documentId = '';
-  form.quoteNo = '';
+  form.firmwareNote = '';
+  form.productId = '';
+  form.publishedAt = '';
   form.remarks = '';
+  form.standardConfigText = '';
   form.status = 'active';
-  form.unitPrice = undefined;
   form.validFrom = '';
-  form.validUntil = '';
+  form.tiers = [{ minQuantity: 1, unitPrice: undefined }];
 }
 
 async function openCreateDialog() {
@@ -206,18 +219,25 @@ async function openCreateDialog() {
 async function openEditDialog(row: QuoteWithRelations) {
   editingQuote.value = row;
   editingDocumentId.value = '';
+  form.batchTitle = row.batch_title || '';
   form.companyId = row.company_id;
   form.currency = row.currency || 'CNY';
-  form.minOrderQuantity = row.min_order_quantity ?? undefined;
+  form.firmwareNote = row.firmware_note || '';
   form.productId = row.product_id;
-  form.quoteNo = row.quote_no || '';
+  form.publishedAt = row.published_at || '';
   form.remarks = row.remarks || '';
+  form.standardConfigText = row.standard_config_text || '';
   form.status = quoteStatusOptions.some((option) => option.value === row.status)
     ? (row.status as QuoteStatus)
     : 'active';
-  form.unitPrice = row.unit_price ?? undefined;
   form.validFrom = row.valid_from || '';
-  form.validUntil = row.valid_until || '';
+  form.tiers =
+    row.quote_tiers?.length
+      ? row.quote_tiers.map((tier) => ({
+          minQuantity: tier.min_quantity,
+          unitPrice: tier.unit_price,
+        }))
+      : [{ minQuantity: row.min_order_quantity ?? 1, unitPrice: row.unit_price ?? undefined }];
   dialogVisible.value = true;
   await loadOptions();
   await loadQuoteDocument(row.id);
@@ -238,26 +258,57 @@ function buildQuoteInput() {
     throw new Error('请选择关联商品和公司');
   }
 
-  if (
-    form.validFrom &&
-    form.validUntil &&
-    new Date(form.validFrom) > new Date(form.validUntil)
-  ) {
-    throw new Error('有效期开始日期不能晚于结束日期');
+  const tiers = form.tiers
+    .map((tier) => ({
+      currency: form.currency,
+      minQuantity: tier.minQuantity,
+      unitPrice: tier.unitPrice,
+    }))
+    .filter((tier) => typeof tier.minQuantity === 'number' && typeof tier.unitPrice === 'number')
+    .map(
+      (tier) =>
+        ({
+          currency: tier.currency,
+          minQuantity: tier.minQuantity as number,
+          unitPrice: tier.unitPrice as number,
+        }) satisfies SaveQuoteTierInput,
+    )
+    .sort((left, right) => left.minQuantity - right.minQuantity);
+
+  if (tiers.length === 0) {
+    throw new Error('请至少填写一条有效的阶梯价');
   }
 
   return {
+    batchTitle: form.batchTitle.trim() || undefined,
     companyId: form.companyId,
     currency: form.currency.trim().toUpperCase(),
-    minOrderQuantity: form.minOrderQuantity,
+    firmwareNote: form.firmwareNote.trim() || undefined,
     productId: form.productId,
-    quoteNo: form.quoteNo.trim(),
+    publishedAt: form.publishedAt || undefined,
     remarks: form.remarks.trim(),
+    standardConfigText: form.standardConfigText.trim() || undefined,
     status: form.status,
-    unitPrice: form.unitPrice,
     validFrom: form.validFrom,
-    validUntil: form.validUntil,
+    tiers,
   };
+}
+
+function addTier() {
+  form.tiers.push({
+    minQuantity:
+      (form.tiers[form.tiers.length - 1]?.minQuantity || 0) + 50 || 1,
+    unitPrice: undefined,
+  });
+}
+
+function removeTier(index: number) {
+  if (form.tiers.length === 1) {
+    form.tiers[0] = { minQuantity: 1, unitPrice: undefined };
+    return;
+  }
+
+  form.tiers.splice(index, 1);
 }
 
 async function submitQuote() {
@@ -343,7 +394,11 @@ onMounted(async () => {
         </ElButton>
       </ElSpace>
       <ElTable v-loading="loading" :data="filteredQuotes" stripe>
-        <ElTableColumn label="报价号" min-width="150" prop="quote_no" />
+        <ElTableColumn label="批次标题" min-width="220">
+          <template #default="{ row }">
+            {{ row.batch_title || row.quote_no || '-' }}
+          </template>
+        </ElTableColumn>
         <ElTableColumn label="商品" min-width="220">
           <template #default="{ row }">
             {{
@@ -356,20 +411,20 @@ onMounted(async () => {
             {{ row.company?.name || '-' }}
           </template>
         </ElTableColumn>
-        <ElTableColumn label="单价" width="130">
+        <ElTableColumn label="阶梯价" min-width="280">
           <template #default="{ row }">
             {{ formatMoney(row) }}
+          </template>
+        </ElTableColumn>
+        <ElTableColumn label="批次时间" width="220">
+          <template #default="{ row }">
+            {{ formatDate(row.published_at) }} 发布 /
+            {{ formatDate(row.effective_from || row.valid_from) }} 生效
           </template>
         </ElTableColumn>
         <ElTableColumn label="MOQ" prop="min_order_quantity" width="100">
           <template #default="{ row }">
             {{ row.min_order_quantity ?? '-' }}
-          </template>
-        </ElTableColumn>
-        <ElTableColumn label="有效期" width="220">
-          <template #default="{ row }">
-            {{ formatDate(row.valid_from) }} 至
-            {{ formatDate(row.valid_until) }}
           </template>
         </ElTableColumn>
         <ElTableColumn label="状态" prop="status" width="110">
@@ -419,8 +474,11 @@ onMounted(async () => {
       @closed="resetForm"
     >
       <ElForm label-width="88px">
-        <ElFormItem label="报价号">
-          <ElInput v-model="form.quoteNo" placeholder="例如 Q-202605-001" />
+        <ElFormItem label="批次标题">
+          <ElInput
+            v-model="form.batchTitle"
+            placeholder="例如 TAB-R10-4G 渠道价 2026Q2"
+          />
         </ElFormItem>
         <ElFormItem label="商品">
           <ElSelect
@@ -464,41 +522,54 @@ onMounted(async () => {
             />
           </ElSelect>
         </ElFormItem>
-        <ElFormItem label="单价">
-          <ElInputNumber
-            v-model="form.unitPrice"
-            :min="0"
-            :precision="2"
-            controls-position="right"
-            placeholder="请输入单价"
-            style="width: 100%"
+        <ElFormItem label="发布时间">
+          <ElDatePicker
+            v-model="form.publishedAt"
+            placeholder="发布时间"
+            type="date"
+            value-format="YYYY-MM-DD"
           />
         </ElFormItem>
-        <ElFormItem label="MOQ">
-          <ElInputNumber
-            v-model="form.minOrderQuantity"
-            :min="0"
-            :precision="0"
-            controls-position="right"
-            placeholder="请输入最小起订量"
-            style="width: 100%"
+        <ElFormItem label="生效日期">
+          <ElDatePicker
+            v-model="form.validFrom"
+            placeholder="生效日期"
+            type="date"
+            value-format="YYYY-MM-DD"
           />
         </ElFormItem>
-        <ElFormItem label="有效期">
-          <ElSpace wrap>
-            <ElDatePicker
-              v-model="form.validFrom"
-              placeholder="开始日期"
-              type="date"
-              value-format="YYYY-MM-DD"
-            />
-            <ElDatePicker
-              v-model="form.validUntil"
-              placeholder="结束日期"
-              type="date"
-              value-format="YYYY-MM-DD"
-            />
-          </ElSpace>
+        <ElFormItem label="阶梯价">
+          <div style="display: grid; gap: 12px; width: 100%">
+            <ElSpace
+              v-for="(tier, index) in form.tiers"
+              :key="index"
+              alignment="start"
+              wrap
+            >
+              <ElInputNumber
+                v-model="tier.minQuantity"
+                :min="1"
+                :precision="0"
+                controls-position="right"
+                placeholder="起订量"
+                style="width: 150px"
+              />
+              <ElInputNumber
+                v-model="tier.unitPrice"
+                :min="0"
+                :precision="2"
+                controls-position="right"
+                placeholder="单价"
+                style="width: 180px"
+              />
+              <ElButton @click="removeTier(index)">
+                删除
+              </ElButton>
+            </ElSpace>
+            <ElButton plain type="primary" @click="addTier">
+              新增阶梯
+            </ElButton>
+          </div>
         </ElFormItem>
         <ElFormItem label="报价附件">
           <ElSelect
@@ -517,6 +588,20 @@ onMounted(async () => {
             />
           </ElSelect>
         </ElFormItem>
+        <ElFormItem label="标准配置">
+          <ElInput
+            v-model="form.standardConfigText"
+            :rows="3"
+            placeholder="例如 Android 13 / 4GB + 64GB / Wi-Fi 6"
+            type="textarea"
+          />
+        </ElFormItem>
+        <ElFormItem label="固件备注">
+          <ElInput
+            v-model="form.firmwareNote"
+            placeholder="例如 出厂固件 V2.3，支持 OTA"
+          />
+        </ElFormItem>
         <ElFormItem label="状态">
           <ElSelect v-model="form.status" style="width: 100%">
             <ElOption
@@ -534,6 +619,13 @@ onMounted(async () => {
             placeholder="请输入报价备注"
             type="textarea"
           />
+        </ElFormItem>
+        <ElFormItem label="时间预览">
+          <ElSpace wrap>
+            <ElTag type="info">{{ form.publishedAt || '未设置发布时间' }}</ElTag>
+            <ElTag type="success">{{ form.validFrom || '未设置生效日期' }}</ElTag>
+            <ElTag type="warning">{{ form.tiers.length }} 个阶梯</ElTag>
+          </ElSpace>
         </ElFormItem>
       </ElForm>
       <template #footer>

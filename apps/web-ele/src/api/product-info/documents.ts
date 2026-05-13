@@ -1,4 +1,9 @@
-import type { DocumentFileType, DocumentRecord, ListParams } from './types';
+import type {
+  DocumentFileType,
+  DocumentKind,
+  DocumentRecord,
+  ListParams,
+} from './types';
 
 import {
   assertSupabaseClient,
@@ -11,19 +16,30 @@ const BUCKET = 'product-documents';
 export interface CreateDocumentInput {
   category: string;
   companyId?: string;
+  documentKind?: DocumentKind;
   file: File;
   fileType: DocumentFileType;
+  isPrimary?: boolean;
   productId?: string;
   productModel?: string;
+  quoteBatchId?: string;
+  seriesId?: string;
+  sortOrder?: number;
+  sourceSheetName?: string;
   tags?: string[];
   title: string;
+  variantId?: string;
 }
 
 export interface DocumentListParams extends ListParams {
   companyId?: string;
+  documentKind?: DocumentKind;
   fileType?: DocumentFileType;
   productId?: string;
   productModel?: string;
+  quoteBatchId?: string;
+  seriesId?: string;
+  variantId?: string;
 }
 
 export async function listDocuments(params: DocumentListParams = {}) {
@@ -45,12 +61,28 @@ export async function listDocuments(params: DocumentListParams = {}) {
     query = query.eq('file_type', params.fileType);
   }
 
+  if (params.documentKind) {
+    query = query.eq('document_kind', params.documentKind);
+  }
+
   if (params.productId) {
-    query = query.eq('product_id', params.productId);
+    query = query.eq('variant_id', params.productId);
   }
 
   if (params.productModel) {
     query = query.eq('product_model', params.productModel);
+  }
+
+  if (params.variantId) {
+    query = query.eq('variant_id', params.variantId);
+  }
+
+  if (params.seriesId) {
+    query = query.eq('series_id', params.seriesId);
+  }
+
+  if (params.quoteBatchId) {
+    query = query.eq('quote_batch_id', params.quoteBatchId);
   }
 
   if (params.companyId) {
@@ -108,13 +140,21 @@ export async function createDocument(input: CreateDocumentInput) {
       category: input.category,
       company_id: input.companyId || null,
       created_by: user?.id,
+      document_kind:
+        input.documentKind ||
+        inferDocumentKind(input.fileType),
       file_type: input.fileType,
       file_url: `storage://${BUCKET}/${storagePath}`,
-      product_id: input.productId || null,
+      is_primary: input.isPrimary || false,
       product_model: input.productModel || null,
+      quote_batch_id: input.quoteBatchId || null,
+      series_id: input.seriesId || null,
+      sort_order: input.sortOrder || 0,
+      source_sheet_name: input.sourceSheetName || null,
       storage_path: storagePath,
       tags: input.tags || [],
       title: input.title,
+      variant_id: input.variantId || input.productId || null,
     })
     .select('*')
     .single();
@@ -141,4 +181,24 @@ export async function createDocumentSignedUrl(document: DocumentRecord) {
   }
 
   return data.signedUrl;
+}
+
+function inferDocumentKind(fileType: DocumentFileType): DocumentKind {
+  switch (fileType) {
+    case 'image': {
+      return 'product_image';
+    }
+    case 'quote': {
+      return 'quote_workbook';
+    }
+    case 'spec': {
+      return 'spec_sheet';
+    }
+    case 'technical': {
+      return 'technical';
+    }
+    default: {
+      return 'other';
+    }
+  }
 }

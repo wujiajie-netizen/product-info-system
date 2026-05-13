@@ -4,8 +4,11 @@ import type { ListParams, UpdateRecord, UpdateType } from './types';
 export interface CreateUpdateInput {
   content?: string;
   productModel?: string;
+  quoteBatchId?: string;
+  seriesId?: string;
   title: string;
   type: UpdateType;
+  variantId?: string;
 }
 
 export async function listUpdates(params: ListParams = {}) {
@@ -67,8 +70,11 @@ export async function createUpdate(input: CreateUpdateInput) {
       content: input.content || null,
       created_by: user?.id,
       product_model: input.productModel || null,
+      quote_batch_id: input.quoteBatchId || null,
+      series_id: input.seriesId || null,
       title: input.title,
       type: input.type,
+      variant_id: input.variantId || null,
     })
     .select('*')
     .single();

@@ -2,8 +2,10 @@
 import type {
   CompanyRecord,
   DocumentFileType,
+  DocumentKind,
   DocumentRecord,
   ProductRecord,
+  QuoteWithRelations,
 } from '#/api';
 import type { UploadFile } from 'element-plus';
 
@@ -24,6 +26,7 @@ import {
   ElOption,
   ElSelect,
   ElSpace,
+  ElSwitch,
   ElTable,
   ElTableColumn,
   ElTag,
@@ -36,6 +39,7 @@ import {
   listCompanies,
   listDocuments,
   listProducts,
+  listQuotes,
 } from '#/api';
 
 const userStore = useUserStore();
@@ -45,6 +49,7 @@ const keyword = ref('');
 const documents = ref<DocumentRecord[]>([]);
 const products = ref<ProductRecord[]>([]);
 const companies = ref<CompanyRecord[]>([]);
+const quotes = ref<QuoteWithRelations[]>([]);
 const dialogVisible = ref(false);
 const selectedFile = ref<File>();
 
@@ -53,11 +58,36 @@ const isAdmin = computed(() => userStore.userRoles.includes('admin'));
 const uploadForm = reactive({
   category: '',
   companyId: '',
+  documentKind: 'other' as DocumentKind,
   fileType: 'other' as DocumentFileType,
+  isPrimary: false,
   productId: '',
   productModel: '',
+  quoteBatchId: '',
+  seriesId: '',
+  sortOrder: 0,
+  sourceSheetName: '',
   tagsText: '',
   title: '',
+});
+
+const quoteBatchOptions = computed(() => {
+  const optionMap = new Map<string, { label: string; value: string }>();
+  for (const quote of quotes.value) {
+    if (!quote.batch_id || optionMap.has(quote.batch_id)) {
+      continue;
+    }
+
+    optionMap.set(quote.batch_id, {
+      label:
+        `${quote.batch_title || quote.quote_no || '未命名批次'} / ` +
+        `${quote.product_model || quote.product?.model || '-'} / ` +
+        `${quote.company?.name || '-'}`,
+      value: quote.batch_id,
+    });
+  }
+
+  return [...optionMap.values()];
 });
 
 function formatDate(value: string) {
@@ -90,9 +120,15 @@ function handleFileChange(file: UploadFile) {
 function resetUploadForm() {
   uploadForm.category = '';
   uploadForm.companyId = '';
+  uploadForm.documentKind = 'other';
   uploadForm.fileType = 'other';
+  uploadForm.isPrimary = false;
   uploadForm.productId = '';
   uploadForm.productModel = '';
+  uploadForm.quoteBatchId = '';
+  uploadForm.seriesId = '';
+  uploadForm.sortOrder = 0;
+  uploadForm.sourceSheetName = '';
   uploadForm.tagsText = '';
   uploadForm.title = '';
   selectedFile.value = undefined;
@@ -114,12 +150,18 @@ async function submitUpload() {
     await createDocument({
       category: uploadForm.category || '未分类',
       companyId: uploadForm.companyId || undefined,
+      documentKind: uploadForm.documentKind,
       file: selectedFile.value,
       fileType: uploadForm.fileType,
+      isPrimary: uploadForm.isPrimary,
       productId: uploadForm.productId || undefined,
       productModel: uploadForm.productModel || undefined,
+      quoteBatchId: uploadForm.quoteBatchId || undefined,
+      seriesId: uploadForm.seriesId || undefined,
+      sortOrder: uploadForm.sortOrder,
+      sourceSheetName: uploadForm.sourceSheetName.trim() || undefined,
       tags: uploadForm.tagsText
-        .split(',')
+        .split(/[,，]/)
         .map((tag) => tag.trim())
         .filter(Boolean),
       title: uploadForm.title,
@@ -147,12 +189,17 @@ async function loadRelationOptions() {
     );
   }
 
+  if (quotes.value.length === 0) {
+    requests.push(listQuotes().then((records) => (quotes.value = records)));
+  }
+
   await Promise.all(requests);
 }
 
 function handleProductChange(productId?: string) {
   const product = products.value.find((item) => item.id === productId);
   uploadForm.productModel = product?.model || '';
+  uploadForm.seriesId = product?.series_id || '';
 }
 
 async function openDocument(row: DocumentRecord) {
@@ -189,6 +236,11 @@ onMounted(async () => {
       <ElTable v-loading="loading" :data="documents" stripe>
         <ElTableColumn label="文件标题" min-width="260" prop="title" />
         <ElTableColumn label="关联型号" prop="product_model" width="160" />
+        <ElTableColumn label="资料类型" width="140">
+          <template #default="{ row }">
+            <ElTag type="info">{{ row.document_kind || '-' }}</ElTag>
+          </template>
+        </ElTableColumn>
         <ElTableColumn label="关联公司" width="180">
           <template #default="{ row }">
             {{
@@ -197,12 +249,28 @@ onMounted(async () => {
             }}
           </template>
         </ElTableColumn>
+        <ElTableColumn label="关联批次" min-width="220">
+          <template #default="{ row }">
+            {{
+              quoteBatchOptions.find((quote) => quote.value === row.quote_batch_id)
+                ?.label || '-'
+            }}
+          </template>
+        </ElTableColumn>
         <ElTableColumn label="文件类型" prop="file_type" width="120">
           <template #default="{ row }">
             <ElTag type="primary">{{ row.file_type }}</ElTag>
           </template>
         </ElTableColumn>
+        <ElTableColumn label="主资料" width="90">
+          <template #default="{ row }">
+            <ElTag :type="row.is_primary ? 'success' : 'info'">
+              {{ row.is_primary ? '是' : '否' }}
+            </ElTag>
+          </template>
+        </ElTableColumn>
         <ElTableColumn label="分类" prop="category" width="120" />
+        <ElTableColumn label="来源" prop="source_sheet_name" width="140" />
         <ElTableColumn label="更新时间" width="140">
           <template #default="{ row }">
             {{ formatDate(row.updated_at) }}
@@ -264,6 +332,22 @@ onMounted(async () => {
             />
           </ElSelect>
         </ElFormItem>
+        <ElFormItem label="关联批次">
+          <ElSelect
+            v-model="uploadForm.quoteBatchId"
+            clearable
+            filterable
+            placeholder="选择报价批次，可挂报价附件"
+            style="width: 100%"
+          >
+            <ElOption
+              v-for="quote in quoteBatchOptions"
+              :key="quote.value"
+              :label="quote.label"
+              :value="quote.value"
+            />
+          </ElSelect>
+        </ElFormItem>
         <ElFormItem label="文件类型">
           <ElSelect v-model="uploadForm.fileType" style="width: 100%">
             <ElOption label="报价单" value="quote" />
@@ -273,8 +357,36 @@ onMounted(async () => {
             <ElOption label="其他" value="other" />
           </ElSelect>
         </ElFormItem>
+        <ElFormItem label="资料类型">
+          <ElSelect v-model="uploadForm.documentKind" style="width: 100%">
+            <ElOption label="主图" value="product_image" />
+            <ElOption label="规格书" value="spec_sheet" />
+            <ElOption label="技术资料" value="technical" />
+            <ElOption label="说明书" value="manual" />
+            <ElOption label="图纸" value="drawing" />
+            <ElOption label="报价附件" value="quote_workbook" />
+            <ElOption label="证书" value="certificate" />
+            <ElOption label="其他" value="other" />
+          </ElSelect>
+        </ElFormItem>
         <ElFormItem label="分类">
           <ElInput v-model="uploadForm.category" placeholder="例如 报价资料" />
+        </ElFormItem>
+        <ElFormItem label="主资料">
+          <ElSwitch v-model="uploadForm.isPrimary" />
+        </ElFormItem>
+        <ElFormItem label="排序值">
+          <ElInput
+            v-model.number="uploadForm.sortOrder"
+            placeholder="越小越靠前"
+            type="number"
+          />
+        </ElFormItem>
+        <ElFormItem label="来源表">
+          <ElInput
+            v-model="uploadForm.sourceSheetName"
+            placeholder="例如 demo_catalog / quote_sheet_a"
+          />
         </ElFormItem>
         <ElFormItem label="标签">
           <ElInput
