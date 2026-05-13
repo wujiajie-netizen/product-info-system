@@ -51,7 +51,20 @@ const themeOverrides: GlobalThemeOverrides = {
     <n-global-style />
     <n-message-provider>
       <ProductSiteHeader v-if="showSiteHeader" />
-      <router-view />
+      <router-view v-slot="{ Component, route: currentRoute }">
+        <keep-alive>
+          <component
+            :is="Component"
+            v-if="currentRoute.meta.keepAlive"
+            :key="String(currentRoute.name ?? currentRoute.path)"
+          />
+        </keep-alive>
+        <component
+          :is="Component"
+          v-if="!currentRoute.meta.keepAlive"
+          :key="currentRoute.fullPath"
+        />
+      </router-view>
     </n-message-provider>
   </n-config-provider>
 </template>

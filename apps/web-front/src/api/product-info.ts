@@ -1,16 +1,30 @@
 import { isSupabaseConfigured, supabase } from '#/lib/supabase';
+import { getDemoData } from './demo-data';
 
 export interface ProductRecord {
   brand_id?: null | string;
   category: string;
   category_id?: null | string;
+  company_id?: null | string;
   created_at: string;
   description?: null | string;
   id: string;
   model: string;
   name: string;
+  os_name?: null | string;
+  os_version?: null | string;
+  product_type?: null | string;
+  ram_gb?: null | number;
+  resolution_height?: null | number;
+  resolution_width?: null | number;
+  series_code?: null | string;
+  series_id?: null | string;
+  series_name?: null | string;
+  size_inch?: null | number;
   spec_json: Record<string, unknown>;
   status: string;
+  storage_gb?: null | number;
+  summary_config_text?: null | string;
   tags: string[];
   updated_at: string;
 }
@@ -56,29 +70,44 @@ export interface DocumentRecord {
   company_id?: null | string;
   created_at: string;
   created_by: null | string;
+  document_kind?: null | string;
   file_type: 'image' | 'other' | 'quote' | 'spec' | 'technical';
   file_url: string;
   id: string;
+  is_primary?: boolean;
   product_id?: null | string;
   product_model: null | string;
+  quote_batch_id?: null | string;
+  series_id?: null | string;
   storage_path: null | string;
+  variant_id?: null | string;
   tags: string[];
   title: string;
   updated_at: string;
 }
 
 export interface QuoteRecord {
+  batch_id?: string;
+  batch_title?: null | string;
   company_id: string;
   created_at: string;
   currency: string;
   id: string;
   min_order_quantity: null | number;
   product_id: string;
+  product_model?: null | string;
   quote_no: null | string;
+  quote_tiers?: Array<{
+    currency: string;
+    max_quantity?: null | number;
+    min_quantity: number;
+    unit_price: number;
+  }>;
   remarks: null | string;
   status: string;
   unit_price: null | number;
   updated_at: string;
+  valid_from?: null | string;
   valid_until: null | string;
 }
 
@@ -100,8 +129,11 @@ export interface UpdateRecord {
   new_value: null | string;
   old_value: null | string;
   product_model: null | string;
+  quote_batch_id?: null | string;
+  series_id?: null | string;
   title: string;
   type: 'notice' | 'price_update' | 'product';
+  variant_id?: null | string;
 }
 
 export interface SpecEntry {
@@ -118,6 +150,7 @@ export interface ProductListItem {
   categoryId: null | string;
   categorySlug: null | string;
   company: string;
+  companyId: null | string;
   companyCount: number;
   documentCount: number;
   id: string;
@@ -168,6 +201,7 @@ export interface ProductDetailData {
   documents: DocumentRecord[];
   product: ProductListItem;
   quotes: ProductQuoteItem[];
+  updates: UpdateRecord[];
 }
 
 const BUCKET = 'product-documents';
@@ -177,464 +211,16 @@ const DATE_FORMATTER = new Intl.DateTimeFormat('zh-CN', {
   year: 'numeric',
 });
 
-const demoCategories: CategoryRecord[] = [
-  {
-    description: '显示器、触控屏、一体机等显示类产品',
-    id: 'cat-display',
-    name: 'LCD 显示器',
-    parent_id: null,
-    slug: 'display',
-    sort_order: 10,
-    status: 'active',
-  },
-  {
-    description: '平板电脑、三防平板和消费平板',
-    id: 'cat-tablet',
-    name: '安卓平板',
-    parent_id: null,
-    slug: 'tablet',
-    sort_order: 20,
-    status: 'active',
-  },
-  {
-    description: '无人机电池、图传模块、云台相机',
-    id: 'cat-drone',
-    name: '无人机配件',
-    parent_id: null,
-    slug: 'drone-parts',
-    sort_order: 30,
-    status: 'active',
-  },
-  {
-    description: '工业主板、通信模组、传感器等元器件',
-    id: 'cat-components',
-    name: '工业元件',
-    parent_id: null,
-    slug: 'components',
-    sort_order: 40,
-    status: 'active',
-  },
-];
-
-const demoBrands: BrandRecord[] = [
-  {
-    aliases: ['AOC'],
-    description: null,
-    id: 'brand-aoc',
-    name: 'AOC',
-    slug: 'aoc',
-    status: 'active',
-  },
-  {
-    aliases: ['ASUS'],
-    description: null,
-    id: 'brand-asus',
-    name: 'ASUS',
-    slug: 'asus',
-    status: 'active',
-  },
-  {
-    aliases: ['DJI'],
-    description: null,
-    id: 'brand-dji',
-    name: 'DJI',
-    slug: 'dji',
-    status: 'active',
-  },
-  {
-    aliases: ['Lenovo'],
-    description: null,
-    id: 'brand-lenovo',
-    name: 'Lenovo',
-    slug: 'lenovo',
-    status: 'active',
-  },
-  {
-    aliases: ['ViewTech'],
-    description: null,
-    id: 'brand-viewtech',
-    name: 'ViewTech',
-    slug: 'viewtech',
-    status: 'active',
-  },
-  {
-    aliases: ['STM'],
-    description: null,
-    id: 'brand-stm',
-    name: 'STMicroelectronics',
-    slug: 'stm',
-    status: 'active',
-  },
-];
-
-const demoCompanies: CompanyRecord[] = [
-  {
-    description: '显示器与工业屏供应商',
-    id: 'co-view',
-    name: '深圳视界科技有限公司',
-    slug: 'view-sz',
-    status: 'active',
-    type: 'supplier',
-  },
-  {
-    description: '平板整机制造商',
-    id: 'co-huawei',
-    name: '华硕电脑(上海)有限公司',
-    slug: 'asus-sh',
-    status: 'active',
-    type: 'manufacturer',
-  },
-  {
-    description: '无人机与配件代理商',
-    id: 'co-drone',
-    name: '大疆创新科技有限公司',
-    slug: 'dji',
-    status: 'active',
-    type: 'brand_owner',
-  },
-  {
-    description: '工业元器件报价来源',
-    id: 'co-chip',
-    name: '意法半导体渠道中心',
-    slug: 'stm-channel',
-    status: 'active',
-    type: 'distributor',
-  },
-];
-
-const now = '2026-05-03T10:00:00.000Z';
-
-const demoProductCompanies: ProductCompanyRecord[] = [
-  createDemoProductCompany('prod-27u4k', 'co-view', 'supplier'),
-  createDemoProductCompany('prod-27u4k', 'co-huawei', 'manufacturer'),
-  createDemoProductCompany('prod-vg32', 'co-huawei', 'manufacturer'),
-  createDemoProductCompany('prod-p30', 'co-huawei', 'manufacturer'),
-  createDemoProductCompany('prod-tb60', 'co-drone', 'brand_owner'),
-  createDemoProductCompany('prod-stm32', 'co-chip', 'distributor'),
-];
-
-const demoProducts: ProductRecord[] = [
-  {
-    brand_id: 'brand-viewtech',
-    category: 'LCD 显示器',
-    category_id: 'cat-display',
-    created_at: now,
-    description: '4K 工业与商显场景通用型号，资料齐全，近期有报价更新。',
-    id: 'prod-27u4k',
-    model: '27U4K-X1',
-    name: '27 英寸 4K LCD 显示器',
-    spec_json: {
-      brightness: '350 cd/m2',
-      interface: 'HDMI x 2, DP x 1',
-      panel: 'IPS',
-      refresh_rate: '60Hz',
-      resolution: '3840 x 2160',
-      screen_size: '27 英寸',
-      summary: '27 英寸、3840x2160、IPS 面板、60Hz、99% sRGB',
-    },
-    status: 'active',
-    tags: ['IPS', '4K', '低蓝光', 'HDR10'],
-    updated_at: '2026-05-02T09:20:00.000Z',
-  },
-  {
-    brand_id: 'brand-asus',
-    category: 'LCD 显示器',
-    category_id: 'cat-display',
-    created_at: now,
-    description: '电竞显示器，适合高刷新率报价对比。',
-    id: 'prod-vg32',
-    model: 'VG32VQ',
-    name: '32 英寸电竞显示器',
-    spec_json: {
-      panel: 'VA',
-      refresh_rate: '165Hz',
-      resolution: '2560 x 1440',
-      response_time: '1ms',
-      screen_size: '32 英寸',
-      summary: '32 英寸、2K、曲面、165Hz、HDR10',
-    },
-    status: 'active',
-    tags: ['2K', '曲面', '165Hz'],
-    updated_at: '2026-05-01T08:30:00.000Z',
-  },
-  {
-    brand_id: 'brand-lenovo',
-    category: '安卓平板',
-    category_id: 'cat-tablet',
-    created_at: now,
-    description: '企业移动展业与资料演示常用平板。',
-    id: 'prod-p30',
-    model: 'P30 Pro',
-    name: '安卓平板 P30 Pro',
-    spec_json: {
-      battery: '8000mAh',
-      memory: '8GB+256GB',
-      os: 'Android 13',
-      resolution: '2K',
-      screen_size: '11.0 英寸',
-      summary: '11.0 英寸、Android 13、8GB+256GB、8000mAh',
-    },
-    status: 'active',
-    tags: ['Android 13', 'Wi-Fi', '高亮屏'],
-    updated_at: '2026-04-30T14:00:00.000Z',
-  },
-  {
-    brand_id: 'brand-dji',
-    category: '无人机配件',
-    category_id: 'cat-drone',
-    created_at: now,
-    description: '长续航电池模组，关联认证与测试报告。',
-    id: 'prod-tb60',
-    model: 'TB60 6S',
-    name: '无人机电池模组',
-    spec_json: {
-      capacity: '5935mAh',
-      cell_type: 'LiPo 6S',
-      energy: '135Wh',
-      voltage: '22.8V',
-      summary: '22.8V、5935mAh、LiPo 6S、智能电池',
-    },
-    status: 'active',
-    tags: ['大容量', '智能电芯', '高能量'],
-    updated_at: '2026-04-28T12:00:00.000Z',
-  },
-  {
-    brand_id: 'brand-stm',
-    category: '工业元件',
-    category_id: 'cat-components',
-    created_at: now,
-    description: '工业控制 MCU，适合报价与规格资料演示。',
-    id: 'prod-stm32',
-    model: 'STM32F103C8T6',
-    name: '32 位微控制器 MCU',
-    spec_json: {
-      flash: '64KB',
-      package: 'LQFP-48',
-      ram: '20KB',
-      speed: '72MHz',
-      voltage: '2.0V - 3.6V',
-      summary: '72MHz、64KB Flash、20KB RAM、LQFP-48',
-    },
-    status: 'active',
-    tags: ['MCU', '32位', 'Cortex-M3'],
-    updated_at: '2026-04-27T10:40:00.000Z',
-  },
-];
-
-const demoDocuments: DocumentRecord[] = [
-  createDemoImageDocument(
-    'doc-27-image',
-    '27U4K-X1 产品图片',
-    'prod-27u4k',
-    '27U4K-X1',
-    'LCD',
-  ),
-  createDemoDocument(
-    'doc-27-spec',
-    '27U4K-X1 规格书',
-    'prod-27u4k',
-    '27U4K-X1',
-    'spec',
-    '规格书',
-  ),
-  createDemoDocument(
-    'doc-27-manual',
-    '27U4K-X1 用户手册',
-    'prod-27u4k',
-    '27U4K-X1',
-    'technical',
-    '用户手册',
-  ),
-  createDemoDocument(
-    'doc-27-quote',
-    '27U4K-X1 报价单',
-    'prod-27u4k',
-    '27U4K-X1',
-    'quote',
-    '报价单',
-  ),
-  createDemoImageDocument(
-    'doc-vg32-image',
-    'VG32VQ 产品图片',
-    'prod-vg32',
-    'VG32VQ',
-    'Display',
-  ),
-  createDemoImageDocument(
-    'doc-p30-image',
-    'P30 Pro 产品图片',
-    'prod-p30',
-    'P30 Pro',
-    'Tablet',
-  ),
-  createDemoDocument(
-    'doc-p30-cert',
-    'P30 Pro 认证资料',
-    'prod-p30',
-    'P30 Pro',
-    'technical',
-    '认证资料',
-  ),
-  createDemoImageDocument(
-    'doc-tb60-image',
-    'TB60 6S 产品图片',
-    'prod-tb60',
-    'TB60',
-    'Battery',
-  ),
-  createDemoDocument(
-    'doc-tb60-test',
-    'TB60 6S 测试报告',
-    'prod-tb60',
-    'TB60 6S',
-    'spec',
-    '测试报告',
-  ),
-  createDemoImageDocument(
-    'doc-stm-image',
-    'STM32F103C8T6 产品图片',
-    'prod-stm32',
-    'STM32F103C8T6',
-    'MCU',
-  ),
-  createDemoDocument(
-    'doc-stm-data',
-    'STM32F103x8 Datasheet',
-    'prod-stm32',
-    'STM32F103C8T6',
-    'spec',
-    '数据手册',
-  ),
-];
-
-const demoQuotes: QuoteRecord[] = [
-  createDemoQuote('quote-27-a', 'prod-27u4k', 'co-view', 680, '2026-06-30'),
-  createDemoQuote('quote-27-b', 'prod-27u4k', 'co-huawei', 920, '2026-06-15'),
-  createDemoQuote('quote-p30', 'prod-p30', 'co-huawei', 1299, '2026-05-30'),
-  createDemoQuote('quote-tb60', 'prod-tb60', 'co-drone', 469, '2026-05-28'),
-  createDemoQuote('quote-stm', 'prod-stm32', 'co-chip', 8.35, '2026-05-31'),
-];
-
-const demoQuoteDocuments: QuoteDocumentRecord[] = [
-  createDemoQuoteDocument('quote-27-a', 'doc-27-quote'),
-];
-
-const demoUpdates: UpdateRecord[] = [
-  {
-    content: '27U4K-X1 规格书 Rev. B 已上传。',
-    created_at: '2026-05-02T09:20:00.000Z',
-    created_by: null,
-    id: 'update-doc-27',
-    new_value: null,
-    old_value: null,
-    product_model: '27U4K-X1',
-    title: '资料更新：27U4K-X1 规格书',
-    type: 'product',
-  },
-  {
-    content: 'STM32F103C8T6 新报价已生效。',
-    created_at: '2026-05-01T10:20:00.000Z',
-    created_by: null,
-    id: 'update-quote-stm',
-    new_value: 'CNY 8.35',
-    old_value: null,
-    product_model: 'STM32F103C8T6',
-    title: '报价更新：STM32F103C8T6',
-    type: 'price_update',
-  },
-];
-
-function createDemoDocument(
-  id: string,
-  title: string,
-  productId: string,
-  productModel: string,
-  fileType: DocumentRecord['file_type'],
-  category: string,
-): DocumentRecord {
-  return {
-    category,
-    created_at: now,
-    created_by: null,
-    file_type: fileType,
-    file_url: '#',
-    id,
-    product_id: productId,
-    product_model: productModel,
-    storage_path: null,
-    tags: [category],
-    title,
-    updated_at: '2026-05-01T09:00:00.000Z',
-  };
-}
-
-function createDemoImageDocument(
-  id: string,
-  title: string,
-  productId: string,
-  productModel: string,
-  label: string,
-): DocumentRecord {
-  return {
-    ...createDemoDocument(
-      id,
-      title,
-      productId,
-      productModel,
-      'image',
-      '产品图片',
-    ),
-    file_url: `https://placehold.co/480x360/eaf2ff/1766c5?text=${encodeURIComponent(label)}`,
-  };
-}
-
-function createDemoProductCompany(
-  productId: string,
-  companyId: string,
-  relationshipType: string,
-): ProductCompanyRecord {
-  return {
-    company_id: companyId,
-    created_at: now,
-    notes: null,
-    product_id: productId,
-    relationship_type: relationshipType,
-  };
-}
-
-function createDemoQuote(
-  id: string,
-  productId: string,
-  companyId: string,
-  unitPrice: number,
-  validUntil: string,
-): QuoteRecord {
-  return {
-    company_id: companyId,
-    created_at: now,
-    currency: 'CNY',
-    id,
-    min_order_quantity: 10,
-    product_id: productId,
-    quote_no: id.toUpperCase(),
-    remarks: '现货 / 1-2 周',
-    status: 'active',
-    unit_price: unitPrice,
-    updated_at: now,
-    valid_until: validUntil,
-  };
-}
-
-function createDemoQuoteDocument(
-  quoteId: string,
-  documentId: string,
-): QuoteDocumentRecord {
-  return {
-    created_at: now,
-    document_id: documentId,
-    quote_id: quoteId,
-  };
-}
+const demoData = getDemoData();
+const demoCategories = demoData.categories;
+const demoBrands = demoData.brands;
+const demoCompanies = demoData.companies;
+const demoProductCompanies = demoData.productCompanies;
+const demoProducts = demoData.products;
+const demoDocuments = demoData.documents;
+const demoQuotes = demoData.quotes;
+const demoQuoteDocuments = demoData.quoteDocuments;
+const demoUpdates = demoData.updates;
 
 function assertSupabaseClient() {
   if (!isSupabaseConfigured || !supabase) {
@@ -776,6 +362,7 @@ async function mapProduct(
     categoryId: record.category_id || null,
     categorySlug: categoryRecord?.slug || null,
     company: primaryCompany?.name || '未关联公司',
+    companyId: primaryCompany?.id || record.company_id || null,
     companyCount: linkedCompanies.length,
     documentCount: productDocuments.filter((item) => item.file_type !== 'image')
       .length,
@@ -1010,7 +597,7 @@ export async function listProducts() {
     quotes,
     productCompanies,
   ] = await Promise.all([
-    queryTable<ProductRecord>('products', demoProducts, { activeOnly: true }),
+    queryProductRecords(),
     listBrands(),
     listCategories(),
     listCompanies(),
@@ -1118,7 +705,7 @@ export async function listDocuments({
   }
 
   if (productId) {
-    query = query.eq('product_id', productId);
+    query = query.eq('variant_id', productId);
   }
 
   if (productModel) {
@@ -1146,26 +733,7 @@ export async function listQuotes({
     );
   }
 
-  const client = assertSupabaseClient();
-  let query = client
-    .from('quotes')
-    .select('*')
-    .eq('status', 'active')
-    .order('created_at', { ascending: false });
-
-  if (productId) {
-    query = query.eq('product_id', productId);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    throw error;
-  }
-
-  return ((data || []) as QuoteRecord[]).filter((record) =>
-    isVisibleQuote(record),
-  );
+  return fetchRealQuotes({ productId });
 }
 
 export async function listQuoteDocuments({
@@ -1183,31 +751,49 @@ export async function listQuoteDocuments({
     return [];
   }
 
-  const client = assertSupabaseClient();
-  let query = client.from('quote_documents').select('*');
-
-  if (quoteIds?.length) {
-    query = query.in('quote_id', quoteIds);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    throw error;
-  }
-
-  return (data || []) as QuoteDocumentRecord[];
+  return fetchRealQuoteDocuments(quoteIds);
 }
 
 export async function listUpdates({
+  keyword,
   productModel,
+  quoteBatchId,
+  type,
+  variantId,
 }: {
+  keyword?: string;
   productModel?: string;
+  quoteBatchId?: string;
+  type?: UpdateRecord['type'];
+  variantId?: string;
 } = {}) {
   if (!isSupabaseConfigured) {
-    return demoUpdates.filter(
-      (item) => !productModel || item.product_model === productModel,
-    );
+    const normalizedKeyword = keyword?.trim().toLowerCase();
+    return demoUpdates.filter((item) => {
+      if (productModel && item.product_model !== productModel) {
+        return false;
+      }
+
+      if (variantId && item.variant_id !== variantId) {
+        return false;
+      }
+
+      if (quoteBatchId && item.quote_batch_id !== quoteBatchId) {
+        return false;
+      }
+
+      if (type && item.type !== type) {
+        return false;
+      }
+
+      if (!normalizedKeyword) {
+        return true;
+      }
+
+      return `${item.title} ${item.content || ''} ${item.product_model || ''}`
+        .toLowerCase()
+        .includes(normalizedKeyword);
+    });
   }
 
   const client = assertSupabaseClient();
@@ -1218,6 +804,25 @@ export async function listUpdates({
 
   if (productModel) {
     query = query.eq('product_model', productModel);
+  }
+
+  if (variantId) {
+    query = query.eq('variant_id', variantId);
+  }
+
+  if (quoteBatchId) {
+    query = query.eq('quote_batch_id', quoteBatchId);
+  }
+
+  if (type) {
+    query = query.eq('type', type);
+  }
+
+  if (keyword?.trim()) {
+    const normalized = keyword.trim();
+    query = query.or(
+      `title.ilike.%${normalized}%,content.ilike.%${normalized}%,product_model.ilike.%${normalized}%`,
+    );
   }
 
   const { data, error } = await query;
@@ -1251,13 +856,14 @@ export async function getDashboardSummary() {
 }
 
 export async function getProductDetail(idOrModel: string) {
-  const [products, documents, quotes, companies, productCompanies] =
+  const [products, documents, quotes, companies, productCompanies, updates] =
     await Promise.all([
       listProducts(),
       listDocuments(),
       listQuotes(),
       listCompanies(),
       listProductCompanies(),
+      listUpdates(),
     ]);
   const product =
     products.find(
@@ -1275,6 +881,7 @@ export async function getProductDetail(idOrModel: string) {
     quoteIds: productQuotes.map((item) => item.id),
   });
   const companyIds = new Set([
+    ...(product.companyId ? [product.companyId] : []),
     ...productQuotes.map((item) => item.company_id),
     ...productCompanies
       .filter((item) => item.product_id === product.id)
@@ -1285,7 +892,9 @@ export async function getProductDetail(idOrModel: string) {
     companies: companies.filter((item) => companyIds.has(item.id)),
     documents: documents.filter(
       (item) =>
-        item.product_id === product.id || item.product_model === product.model,
+        item.product_id === product.id ||
+        item.variant_id === product.id ||
+        item.product_model === product.model,
     ),
     product,
     quotes: productQuotes.map((quote) => ({
@@ -1295,8 +904,14 @@ export async function getProductDetail(idOrModel: string) {
         .map((item) =>
           documents.find((document) => document.id === item.document_id),
         )
-        .filter(Boolean),
+        .filter((document): document is DocumentRecord => Boolean(document)),
     })),
+    updates: updates.filter(
+      (item) =>
+        item.product_model === product.model ||
+        item.variant_id === product.id ||
+        productQuotes.some((quote) => quote.batch_id === item.quote_batch_id),
+    ),
   } satisfies ProductDetailData;
 }
 
@@ -1315,4 +930,290 @@ export async function createDocumentSignedUrl(document: DocumentRecord) {
   }
 
   return data.signedUrl;
+}
+
+async function queryProductRecords() {
+  if (!isSupabaseConfigured) {
+    return demoProducts.filter((record) => isActiveRecord(record));
+  }
+
+  const client = assertSupabaseClient();
+  const { data, error } = await client
+    .from('product_variants')
+    .select(
+      `
+        *,
+        series:product_series(
+          *,
+          brand:brands(*),
+          category:categories(*),
+          company:companies(*)
+        ),
+        specs:product_spec_items(*)
+      `,
+    )
+    .eq('status', 'active')
+    .order('updated_at', { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return ((data || []) as Array<
+    {
+      specs?: Array<{
+        spec_key: string;
+        spec_value_number: null | number;
+        spec_value_text: null | string;
+        value_json: null | Record<string, unknown>;
+      }>;
+      series?: {
+        base_description?: null | string;
+        brand?: null | BrandRecord;
+        brand_id?: null | string;
+        category?: null | CategoryRecord;
+        category_id?: null | string;
+        company_id?: null | string;
+        id: string;
+        product_type?: null | string;
+        series_code: string;
+        series_name: string;
+      } | null;
+    } & Record<string, unknown>
+  >).map((record) => {
+    const series = record.series;
+    const specs = record.specs || [];
+    const specJson: Record<string, unknown> = {};
+
+    for (const item of specs) {
+      specJson[item.spec_key] =
+        item.spec_value_text ??
+        item.spec_value_number ??
+        item.value_json ??
+        null;
+    }
+
+    if (!specJson.summary && typeof record.summary_config_text === 'string') {
+      specJson.summary = record.summary_config_text;
+    }
+
+    if (!specJson.cpu && typeof record.chipset === 'string') {
+      specJson.cpu = record.chipset;
+    }
+
+    if (
+      !specJson.resolution &&
+      typeof record.resolution_width === 'number' &&
+      typeof record.resolution_height === 'number'
+    ) {
+      specJson.resolution = `${record.resolution_width} x ${record.resolution_height}`;
+    }
+
+    return {
+      brand_id: series?.brand_id || null,
+      category: series?.category?.name || series?.product_type || '未分类',
+      category_id: series?.category_id || null,
+      company_id: series?.company_id || null,
+      created_at: String(record.created_at),
+      description: series?.base_description || null,
+      id: String(record.id),
+      model: String(record.model_code),
+      name: String(record.display_name),
+      os_name:
+        typeof record.os_name === 'string' ? record.os_name : null,
+      os_version:
+        typeof record.os_version === 'string' ? record.os_version : null,
+      product_type: series?.product_type || null,
+      ram_gb:
+        typeof record.ram_gb === 'number' ? record.ram_gb : null,
+      resolution_height:
+        typeof record.resolution_height === 'number'
+          ? record.resolution_height
+          : null,
+      resolution_width:
+        typeof record.resolution_width === 'number'
+          ? record.resolution_width
+          : null,
+      series_code: series?.series_code || null,
+      series_id: series?.id || null,
+      series_name: series?.series_name || null,
+      size_inch:
+        typeof record.size_inch === 'number' ? record.size_inch : null,
+      spec_json: specJson,
+      status: String(record.status),
+      storage_gb:
+        typeof record.storage_gb === 'number' ? record.storage_gb : null,
+      summary_config_text:
+        typeof record.summary_config_text === 'string'
+          ? record.summary_config_text
+          : null,
+      tags: extractRecordTags(specJson),
+      updated_at: String(record.updated_at),
+    } satisfies ProductRecord;
+  });
+}
+
+async function fetchRealQuotes({
+  productId,
+}: {
+  productId?: string;
+}) {
+  const client = assertSupabaseClient();
+  let lineQuery = client
+    .from('quote_lines')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (productId) {
+    lineQuery = lineQuery.eq('variant_id', productId);
+  }
+
+  const { data: lines, error: lineError } = await lineQuery;
+
+  if (lineError) {
+    throw lineError;
+  }
+
+  const lineRows = (lines || []) as Array<{
+    created_at: string;
+    id: string;
+    quote_batch_id: string;
+    row_note: null | string;
+    updated_at: string;
+    variant_id: string;
+  }>;
+
+  if (lineRows.length === 0) {
+    return [] as QuoteRecord[];
+  }
+
+  const { data: batches, error: batchError } = await client
+    .from('quote_batches')
+    .select('*')
+    .in(
+      'id',
+      lineRows.map((item) => item.quote_batch_id),
+    );
+
+  if (batchError) {
+    throw batchError;
+  }
+
+  const { data: tiers, error: tierError } = await client
+    .from('quote_price_tiers')
+    .select('*')
+    .in(
+      'quote_line_id',
+      lineRows.map((item) => item.id),
+    )
+    .order('sort_order', { ascending: true });
+
+  if (tierError) {
+    throw tierError;
+  }
+
+  const records: QuoteRecord[] = [];
+  for (const line of lineRows) {
+    const batch = (batches || []).find((item) => item.id === line.quote_batch_id);
+    if (!batch || batch.status !== 'active') {
+      continue;
+    }
+
+    const lineTiers = ((tiers || []) as Array<{
+      currency: string;
+      max_quantity: null | number;
+      min_quantity: number;
+      quote_line_id: string;
+      unit_price: number;
+    }>)
+      .filter((item) => item.quote_line_id === line.id)
+      .sort((left, right) => left.min_quantity - right.min_quantity);
+    const primaryTier = lineTiers[0] || null;
+
+    records.push({
+      batch_id: batch.id as string,
+      batch_title: batch.batch_title as string,
+      company_id: batch.company_id as string,
+      created_at: line.created_at,
+      currency: primaryTier?.currency || String(batch.currency),
+      id: line.id,
+      min_order_quantity: primaryTier?.min_quantity || null,
+      product_id: line.variant_id,
+      quote_no: (batch.batch_title as string) || null,
+      quote_tiers: lineTiers,
+      remarks: line.row_note || (batch.global_note as string) || null,
+      status: String(batch.status),
+      unit_price: primaryTier?.unit_price || null,
+      updated_at: line.updated_at,
+      valid_until: null,
+    });
+  }
+
+  return records.filter((record) => isVisibleQuote(record));
+}
+
+async function fetchRealQuoteDocuments(quoteIds?: string[]) {
+  if (!quoteIds?.length) {
+    return [] as QuoteDocumentRecord[];
+  }
+
+  const client = assertSupabaseClient();
+  const { data: lines, error: lineError } = await client
+    .from('quote_lines')
+    .select('id, quote_batch_id')
+    .in('id', quoteIds);
+
+  if (lineError) {
+    throw lineError;
+  }
+
+  const batchIdByQuoteId = new Map(
+    ((lines || []) as Array<{ id: string; quote_batch_id: string }>).map(
+      (item) => [item.id, item.quote_batch_id],
+    ),
+  );
+  const batchIds = [...new Set(batchIdByQuoteId.values())];
+
+  if (batchIds.length === 0) {
+    return [] as QuoteDocumentRecord[];
+  }
+
+  const { data: documents, error } = await client
+    .from('documents')
+    .select('id, created_at, quote_batch_id')
+    .in('quote_batch_id', batchIds);
+
+  if (error) {
+    throw error;
+  }
+
+  const relations: QuoteDocumentRecord[] = [];
+  for (const [quoteId, batchId] of batchIdByQuoteId.entries()) {
+    for (const document of (documents || []) as Array<{
+      created_at: string;
+      id: string;
+      quote_batch_id: string;
+    }>) {
+      if (document.quote_batch_id === batchId) {
+        relations.push({
+          created_at: document.created_at,
+          document_id: document.id,
+          quote_id: quoteId,
+        });
+      }
+    }
+  }
+
+  return relations;
+}
+
+function extractRecordTags(specJson: Record<string, unknown>) {
+  const tags = new Set<string>();
+  for (const key of ['cpu', 'os', 'poe', 'summary']) {
+    const value = specJson[key];
+    if (typeof value === 'string' && value.trim()) {
+      tags.add(value.trim());
+    }
+  }
+  return [...tags].slice(0, 6);
 }

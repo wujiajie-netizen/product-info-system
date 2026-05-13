@@ -15,6 +15,7 @@ export const routes: RouteRecordRaw[] = [
     name: 'home',
     component: HomeView,
     meta: {
+      keepAlive: true,
       siteHeader: true,
     },
   },
@@ -23,6 +24,7 @@ export const routes: RouteRecordRaw[] = [
     name: 'products',
     component: ProductListView,
     meta: {
+      keepAlive: true,
       siteHeader: true,
     },
   },
@@ -41,6 +43,7 @@ export const routes: RouteRecordRaw[] = [
     component: CategoryView,
     props: true,
     meta: {
+      keepAlive: true,
       siteHeader: true,
     },
   },
@@ -49,6 +52,7 @@ export const routes: RouteRecordRaw[] = [
     name: 'documents',
     component: DocumentListView,
     meta: {
+      keepAlive: true,
       siteHeader: true,
     },
   },
@@ -57,6 +61,7 @@ export const routes: RouteRecordRaw[] = [
     name: 'quotes',
     component: QuoteListView,
     meta: {
+      keepAlive: true,
       siteHeader: true,
     },
   },
@@ -65,6 +70,7 @@ export const routes: RouteRecordRaw[] = [
     name: 'companies',
     component: CompanyListView,
     meta: {
+      keepAlive: true,
       siteHeader: true,
     },
   },
@@ -73,6 +79,7 @@ export const routes: RouteRecordRaw[] = [
     name: 'updates',
     component: UpdateListView,
     meta: {
+      keepAlive: true,
       siteHeader: true,
     },
   },
