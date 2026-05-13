@@ -26,7 +26,6 @@ export async function ignores(): Promise<Linter.Config[]> {
         '**/.turbo',
         '**/.nuxt',
         '**/.next',
-        '**/.vercel',
         '**/.changeset',
         '**/.idea',
         '**/.cache',
