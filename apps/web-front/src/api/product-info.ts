@@ -151,8 +151,10 @@ export interface ProductListItem {
   categorySlug: null | string;
   company: string;
   companyId: null | string;
+  companyType?: null | string;
   companyCount: number;
   documentCount: number;
+  documentTypes?: DocumentRecord['file_type'][];
   id: string;
   imageUrl: string;
   latestQuote: null | QuoteRecord;
@@ -165,6 +167,25 @@ export interface ProductListItem {
   summary: string;
   tags: string[];
   updatedAt: string;
+}
+
+export interface ProductListOptions {
+  brandSlugs?: string[];
+  categorySlug?: string;
+  keyword?: string;
+  maxPrice?: number;
+  minPrice?: number;
+  page?: number;
+  pageSize?: number;
+  sortBy?: '价格从低到高' | '最新更新' | '相关度';
+}
+
+export interface PaginatedResult<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
 }
 
 export interface CategorySummary {
@@ -221,6 +242,7 @@ const demoDocuments = demoData.documents;
 const demoQuotes = demoData.quotes;
 const demoQuoteDocuments = demoData.quoteDocuments;
 const demoUpdates = demoData.updates;
+const DEFAULT_PRODUCT_PAGE_SIZE = 20;
 
 function assertSupabaseClient() {
   if (!isSupabaseConfigured || !supabase) {
@@ -275,6 +297,82 @@ function formatSpecValue(value: unknown): string {
   }
 
   return String(value);
+}
+
+function normalizeSearchKeyword(keyword?: string) {
+  return keyword?.trim() || '';
+}
+
+function sanitizeIlikeValue(value: string) {
+  return value.replaceAll(/[,%()]/g, ' ').trim();
+}
+
+function buildIlikeOrFilter(fields: string[], keyword: string) {
+  const sanitized = sanitizeIlikeValue(keyword);
+  if (!sanitized) {
+    return '';
+  }
+
+  return fields.map((field) => `${field}.ilike.%${sanitized}%`).join(',');
+}
+
+function intersectIds(current: null | Set<string>, nextIds: Iterable<string>) {
+  const next = new Set<string>();
+  for (const id of nextIds) {
+    if (id) {
+      next.add(id);
+    }
+  }
+
+  if (current === null) {
+    return next;
+  }
+
+  return new Set([...current].filter((id) => next.has(id)));
+}
+
+function getPriceNumber(value: string) {
+  const normalized = value.replaceAll(',', '').replace(/[^\d.-]/g, '');
+  return Number(normalized) || 0;
+}
+
+function normalizePaginationValue(value: number | undefined, fallback: number) {
+  if (!Number.isFinite(value)) {
+    return fallback;
+  }
+
+  return Math.max(1, Math.floor(value || fallback));
+}
+
+export function paginateItems<T>(
+  items: T[],
+  {
+    page,
+    pageSize,
+  }: {
+    page?: number;
+    pageSize?: number;
+  } = {},
+): PaginatedResult<T> {
+  const normalizedPageSize = normalizePaginationValue(
+    pageSize,
+    DEFAULT_PRODUCT_PAGE_SIZE,
+  );
+  const total = items.length;
+  const totalPages = Math.max(1, Math.ceil(total / normalizedPageSize));
+  const normalizedPage = Math.min(
+    normalizePaginationValue(page, 1),
+    totalPages,
+  );
+  const start = (normalizedPage - 1) * normalizedPageSize;
+
+  return {
+    items: items.slice(start, start + normalizedPageSize),
+    page: normalizedPage,
+    pageSize: normalizedPageSize,
+    total,
+    totalPages,
+  };
 }
 
 function normalizeSpecEntries(specJson: Record<string, unknown>) {
@@ -353,6 +451,11 @@ async function mapProduct(
     (item) =>
       item.product_id === record.id || item.product_model === record.model,
   );
+  const documentTypes = [...new Set(
+    productDocuments
+      .filter((item) => item.file_type !== 'image')
+      .map((item) => item.file_type),
+  )];
 
   return {
     brand: brand?.name || null,
@@ -363,9 +466,11 @@ async function mapProduct(
     categorySlug: categoryRecord?.slug || null,
     company: primaryCompany?.name || '未关联公司',
     companyId: primaryCompany?.id || record.company_id || null,
+    companyType: primaryCompany?.type || null,
     companyCount: linkedCompanies.length,
     documentCount: productDocuments.filter((item) => item.file_type !== 'image')
       .length,
+    documentTypes,
     id: record.id,
     imageUrl: await buildProductImage(record, productDocuments),
     latestQuote,
@@ -587,9 +692,90 @@ export function formatUpdateType(type: UpdateRecord['type']) {
   }
 }
 
-export async function listProducts() {
+function filterProductsLocally(
+  products: ProductListItem[],
+  {
+    brandSlugs,
+    categorySlug,
+    keyword,
+    maxPrice,
+    minPrice,
+  }: ProductListOptions = {},
+) {
+  const normalizedKeyword = normalizeSearchKeyword(keyword).toLowerCase();
+  const hasMinPrice = typeof minPrice === 'number' && Number.isFinite(minPrice);
+  const hasMaxPrice = typeof maxPrice === 'number' && Number.isFinite(maxPrice);
+
+  let filtered = products.filter((product) => {
+    if (categorySlug && product.categorySlug !== categorySlug) {
+      return false;
+    }
+
+    if (brandSlugs?.length && !brandSlugs.includes(product.brandSlug || '')) {
+      return false;
+    }
+
+    const productPrice = getPriceNumber(product.priceRange);
+    if (hasMinPrice && productPrice < (minPrice || 0)) {
+      return false;
+    }
+
+    if (hasMaxPrice && productPrice > (maxPrice || 0)) {
+      return false;
+    }
+
+    if (!normalizedKeyword) {
+      return true;
+    }
+
+    const haystack = [
+      product.name,
+      product.model,
+      product.summary,
+      product.brand || '',
+      product.company,
+      ...product.tags,
+      ...product.specEntries.map((spec) => `${spec.label} ${spec.value}`),
+    ]
+      .join(' ')
+      .toLowerCase();
+
+    return haystack.includes(normalizedKeyword);
+  });
+  return filtered;
+}
+
+function sortProducts(
+  products: ProductListItem[],
+  sortBy: ProductListOptions['sortBy'],
+) {
+  if (sortBy === '价格从低到高') {
+    return [...products].sort(
+      (left, right) =>
+        getPriceNumber(left.priceRange) - getPriceNumber(right.priceRange),
+    );
+  }
+
+  if (sortBy === '最新更新') {
+    return [...products].sort((left, right) =>
+      right.updatedAt.localeCompare(left.updatedAt),
+    );
+  }
+
+  return products;
+}
+
+export async function listAllProducts(
+  options: Omit<ProductListOptions, 'page' | 'pageSize'> = {},
+) {
+  const records = await queryProductRecords(options);
+  const productIds = records.map((record) => record.id);
+
+  if (productIds.length === 0) {
+    return [] as ProductListItem[];
+  }
+
   const [
-    records,
     brands,
     categories,
     companies,
@@ -597,16 +783,15 @@ export async function listProducts() {
     quotes,
     productCompanies,
   ] = await Promise.all([
-    queryProductRecords(),
     listBrands(),
     listCategories(),
     listCompanies(),
-    listDocuments(),
-    listQuotes(),
-    listProductCompanies(),
+    listDocuments({ productIds }),
+    listQuotes({ productIds }),
+    listProductCompanies({ productIds }),
   ]);
 
-  return Promise.all(
+  const mappedProducts = await Promise.all(
     records
       .toSorted((left, right) =>
         right.updated_at.localeCompare(left.updated_at),
@@ -622,6 +807,65 @@ export async function listProducts() {
         }),
       ),
   );
+
+  const filteredProducts = isSupabaseConfigured
+    ? mappedProducts
+    : filterProductsLocally(mappedProducts, options);
+
+  return sortProducts(filteredProducts, options.sortBy);
+}
+
+export async function listProducts(
+  options: ProductListOptions = {},
+): Promise<PaginatedResult<ProductListItem>> {
+  const items = await listAllProducts(options);
+  return paginateItems(items, options);
+}
+
+export async function exportProductsCsv(
+  options: Omit<ProductListOptions, 'page' | 'pageSize'> = {},
+) {
+  const items = await listAllProducts(options);
+  const rows = [
+    [
+      '产品名称',
+      '型号',
+      '分类',
+      '品牌',
+      '关联公司',
+      '公司类型',
+      '价格',
+      '起订量',
+      '资料数量',
+      '报价数量',
+      '更新时间',
+      '摘要',
+    ],
+    ...items.map((item) => [
+      item.name,
+      item.model,
+      item.category,
+      item.brand || '',
+      item.company,
+      item.companyType ? formatCompanyType(item.companyType) : '',
+      item.priceRange,
+      item.latestQuote?.min_order_quantity
+        ? String(item.latestQuote.min_order_quantity)
+        : '',
+      String(item.documentCount),
+      String(item.quoteCount),
+      item.updatedAt,
+      item.summary,
+    ]),
+  ];
+
+  return rows
+    .map((row) =>
+      row
+        .map((cell) => `"${String(cell).replaceAll('"', '""')}"`)
+        .join(','),
+    )
+    .join('\n');
 }
 
 export async function listCategories() {
@@ -649,13 +893,17 @@ export async function listCompanies() {
 }
 
 export async function listProductCompanies({
+  productIds,
   productId,
 }: {
+  productIds?: string[];
   productId?: string;
 } = {}) {
   if (!isSupabaseConfigured) {
     return demoProductCompanies.filter(
-      (item) => !productId || item.product_id === productId,
+      (item) =>
+        (!productId || item.product_id === productId) &&
+        (!productIds?.length || productIds.includes(item.product_id)),
     );
   }
 
@@ -664,6 +912,10 @@ export async function listProductCompanies({
 
   if (productId) {
     query = query.eq('product_id', productId);
+  }
+
+  if (productIds?.length) {
+    query = query.in('product_id', productIds);
   }
 
   const { data, error } = await query;
@@ -677,10 +929,12 @@ export async function listProductCompanies({
 
 export async function listDocuments({
   fileType,
+  productIds,
   productId,
   productModel,
 }: {
   fileType?: DocumentRecord['file_type'];
+  productIds?: string[];
   productId?: string;
   productModel?: string;
 } = {}) {
@@ -689,6 +943,7 @@ export async function listDocuments({
       return (
         (!fileType || item.file_type === fileType) &&
         (!productId || item.product_id === productId) &&
+        (!productIds?.length || (!!item.product_id && productIds.includes(item.product_id))) &&
         (!productModel || item.product_model === productModel)
       );
     });
@@ -708,6 +963,10 @@ export async function listDocuments({
     query = query.eq('variant_id', productId);
   }
 
+  if (productIds?.length) {
+    query = query.in('variant_id', productIds);
+  }
+
   if (productModel) {
     query = query.eq('product_model', productModel);
   }
@@ -722,18 +981,22 @@ export async function listDocuments({
 }
 
 export async function listQuotes({
+  productIds,
   productId,
 }: {
+  productIds?: string[];
   productId?: string;
 } = {}) {
   if (!isSupabaseConfigured) {
     return demoQuotes.filter(
       (item) =>
-        isVisibleQuote(item) && (!productId || item.product_id === productId),
+        isVisibleQuote(item) &&
+        (!productId || item.product_id === productId) &&
+        (!productIds?.length || productIds.includes(item.product_id)),
     );
   }
 
-  return fetchRealQuotes({ productId });
+  return fetchRealQuotes({ productId, productIds });
 }
 
 export async function listQuoteDocuments({
@@ -837,7 +1100,7 @@ export async function listUpdates({
 export async function getDashboardSummary() {
   const [products, categories, brands, companies, documents, quotes] =
     await Promise.all([
-      listProducts(),
+      listAllProducts(),
       listCategories(),
       listBrands(),
       listCompanies(),
@@ -858,7 +1121,7 @@ export async function getDashboardSummary() {
 export async function getProductDetail(idOrModel: string) {
   const [products, documents, quotes, companies, productCompanies, updates] =
     await Promise.all([
-      listProducts(),
+      listAllProducts(),
       listDocuments(),
       listQuotes(),
       listCompanies(),
@@ -932,13 +1195,403 @@ export async function createDocumentSignedUrl(document: DocumentRecord) {
   return data.signedUrl;
 }
 
-async function queryProductRecords() {
-  if (!isSupabaseConfigured) {
-    return demoProducts.filter((record) => isActiveRecord(record));
+async function fetchVariantIdsBySeriesIds(seriesIds: string[]) {
+  if (seriesIds.length === 0) {
+    return [] as string[];
   }
 
   const client = assertSupabaseClient();
   const { data, error } = await client
+    .from('product_variants')
+    .select('id')
+    .eq('status', 'active')
+    .in('series_id', seriesIds);
+
+  if (error) {
+    throw error;
+  }
+
+  return ((data || []) as Array<{ id: string }>).map((item) => item.id);
+}
+
+async function resolveVariantIdsForKeyword(keyword: string) {
+  const normalizedKeyword = normalizeSearchKeyword(keyword);
+  if (!normalizedKeyword) {
+    return null;
+  }
+
+  const sanitizedKeyword = sanitizeIlikeValue(normalizedKeyword);
+  if (!sanitizedKeyword) {
+    return null;
+  }
+
+  const client = assertSupabaseClient();
+  let variantIds = new Set<string>();
+
+  const variantFilter = buildIlikeOrFilter(
+    [
+      'display_name',
+      'model_code',
+      'summary_config_text',
+      'chipset',
+      'os_name',
+      'os_version',
+      'material',
+      'vesa_spec',
+      'speaker_spec',
+    ],
+    sanitizedKeyword,
+  );
+  if (variantFilter) {
+    const { data, error } = await client
+      .from('product_variants')
+      .select('id')
+      .eq('status', 'active')
+      .or(variantFilter);
+
+    if (error) {
+      throw error;
+    }
+
+    for (const item of (data || []) as Array<{ id: string }>) {
+      variantIds.add(item.id);
+    }
+  }
+
+  const seriesFilter = buildIlikeOrFilter(
+    ['series_name', 'series_code', 'product_type', 'base_description'],
+    sanitizedKeyword,
+  );
+  if (seriesFilter) {
+    const { data, error } = await client
+      .from('product_series')
+      .select('id')
+      .eq('status', 'active')
+      .or(seriesFilter);
+
+    if (error) {
+      throw error;
+    }
+
+    const seriesVariantIds = await fetchVariantIdsBySeriesIds(
+      ((data || []) as Array<{ id: string }>).map((item) => item.id),
+    );
+    for (const id of seriesVariantIds) {
+      variantIds.add(id);
+    }
+  }
+
+  const specFilter = buildIlikeOrFilter(
+    ['section_key', 'section_label', 'spec_key', 'spec_label', 'spec_value_text'],
+    sanitizedKeyword,
+  );
+  if (specFilter) {
+    const { data, error } = await client
+      .from('product_spec_items')
+      .select('variant_id')
+      .or(specFilter);
+
+    if (error) {
+      throw error;
+    }
+
+    for (const item of (data || []) as Array<{ variant_id: string }>) {
+      variantIds.add(item.variant_id);
+    }
+  }
+
+  const [matchedBrands, matchedCategories, matchedCompanies] = await Promise.all([
+    client
+      .from('brands')
+      .select('id')
+      .eq('status', 'active')
+      .or(buildIlikeOrFilter(['name', 'slug'], sanitizedKeyword)),
+    client
+      .from('categories')
+      .select('id')
+      .eq('status', 'active')
+      .or(buildIlikeOrFilter(['name', 'slug'], sanitizedKeyword)),
+    client
+      .from('companies')
+      .select('id')
+      .eq('status', 'active')
+      .or(buildIlikeOrFilter(['name', 'slug', 'type'], sanitizedKeyword)),
+  ]);
+
+  if (matchedBrands.error) {
+    throw matchedBrands.error;
+  }
+
+  if (matchedCategories.error) {
+    throw matchedCategories.error;
+  }
+
+  if (matchedCompanies.error) {
+    throw matchedCompanies.error;
+  }
+
+  const matchedBrandIds = ((matchedBrands.data || []) as Array<{ id: string }>).map(
+    (item) => item.id,
+  );
+  const matchedCategoryIds = ((matchedCategories.data || []) as Array<{ id: string }>).map(
+    (item) => item.id,
+  );
+  const matchedCompanyIds = ((matchedCompanies.data || []) as Array<{ id: string }>).map(
+    (item) => item.id,
+  );
+
+  if (
+    matchedBrandIds.length > 0 ||
+    matchedCategoryIds.length > 0 ||
+    matchedCompanyIds.length > 0
+  ) {
+    const seriesIdSet = new Set<string>();
+    const seriesQueries: Array<PromiseLike<{ data: null | { id: string }[]; error: unknown }>> = [];
+
+    if (matchedBrandIds.length > 0) {
+      seriesQueries.push(
+        client
+          .from('product_series')
+          .select('id')
+          .eq('status', 'active')
+          .in('brand_id', matchedBrandIds),
+      );
+    }
+
+    if (matchedCategoryIds.length > 0) {
+      seriesQueries.push(
+        client
+          .from('product_series')
+          .select('id')
+          .eq('status', 'active')
+          .in('category_id', matchedCategoryIds),
+      );
+    }
+
+    if (matchedCompanyIds.length > 0) {
+      seriesQueries.push(
+        client
+          .from('product_series')
+          .select('id')
+          .eq('status', 'active')
+          .in('company_id', matchedCompanyIds),
+      );
+    }
+
+    const seriesResponses = await Promise.all(seriesQueries);
+    for (const response of seriesResponses) {
+      if (response.error) {
+        throw response.error;
+      }
+
+      for (const item of (response.data || []) as Array<{ id: string }>) {
+        seriesIdSet.add(item.id);
+      }
+    }
+
+    const seriesVariantIds = await fetchVariantIdsBySeriesIds(
+      [...seriesIdSet],
+    );
+    for (const id of seriesVariantIds) {
+      variantIds.add(id);
+    }
+  }
+
+  return variantIds;
+}
+
+async function resolveVariantIdsByCategorySlug(categorySlug: string) {
+  const client = assertSupabaseClient();
+  const { data: categories, error: categoryError } = await client
+    .from('categories')
+    .select('id')
+    .eq('status', 'active')
+    .eq('slug', categorySlug)
+    .limit(1);
+
+  if (categoryError) {
+    throw categoryError;
+  }
+
+  const categoryId = (categories?.[0] as { id: string } | undefined)?.id;
+  if (!categoryId) {
+    return new Set<string>();
+  }
+
+  const { data: series, error: seriesError } = await client
+    .from('product_series')
+    .select('id')
+    .eq('status', 'active')
+    .eq('category_id', categoryId);
+
+  if (seriesError) {
+    throw seriesError;
+  }
+
+  return new Set(
+    await fetchVariantIdsBySeriesIds(
+      ((series || []) as Array<{ id: string }>).map((item) => item.id),
+    ),
+  );
+}
+
+async function resolveVariantIdsByBrandSlugs(brandSlugs: string[]) {
+  if (brandSlugs.length === 0) {
+    return null;
+  }
+
+  const client = assertSupabaseClient();
+  const { data: brands, error: brandError } = await client
+    .from('brands')
+    .select('id')
+    .eq('status', 'active')
+    .in('slug', brandSlugs);
+
+  if (brandError) {
+    throw brandError;
+  }
+
+  const brandIds = ((brands || []) as Array<{ id: string }>).map((item) => item.id);
+  if (brandIds.length === 0) {
+    return new Set<string>();
+  }
+
+  const { data: series, error: seriesError } = await client
+    .from('product_series')
+    .select('id')
+    .eq('status', 'active')
+    .in('brand_id', brandIds);
+
+  if (seriesError) {
+    throw seriesError;
+  }
+
+  return new Set(
+    await fetchVariantIdsBySeriesIds(
+      ((series || []) as Array<{ id: string }>).map((item) => item.id),
+    ),
+  );
+}
+
+async function resolveVariantIdsByPriceRange({
+  maxPrice,
+  minPrice,
+}: Pick<ProductListOptions, 'maxPrice' | 'minPrice'>) {
+  const hasMinPrice = typeof minPrice === 'number' && Number.isFinite(minPrice);
+  const hasMaxPrice = typeof maxPrice === 'number' && Number.isFinite(maxPrice);
+
+  if (!hasMinPrice && !hasMaxPrice) {
+    return null;
+  }
+
+  const client = assertSupabaseClient();
+  let tierQuery = client.from('quote_price_tiers').select('quote_line_id');
+
+  if (hasMinPrice) {
+    tierQuery = tierQuery.gte('unit_price', minPrice || 0);
+  }
+
+  if (hasMaxPrice) {
+    tierQuery = tierQuery.lte('unit_price', maxPrice || 0);
+  }
+
+  const { data: tiers, error: tierError } = await tierQuery;
+  if (tierError) {
+    throw tierError;
+  }
+
+  const quoteLineIds = ((tiers || []) as Array<{ quote_line_id: string }>).map(
+    (item) => item.quote_line_id,
+  );
+  if (quoteLineIds.length === 0) {
+    return new Set<string>();
+  }
+
+  const { data: lines, error: lineError } = await client
+    .from('quote_lines')
+    .select('id, quote_batch_id, variant_id, status')
+    .in('id', quoteLineIds)
+    .eq('status', 'active');
+
+  if (lineError) {
+    throw lineError;
+  }
+
+  const batchIds = [...new Set(
+    ((lines || []) as Array<{ quote_batch_id: string }>).map(
+      (item) => item.quote_batch_id,
+    ),
+  )];
+  if (batchIds.length === 0) {
+    return new Set<string>();
+  }
+
+  const { data: batches, error: batchError } = await client
+    .from('quote_batches')
+    .select('id')
+    .in('id', batchIds)
+    .eq('status', 'active');
+
+  if (batchError) {
+    throw batchError;
+  }
+
+  const activeBatchIds = new Set(
+    ((batches || []) as Array<{ id: string }>).map((item) => item.id),
+  );
+
+  return new Set(
+    ((lines || []) as Array<{
+      quote_batch_id: string;
+      variant_id: string;
+    }>)
+      .filter((item) => activeBatchIds.has(item.quote_batch_id))
+      .map((item) => item.variant_id),
+  );
+}
+
+async function resolveFilteredVariantIds(options: ProductListOptions) {
+  let variantIds: null | Set<string> = null;
+
+  if (options.categorySlug) {
+    variantIds = intersectIds(
+      variantIds,
+      await resolveVariantIdsByCategorySlug(options.categorySlug),
+    );
+  }
+
+  if (options.brandSlugs?.length) {
+    variantIds = intersectIds(
+      variantIds,
+      (await resolveVariantIdsByBrandSlugs(options.brandSlugs)) || [],
+    );
+  }
+
+  const keywordVariantIds = await resolveVariantIdsForKeyword(options.keyword || '');
+  if (keywordVariantIds !== null) {
+    variantIds = intersectIds(variantIds, keywordVariantIds);
+  }
+
+  const priceVariantIds = await resolveVariantIdsByPriceRange(options);
+  if (priceVariantIds !== null) {
+    variantIds = intersectIds(variantIds, priceVariantIds);
+  }
+
+  return variantIds;
+}
+
+async function queryProductRecords(options: ProductListOptions = {}) {
+  if (!isSupabaseConfigured) {
+    return demoProducts.filter((record) => isActiveRecord(record));
+  }
+
+  const filteredVariantIds = await resolveFilteredVariantIds(options);
+  if (filteredVariantIds && filteredVariantIds.size === 0) {
+    return [] as ProductRecord[];
+  }
+
+  const client = assertSupabaseClient();
+  let query = client
     .from('product_variants')
     .select(
       `
@@ -952,8 +1605,15 @@ async function queryProductRecords() {
         specs:product_spec_items(*)
       `,
     )
-    .eq('status', 'active')
-    .order('updated_at', { ascending: false });
+    .eq('status', 'active');
+
+  if (filteredVariantIds && filteredVariantIds.size > 0) {
+    query = query.in('id', [...filteredVariantIds]);
+  }
+
+  query = query.order('updated_at', { ascending: false });
+
+  const { data, error } = await query;
 
   if (error) {
     throw error;
@@ -1054,8 +1714,10 @@ async function queryProductRecords() {
 }
 
 async function fetchRealQuotes({
+  productIds,
   productId,
 }: {
+  productIds?: string[];
   productId?: string;
 }) {
   const client = assertSupabaseClient();
@@ -1066,6 +1728,8 @@ async function fetchRealQuotes({
 
   if (productId) {
     lineQuery = lineQuery.eq('variant_id', productId);
+  } else if (productIds?.length) {
+    lineQuery = lineQuery.in('variant_id', productIds);
   }
 
   const { data: lines, error: lineError } = await lineQuery;

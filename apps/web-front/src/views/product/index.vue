@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import { NPagination } from 'naive-ui';
 import {
   ChevronDown,
   Download,
-  Grid2x2,
-  List,
   Search,
   SlidersHorizontal,
   X,
@@ -18,8 +17,15 @@ import type {
 } from '#/views/product/product-list-data';
 
 import {
+  exportProductsCsv,
+  formatCompanyType,
+  formatDocumentType,
+  formatDate,
+  formatStatus,
   isUsingDemoData,
+  listAllProducts,
   listProducts,
+  type ProductListOptions,
   type ProductListItem,
 } from '#/api/product-info';
 import AppIcon from '#/components/AppIcon.vue';
@@ -27,37 +33,37 @@ import { useAuthState } from '#/lib/auth';
 import { getErrorMessage } from '#/lib/errors';
 import ProductSidebarFilters from '#/views/product/components/ProductSidebarFilters.vue';
 import ProductTableRow from '#/views/product/components/ProductTableRow.vue';
-import {
-  productBrands,
-  productCategoryGroups,
-} from '#/views/product/product-list-data';
-
-const DEFAULT_CATEGORY_SUMMARY = '电脑显示屏、平板、无人机配件';
-const BASE_RESULT_COUNT = 2156;
 
 const auth = useAuthState();
 const route = useRoute();
 const router = useRouter();
 const loading = ref(false);
+const exporting = ref(false);
 const errorMessage = ref('');
 const keyword = ref('');
 const products = ref<ProductListItem[]>([]);
+const brandFacetProducts = ref<ProductListItem[]>([]);
+const categoryFacetProducts = ref<ProductListItem[]>([]);
+const currentPage = ref(1);
 const selectedCategorySlug = ref('');
 const selectedBrandSlugs = ref<string[]>([]);
 const minPrice = ref('');
 const maxPrice = ref('');
-const sortBy = ref('相关度');
+const sortBy = ref<NonNullable<ProductListOptions['sortBy']>>('相关度');
 const mobileFilterOpen = ref(false);
+const pageSize = 20;
+const totalResults = ref(0);
+const totalPages = ref(1);
 
-const sortOptions = ['相关度', '最新更新', '价格从低到高'];
+const sortOptions = ['相关度', '最新更新', '价格从低到高'] as const;
+
+function isSortOption(value: string): value is NonNullable<ProductListOptions['sortBy']> {
+  return sortOptions.includes(value as (typeof sortOptions)[number]);
+}
 
 const brandOptions = computed<BrandFilter[]>(() => {
-  if (products.value.length === 0) {
-    return productBrands;
-  }
-
   const map = new Map<string, { count: number; label: string }>();
-  for (const item of products.value) {
+  for (const item of brandFacetProducts.value) {
     if (!item.brandSlug || !item.brand) {
       continue;
     }
@@ -75,12 +81,8 @@ const brandOptions = computed<BrandFilter[]>(() => {
 });
 
 const categoryOptions = computed<CategoryGroup[]>(() => {
-  if (products.value.length === 0) {
-    return productCategoryGroups;
-  }
-
   const map = new Map<string, { count: number; label: string }>();
-  for (const item of products.value) {
+  for (const item of categoryFacetProducts.value) {
     if (!item.categorySlug) {
       continue;
     }
@@ -95,7 +97,7 @@ const categoryOptions = computed<CategoryGroup[]>(() => {
 
   return [
     {
-      count: products.value.length,
+      count: categoryFacetProducts.value.length,
       label: '产品分类',
       options: [...map.entries()].map(([slug, value]) => ({
         count: value.count,
@@ -127,14 +129,57 @@ function normalizeQueryValues(value: unknown) {
   return single ? [single] : [];
 }
 
-function getPriceNumber(value: string) {
-  return Number(value.replaceAll(',', '')) || 0;
+function normalizePriceValue(value: unknown) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  return value.replace(/[^\d.]/g, '').trim();
+}
+
+function formatUpdatedAgo(value: string) {
+  const updatedAt = new Date(value).getTime();
+  if (Number.isNaN(updatedAt)) {
+    return '';
+  }
+
+  const diffMs = Date.now() - updatedAt;
+  const hour = 60 * 60 * 1000;
+  const day = 24 * hour;
+
+  if (diffMs < hour) {
+    const minutes = Math.max(1, Math.floor(diffMs / (60 * 1000)));
+    return `${minutes} 分钟前`;
+  }
+
+  if (diffMs < day) {
+    return `${Math.floor(diffMs / hour)} 小时前`;
+  }
+
+  return `${Math.floor(diffMs / day)} 天前`;
+}
+
+function buildDocumentLinks(product: ProductListItem) {
+  const tones: Array<'blue' | 'red'> = ['red', 'blue'];
+
+  return (product.documentTypes || [])
+    .slice(0, 2)
+    .map((fileType, index) => ({
+      label: formatDocumentType(fileType),
+      tone: tones[index] || 'blue',
+    }));
 }
 
 function syncRouteFilters() {
   keyword.value = normalizeQueryValue(route.query.keyword);
   selectedCategorySlug.value = normalizeQueryValue(route.query.categorySlug);
   selectedBrandSlugs.value = normalizeQueryValues(route.query.brandSlug);
+  minPrice.value = normalizePriceValue(route.query.minPrice);
+  maxPrice.value = normalizePriceValue(route.query.maxPrice);
+  currentPage.value = Math.max(1, Number(normalizeQueryValue(route.query.page)) || 1);
+
+  const nextSortBy = normalizeQueryValue(route.query.sortBy);
+  sortBy.value = isSortOption(nextSortBy) ? nextSortBy : '相关度';
 }
 
 watch(
@@ -171,131 +216,124 @@ const selectedBrandLabel = computed(() => {
 });
 
 const rows = computed<CatalogProduct[]>(() => {
-  const normalizedKeyword = keyword.value.trim().toLowerCase();
-  const minimum = Number(minPrice.value) || 0;
-  const maximum = Number(maxPrice.value) || Number.POSITIVE_INFINITY;
-
-  const filtered = products.value.filter((product) => {
-    if (
-      selectedCategorySlug.value &&
-      product.categorySlug !== selectedCategorySlug.value
-    ) {
-      return false;
-    }
-
-    if (
-      selectedBrandSlugs.value.length > 0 &&
-      !selectedBrandSlugs.value.includes(product.brandSlug || '')
-    ) {
-      return false;
-    }
-
-    const productPrice = getPriceNumber(product.priceRange);
-    if (productPrice < minimum || productPrice > maximum) {
-      return false;
-    }
-
-    if (!normalizedKeyword) {
-      return true;
-    }
-
-    const haystack = [
-      product.name,
-      product.model,
-      product.summary,
-      product.brand || '',
-      product.company,
-      ...product.tags,
-      ...product.specEntries.map((spec) => `${spec.label} ${spec.value}`),
-    ]
-      .join(' ')
-      .toLowerCase();
-
-    return haystack.includes(normalizedKeyword);
-  });
-
-  let sorted = filtered;
-
-  if (sortBy.value === '价格从低到高') {
-    sorted = [...filtered].sort(
-      (left, right) =>
-        getPriceNumber(left.priceRange) - getPriceNumber(right.priceRange),
-    );
-  } else if (sortBy.value === '最新更新') {
-    sorted = [...filtered].sort((left, right) =>
-      right.updatedAt.localeCompare(left.updatedAt),
-    );
-  }
-
-  return sorted.map((product) => ({
+  return products.value.map((product) => ({
     brandName: product.brand || '未设置品牌',
     brandSlug: product.brandSlug || 'unknown-brand',
     categorySlug: product.categorySlug || 'uncategorized',
+    companyId: product.companyId || undefined,
     companyName: product.company,
-    companyRating: 4.8,
     docCount: product.documentCount,
-    docs: [
-      { label: '规格书', tone: 'red' },
-      { label: '报价资料', tone: 'blue' },
-    ],
+    docs: buildDocumentLinks(product),
     id: product.model,
     image: product.imageUrl,
-    leadTime: '待确认',
     minimumOrder: product.latestQuote?.min_order_quantity
       ? `${product.latestQuote.min_order_quantity} 台`
-      : '待确认',
+      : '暂无',
     model: product.model,
     name: product.name,
-    price: product.priceRange.replace(/^[^\d-]+/, '').trim() || '待报价',
-    quoteRole: '供应商',
+    price: product.priceRange,
+    productId: product.id,
+    quoteRole: product.companyType
+      ? formatCompanyType(product.companyType)
+      : '关联公司',
     specs: product.specEntries.slice(0, 4).map((item) => ({
       label: item.label,
       value: item.value,
     })),
     summary: product.summary,
     tags: product.tags,
-    updatedAgo: '',
-    updatedDate: product.updatedAt,
+    updatedAgo: formatUpdatedAgo(product.updatedAt),
+    updatedDate: formatDate(product.updatedAt),
+    statusLabel: formatStatus(product.status),
   }));
 });
 
-const activeFilterChips = computed(() => [
-  {
-    key: 'category',
-    label: `分类：${selectedCategoryLabel.value || DEFAULT_CATEGORY_SUMMARY}`,
-  },
-  {
-    key: 'brand',
-    label: `品牌：${selectedBrandLabel.value}`,
-  },
-  {
-    key: 'voltage',
-    label: '工作电压：全部',
-  },
-]);
+const activeFilterChips = computed(() => {
+  const chips: Array<{ key: string; label: string }> = [];
 
-const totalResultsLabel = computed(() => {
-  if (rows.value.length === 0) {
-    return '0';
+  if (keyword.value.trim()) {
+    chips.push({
+      key: 'keyword',
+      label: `关键词：${keyword.value.trim()}`,
+    });
   }
 
-  if (rows.value.length === products.value.length) {
-    return BASE_RESULT_COUNT.toLocaleString('zh-CN');
+  if (selectedCategoryLabel.value) {
+    chips.push({
+      key: 'category',
+      label: `分类：${selectedCategoryLabel.value}`,
+    });
   }
 
-  const reduced = Math.max(
-    24,
-    BASE_RESULT_COUNT - (products.value.length - rows.value.length) * 164,
-  );
-  return reduced.toLocaleString('zh-CN');
+  if (selectedBrandSlugs.value.length > 0) {
+    chips.push({
+      key: 'brand',
+      label: `品牌：${selectedBrandLabel.value}`,
+    });
+  }
+
+  if (minPrice.value || maxPrice.value) {
+    chips.push({
+      key: 'price',
+      label: `价格：${minPrice.value || '不限'} - ${maxPrice.value || '不限'}`,
+    });
+  }
+
+  return chips;
 });
 
-function submitSearch() {
-  const query = keyword.value.trim();
+const totalResultsLabel = computed(() => {
+  return totalResults.value.toLocaleString('zh-CN');
+});
+
+function buildProductsRouteQuery() {
+  const query: Record<string, string | string[]> = {};
+
+  if (keyword.value.trim()) {
+    query.keyword = keyword.value.trim();
+  }
+
+  if (selectedCategorySlug.value) {
+    query.categorySlug = selectedCategorySlug.value;
+  }
+
+  if (selectedBrandSlugs.value.length > 0) {
+    query.brandSlug = selectedBrandSlugs.value;
+  }
+
+  if (minPrice.value) {
+    query.minPrice = minPrice.value;
+  }
+
+  if (maxPrice.value) {
+    query.maxPrice = maxPrice.value;
+  }
+
+  if (sortBy.value !== '相关度') {
+    query.sortBy = sortBy.value;
+  }
+
+  if (currentPage.value > 1) {
+    query.page = String(currentPage.value);
+  }
+
+  return query;
+}
+
+function replaceProductsRouteQuery({
+  page = currentPage.value,
+}: {
+  page?: number;
+} = {}) {
+  currentPage.value = page;
   void router.replace({
     name: 'products',
-    query: query ? { keyword: query } : {},
+    query: buildProductsRouteQuery(),
   });
+}
+
+function submitSearch() {
+  replaceProductsRouteQuery({ page: 1 });
 }
 
 function toggleBrand(slug: string) {
@@ -303,21 +341,26 @@ function toggleBrand(slug: string) {
     selectedBrandSlugs.value = selectedBrandSlugs.value.filter(
       (item) => item !== slug,
     );
-    return;
+  } else {
+    selectedBrandSlugs.value = [...selectedBrandSlugs.value, slug];
   }
 
-  selectedBrandSlugs.value = [...selectedBrandSlugs.value, slug];
+  replaceProductsRouteQuery({ page: 1 });
 }
 
 function clearChip(key: string) {
-  if (key === 'category') {
+  if (key === 'keyword') {
+    keyword.value = '';
+  } else if (key === 'category') {
     selectedCategorySlug.value = '';
-    return;
+  } else if (key === 'brand') {
+    selectedBrandSlugs.value = [];
+  } else if (key === 'price') {
+    minPrice.value = '';
+    maxPrice.value = '';
   }
 
-  if (key === 'brand') {
-    selectedBrandSlugs.value = [];
-  }
+  replaceProductsRouteQuery({ page: 1 });
 }
 
 function clearAllFilters() {
@@ -332,6 +375,57 @@ function clearAllFilters() {
 
 function applyFilters() {
   mobileFilterOpen.value = false;
+  replaceProductsRouteQuery({ page: 1 });
+}
+
+function updateCategory(slug: string) {
+  selectedCategorySlug.value = slug;
+  replaceProductsRouteQuery({ page: 1 });
+}
+
+function handleSortChange() {
+  replaceProductsRouteQuery({ page: 1 });
+}
+
+function buildProductFilterOptions(
+  overrides: Partial<Omit<ProductListOptions, 'page' | 'pageSize'>> = {},
+): Omit<ProductListOptions, 'page' | 'pageSize'> {
+  return {
+    brandSlugs: selectedBrandSlugs.value,
+    categorySlug: selectedCategorySlug.value || undefined,
+    keyword: keyword.value || undefined,
+    maxPrice: maxPrice.value ? Number(maxPrice.value) : undefined,
+    minPrice: minPrice.value ? Number(minPrice.value) : undefined,
+    sortBy: sortBy.value,
+    ...overrides,
+  };
+}
+
+function handlePageChange(page: number) {
+  replaceProductsRouteQuery({ page });
+}
+
+async function handleExport() {
+  exporting.value = true;
+
+  try {
+    const csv = await exportProductsCsv(buildProductFilterOptions());
+    const blob = new Blob([`\uFEFF${csv}`], {
+      type: 'text/csv;charset=utf-8;',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const date = new Date().toISOString().slice(0, 10);
+
+    link.href = url;
+    link.download = `products-${date}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    errorMessage.value = getErrorMessage(error);
+  } finally {
+    exporting.value = false;
+  }
 }
 
 async function loadProducts() {
@@ -339,17 +433,46 @@ async function loadProducts() {
   errorMessage.value = '';
 
   try {
-    products.value = await listProducts();
+    const baseOptions = buildProductFilterOptions();
+    const [pagedResult, brands, categories] = await Promise.all([
+      listProducts({
+        ...baseOptions,
+        page: currentPage.value,
+        pageSize,
+      }),
+      listAllProducts({
+        ...baseOptions,
+        brandSlugs: undefined,
+      }),
+      listAllProducts({
+        ...baseOptions,
+        categorySlug: undefined,
+      }),
+    ]);
+
+    products.value = pagedResult.items;
+    brandFacetProducts.value = brands;
+    categoryFacetProducts.value = categories;
+    totalResults.value = pagedResult.total;
+    totalPages.value = pagedResult.totalPages;
+
+    if (pagedResult.page !== currentPage.value) {
+      replaceProductsRouteQuery({ page: pagedResult.page });
+    }
   } catch (error) {
     errorMessage.value = getErrorMessage(error);
     products.value = [];
+    brandFacetProducts.value = [];
+    categoryFacetProducts.value = [];
+    totalResults.value = 0;
+    totalPages.value = 1;
   } finally {
     loading.value = false;
   }
 }
 
 watch(
-  () => [auth.initialized, isUsingDemoData()],
+  () => [auth.initialized, isUsingDemoData(), route.fullPath],
   ([initialized, demoMode]) => {
     if (!initialized && !demoMode) {
       return;
@@ -373,7 +496,7 @@ watch(
               placeholder="搜索产品名称 / 型号"
               @keyup.enter="submitSearch"
             />
-            <button type="button" aria-label="清空搜索" @click="keyword = ''">
+            <button type="button" aria-label="清空搜索" @click="keyword = ''; submitSearch()">
               <AppIcon :icon="X" :size="15" />
             </button>
           </div>
@@ -396,7 +519,12 @@ watch(
             <AppIcon :icon="X" :size="12" />
             <span>{{ chip.label }}</span>
           </button>
-          <button class="product-page__chips-clear" type="button" @click="clearAllFilters">
+          <button
+            v-if="activeFilterChips.length"
+            class="product-page__chips-clear"
+            type="button"
+            @click="clearAllFilters"
+          >
             清空全部
           </button>
         </div>
@@ -415,7 +543,7 @@ watch(
           @apply="applyFilters"
           @reset="clearAllFilters"
           @toggle-brand="toggleBrand"
-          @update-category="selectedCategorySlug = $event"
+          @update-category="updateCategory"
         />
       </aside>
 
@@ -439,7 +567,11 @@ watch(
             <div class="product-page__sorter">
               <span>排序：</span>
               <label>
-                <select v-model="sortBy" aria-label="排序方式">
+                <select
+                  v-model="sortBy"
+                  aria-label="排序方式"
+                  @change="handleSortChange"
+                >
                   <option v-for="item in sortOptions" :key="item" :value="item">
                     {{ item }}
                   </option>
@@ -448,32 +580,26 @@ watch(
               </label>
             </div>
 
-            <div class="product-page__view-switch">
-              <button class="is-active" type="button" aria-label="列表视图">
-                <AppIcon :icon="List" :size="16" />
-              </button>
-              <button type="button" aria-label="网格视图">
-                <AppIcon :icon="Grid2x2" :size="16" />
-              </button>
-            </div>
-
-            <button class="product-page__export" type="button">
+            <button
+              class="product-page__export"
+              type="button"
+              :disabled="exporting || totalResults === 0"
+              @click="handleExport"
+            >
               <AppIcon :icon="Download" :size="16" />
-              <span>导出</span>
+              <span>{{ exporting ? '导出中' : '导出 CSV' }}</span>
             </button>
           </div>
         </div>
 
         <div class="product-page__table">
           <div class="product-page__table-head">
-            <span></span>
             <span>产品信息</span>
             <span>关键参数</span>
             <span>相关资料</span>
             <span>最新报价（含税）</span>
             <span>关联公司</span>
             <span>更新时间</span>
-            <span></span>
           </div>
 
           <div v-if="errorMessage" class="product-page__empty">
@@ -500,6 +626,21 @@ watch(
             <p>尝试清空筛选条件，或者更换关键词继续搜索。</p>
             <button type="button" @click="clearAllFilters">重置筛选</button>
           </div>
+        </div>
+
+        <div
+          v-if="!loading && !errorMessage && totalResults > 0"
+          class="product-page__pagination"
+        >
+          <span class="product-page__pagination-summary">
+            第 {{ currentPage }} / {{ totalPages }} 页，共 {{ totalResultsLabel }} 条
+          </span>
+          <n-pagination
+            :item-count="totalResults"
+            :page="currentPage"
+            :page-size="pageSize"
+            @update:page="handlePageChange"
+          />
         </div>
       </section>
     </section>
@@ -531,7 +672,7 @@ watch(
         @apply="applyFilters"
         @reset="clearAllFilters"
         @toggle-brand="toggleBrand"
-        @update-category="selectedCategorySlug = $event"
+        @update-category="updateCategory"
       />
     </aside>
   </div>
@@ -727,8 +868,7 @@ watch(
 }
 
 .product-page__filter-toggle,
-.product-page__export,
-.product-page__view-switch button {
+.product-page__export {
   display: inline-flex;
   gap: 6px;
   align-items: center;
@@ -742,6 +882,12 @@ watch(
   background: #fff;
   border: 1px solid #dce4f0;
   border-radius: 4px;
+}
+
+.product-page__export:disabled {
+  color: #9aa8bf;
+  cursor: not-allowed;
+  background: #f7f9fc;
 }
 
 .product-page__filter-toggle {
@@ -785,22 +931,6 @@ watch(
   color: #7f8ea7;
 }
 
-.product-page__view-switch {
-  display: inline-flex;
-  gap: 6px;
-}
-
-.product-page__view-switch button {
-  width: 34px;
-  padding: 0;
-}
-
-.product-page__view-switch button.is-active {
-  color: #1664d9;
-  background: #edf4ff;
-  border-color: #d6e6ff;
-}
-
 .product-page__table {
   overflow: hidden;
   border: 1px solid #e6edf7;
@@ -809,7 +939,7 @@ watch(
 
 .product-page__table-head {
   display: grid;
-  grid-template-columns: 34px minmax(0, 2.65fr) minmax(0, 1.55fr) 0.95fr 0.9fr 1.05fr 0.62fr 28px;
+  grid-template-columns: minmax(0, 2.8fr) minmax(0, 1.5fr) 0.95fr 0.9fr 1.05fr 0.62fr;
   gap: 16px;
   align-items: center;
   padding: 10px 14px;
@@ -844,6 +974,20 @@ watch(
   background: #1664d9;
   border: 0;
   border-radius: 6px;
+}
+
+.product-page__pagination {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 4px 0;
+}
+
+.product-page__pagination-summary {
+  font-size: 13px;
+  color: #60708d;
 }
 
 .product-page__mobile-mask {
@@ -936,6 +1080,11 @@ watch(
   }
 
   .product-page__toolbar-actions {
+    justify-content: flex-start;
+  }
+
+  .product-page__pagination {
+    align-items: flex-start;
     justify-content: flex-start;
   }
 }

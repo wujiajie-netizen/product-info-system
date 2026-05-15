@@ -7,8 +7,8 @@ import {
   formatDate,
   formatMoney,
   isUsingDemoData,
+  listAllProducts,
   listCompanies,
-  listProducts,
   listQuotes,
 } from '#/api/product-info';
 import AppIcon from '#/components/AppIcon.vue';
@@ -27,17 +27,25 @@ const loading = ref(false);
 const errorMessage = ref('');
 const keyword = ref(typeof route.query.keyword === 'string' ? route.query.keyword : '');
 const quotes = ref<Awaited<ReturnType<typeof listQuotes>>>([]);
-const products = ref<Awaited<ReturnType<typeof listProducts>>>([]);
+const products = ref<Awaited<ReturnType<typeof listAllProducts>>>([]);
 const companies = ref<Awaited<ReturnType<typeof listCompanies>>>([]);
 
 const visibleQuotes = computed(() => {
   const value = keyword.value.trim().toLowerCase();
+  const selectedProductModel =
+    typeof route.query.productModel === 'string'
+      ? route.query.productModel
+      : '';
 
   return quotes.value.filter((quote) => {
     const product = products.value.find((item) => item.id === quote.product_id);
     const company = companies.value.find(
       (item) => item.id === quote.company_id,
     );
+
+    if (selectedProductModel && product?.model !== selectedProductModel) {
+      return false;
+    }
 
     if (!value) {
       return true;
@@ -62,9 +70,13 @@ async function loadQuotes() {
   errorMessage.value = '';
 
   try {
+    const productId =
+      typeof route.query.productId === 'string'
+        ? route.query.productId
+        : undefined;
     const [quoteData, productData, companyData] = await Promise.all([
-      listQuotes(),
-      listProducts(),
+      listQuotes({ productId }),
+      listAllProducts(),
       listCompanies(),
     ]);
     quotes.value = quoteData;
@@ -86,7 +98,7 @@ watch(
 );
 
 watch(
-  () => [auth.initialized, isUsingDemoData()],
+  () => [auth.initialized, isUsingDemoData(), route.fullPath],
   ([initialized, demoMode]) => {
     if (!initialized && !demoMode) {
       return;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronRight, Ellipsis, FileText } from 'lucide-vue-next';
+import { ChevronRight, FileText } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
 
@@ -11,18 +11,33 @@ const props = defineProps<{
 }>();
 
 const detailLink = computed(() => `/products/${props.product.id}`);
-
-function formatScore(value: number) {
-  return value.toFixed(1);
-}
+const productId = computed(() => props.product.productId || props.product.id);
+const documentsLink = computed(() => ({
+  name: 'documents',
+  query: {
+    productId: productId.value,
+    productModel: props.product.model,
+  },
+}));
+const quotesLink = computed(() => ({
+  name: 'quotes',
+  query: {
+    productId: productId.value,
+    productModel: props.product.model,
+  },
+}));
+const companiesLink = computed(() => ({
+  name: 'companies',
+  query: {
+    ...(props.product.companyId ? { companyId: props.product.companyId } : {}),
+    productId: productId.value,
+    productModel: props.product.model,
+  },
+}));
 </script>
 
 <template>
   <article class="product-table-row">
-    <div class="product-table-row__check">
-      <input type="checkbox" />
-    </div>
-
     <RouterLink class="product-table-row__info" :to="detailLink">
       <div class="product-table-row__thumb">
         <img :src="product.image" :alt="product.name" />
@@ -30,7 +45,9 @@ function formatScore(value: number) {
       <div class="product-table-row__content">
         <div class="product-table-row__name-line">
           <h3>{{ product.name }}</h3>
-          <span class="product-table-row__status">现货</span>
+          <span v-if="product.statusLabel" class="product-table-row__status">{{
+            product.statusLabel
+          }}</span>
         </div>
         <p>{{ product.model }}</p>
         <span class="product-table-row__summary">{{ product.summary }}</span>
@@ -48,27 +65,29 @@ function formatScore(value: number) {
     </div>
 
     <div class="product-table-row__docs">
-      <RouterLink
-        v-for="doc in product.docs"
-        :key="doc.label"
-        to="/documents"
-        class="product-table-row__doc-link"
-        :class="`is-${doc.tone}`"
-      >
-        <AppIcon :icon="FileText" :size="14" />
-        <span>{{ doc.label }}</span>
-      </RouterLink>
-      <RouterLink to="/documents" class="product-table-row__more-link">
-        <span>查看更多（{{ product.docCount }}）</span>
-        <AppIcon :icon="ChevronRight" :size="14" />
-      </RouterLink>
+      <template v-if="product.docCount > 0">
+        <RouterLink
+          v-for="doc in product.docs"
+          :key="doc.label"
+          :to="documentsLink"
+          class="product-table-row__doc-link"
+          :class="`is-${doc.tone}`"
+        >
+          <AppIcon :icon="FileText" :size="14" />
+          <span>{{ doc.label }}</span>
+        </RouterLink>
+        <RouterLink :to="documentsLink" class="product-table-row__more-link">
+          <span>查看更多（{{ product.docCount }}）</span>
+          <AppIcon :icon="ChevronRight" :size="14" />
+        </RouterLink>
+      </template>
+      <span v-else class="product-table-row__empty-text">暂无资料</span>
     </div>
 
     <div class="product-table-row__quote">
-      <strong>¥ {{ product.price }}</strong>
+      <strong>{{ product.price }}</strong>
       <p>起订量：{{ product.minimumOrder }}</p>
-      <p>交期：{{ product.leadTime }}</p>
-      <RouterLink to="/quotes" class="product-table-row__more-link">
+      <RouterLink :to="quotesLink" class="product-table-row__more-link">
         <span>查看报价详情</span>
         <AppIcon :icon="ChevronRight" :size="14" />
       </RouterLink>
@@ -79,11 +98,7 @@ function formatScore(value: number) {
         <span>{{ product.companyName }}</span>
         <em>{{ product.quoteRole }}</em>
       </div>
-      <div class="product-table-row__rating">
-        <span>{{ formatScore(product.companyRating) }}</span>
-        <b>★★★★★</b>
-      </div>
-      <RouterLink to="/companies" class="product-table-row__more-link">
+      <RouterLink :to="companiesLink" class="product-table-row__more-link">
         <span>联系公司</span>
         <AppIcon :icon="ChevronRight" :size="14" />
       </RouterLink>
@@ -91,19 +106,15 @@ function formatScore(value: number) {
 
     <div class="product-table-row__updated">
       <span>{{ product.updatedDate }}</span>
-      <small>{{ product.updatedAgo }}</small>
+      <small v-if="product.updatedAgo">{{ product.updatedAgo }}</small>
     </div>
-
-    <button class="product-table-row__menu" type="button" aria-label="更多操作">
-      <AppIcon :icon="Ellipsis" :size="18" />
-    </button>
   </article>
 </template>
 
 <style scoped>
 .product-table-row {
   display: grid;
-  grid-template-columns: 34px minmax(0, 2.65fr) minmax(0, 1.55fr) 0.95fr 0.9fr 1.05fr 0.62fr 28px;
+  grid-template-columns: minmax(0, 2.8fr) minmax(0, 1.5fr) 0.95fr 0.9fr 1.05fr 0.62fr;
   gap: 16px;
   align-items: stretch;
   padding: 12px 14px;
@@ -112,18 +123,6 @@ function formatScore(value: number) {
 
 .product-table-row:hover {
   background: #fbfdff;
-}
-
-.product-table-row__check {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.product-table-row__check input {
-  width: 14px;
-  height: 14px;
-  margin: 0;
 }
 
 .product-table-row__info {
@@ -259,6 +258,11 @@ function formatScore(value: number) {
   font-size: 13px;
 }
 
+.product-table-row__empty-text {
+  font-size: 13px;
+  color: #8b98ae;
+}
+
 .product-table-row__doc-link.is-red {
   color: #ef5b4b;
 }
@@ -310,20 +314,6 @@ function formatScore(value: number) {
   border-radius: 4px;
 }
 
-.product-table-row__rating {
-  display: inline-flex;
-  gap: 8px;
-  align-items: center;
-  font-size: 13px;
-  color: #33445f;
-}
-
-.product-table-row__rating b {
-  font-size: 12px;
-  color: #ff8b1f;
-  letter-spacing: 1px;
-}
-
 .product-table-row__updated {
   display: grid;
   gap: 10px;
@@ -340,20 +330,9 @@ function formatScore(value: number) {
   line-height: 1.4;
 }
 
-.product-table-row__menu {
-  display: inline-flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 6px 0 0;
-  color: #60708d;
-  cursor: pointer;
-  background: transparent;
-  border: 0;
-}
-
 @media (max-width: 1100px) {
   .product-table-row {
-    grid-template-columns: 34px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     gap: 14px;
   }
 
@@ -362,13 +341,8 @@ function formatScore(value: number) {
   .product-table-row__docs,
   .product-table-row__quote,
   .product-table-row__company,
-  .product-table-row__updated,
-  .product-table-row__menu {
-    grid-column: 2;
-  }
-
-  .product-table-row__menu {
-    display: none;
+  .product-table-row__updated {
+    grid-column: 1;
   }
 }
 

@@ -8,9 +8,9 @@ import AppIcon from '#/components/AppIcon.vue';
 import {
   formatDate,
   isUsingDemoData,
+  listAllProducts,
   listCompanies,
   listDocuments,
-  listProducts,
   listQuotes,
   listUpdates,
 } from '#/api/product-info';
@@ -47,7 +47,7 @@ const activeTab = ref<UpdateCategory>('all');
 const currentFilter = ref<UpdateCategory>('all');
 const keyword = ref(typeof route.query.keyword === 'string' ? route.query.keyword : '');
 const updates = ref<Awaited<ReturnType<typeof listUpdates>>>([]);
-const products = ref<Awaited<ReturnType<typeof listProducts>>>([]);
+const products = ref<Awaited<ReturnType<typeof listAllProducts>>>([]);
 const documents = ref<Awaited<ReturnType<typeof listDocuments>>>([]);
 const quotes = ref<Awaited<ReturnType<typeof listQuotes>>>([]);
 const companies = ref<Awaited<ReturnType<typeof listCompanies>>>([]);
@@ -334,7 +334,7 @@ async function loadUpdateData() {
     const [updateData, productData, documentData, quoteData, companyData] =
       await Promise.all([
         listUpdates(),
-        listProducts(),
+        listAllProducts(),
         listDocuments(),
         listQuotes(),
         listCompanies(),

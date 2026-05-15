@@ -67,7 +67,16 @@ async function loadDocuments() {
   errorMessage.value = '';
 
   try {
-    documents.value = await listDocuments();
+    documents.value = await listDocuments({
+      productId:
+        typeof route.query.productId === 'string'
+          ? route.query.productId
+          : undefined,
+      productModel:
+        typeof route.query.productModel === 'string'
+          ? route.query.productModel
+          : undefined,
+    });
   } catch (error) {
     errorMessage.value = getErrorMessage(error);
   } finally {
@@ -84,7 +93,7 @@ watch(
 );
 
 watch(
-  () => [auth.initialized, isUsingDemoData()],
+  () => [auth.initialized, isUsingDemoData(), route.fullPath],
   ([initialized, demoMode]) => {
     if (!initialized && !demoMode) {
       return;

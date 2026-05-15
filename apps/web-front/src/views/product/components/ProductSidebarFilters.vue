@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed, ref } from 'vue';
 import { ChevronDown } from 'lucide-vue-next';
 
 import AppIcon from '#/components/AppIcon.vue';
@@ -35,6 +36,75 @@ const emit = defineEmits<{
 function isBrandChecked(slug: string) {
   return props.selectedBrandSlugs.includes(slug);
 }
+
+const categoryKeyword = ref('');
+const brandKeyword = ref('');
+const categoryExpanded = ref(false);
+const brandExpanded = ref(false);
+const CATEGORY_VISIBLE_LIMIT = 8;
+const BRAND_VISIBLE_LIMIT = 8;
+
+const filteredCategoryGroups = computed(() => {
+  const keyword = categoryKeyword.value.trim().toLowerCase();
+
+  return props.categoryGroups
+    .map((group) => ({
+      ...group,
+      options: group.options.filter((option) => {
+        if (!keyword) {
+          return true;
+        }
+
+        return option.label.toLowerCase().includes(keyword);
+      }),
+    }))
+    .filter((group) => group.options.length > 0);
+});
+
+const visibleCategoryGroups = computed(() => {
+  if (categoryExpanded.value) {
+    return filteredCategoryGroups.value;
+  }
+
+  return filteredCategoryGroups.value.map((group) => ({
+    ...group,
+    options: group.options.slice(0, CATEGORY_VISIBLE_LIMIT),
+  }));
+});
+
+const totalCategoryOptionCount = computed(() =>
+  filteredCategoryGroups.value.reduce(
+    (sum, group) => sum + group.options.length,
+    0,
+  ),
+);
+
+const visibleCategoryOptionCount = computed(() =>
+  visibleCategoryGroups.value.reduce(
+    (sum, group) => sum + group.options.length,
+    0,
+  ),
+);
+
+const filteredBrands = computed(() => {
+  const keyword = brandKeyword.value.trim().toLowerCase();
+
+  return props.brands.filter((brand) => {
+    if (!keyword) {
+      return true;
+    }
+
+    return brand.label.toLowerCase().includes(keyword);
+  });
+});
+
+const visibleBrands = computed(() => {
+  if (brandExpanded.value) {
+    return filteredBrands.value;
+  }
+
+  return filteredBrands.value.slice(0, BRAND_VISIBLE_LIMIT);
+});
 </script>
 
 <template>
@@ -49,10 +119,15 @@ function isBrandChecked(slug: string) {
         <span>分类</span>
         <AppIcon :icon="ChevronDown" :size="14" />
       </div>
-      <input class="product-sidebar__search" type="text" placeholder="搜索分类" />
+      <input
+        v-model="categoryKeyword"
+        class="product-sidebar__search"
+        type="text"
+        placeholder="搜索分类"
+      />
 
       <div
-        v-for="group in categoryGroups"
+        v-for="group in visibleCategoryGroups"
         :key="group.label"
         class="product-sidebar__group"
       >
@@ -78,7 +153,22 @@ function isBrandChecked(slug: string) {
         </button>
       </div>
 
-      <button class="product-sidebar__more" type="button">展开更多</button>
+      <button
+        v-if="totalCategoryOptionCount > visibleCategoryOptionCount"
+        class="product-sidebar__more"
+        type="button"
+        @click="categoryExpanded = true"
+      >
+        展开更多
+      </button>
+      <button
+        v-else-if="categoryExpanded && totalCategoryOptionCount > CATEGORY_VISIBLE_LIMIT"
+        class="product-sidebar__more"
+        type="button"
+        @click="categoryExpanded = false"
+      >
+        收起
+      </button>
     </section>
 
     <section class="product-sidebar__block">
@@ -86,10 +176,15 @@ function isBrandChecked(slug: string) {
         <span>品牌</span>
         <AppIcon :icon="ChevronDown" :size="14" />
       </div>
-      <input class="product-sidebar__search" type="text" placeholder="搜索品牌" />
+      <input
+        v-model="brandKeyword"
+        class="product-sidebar__search"
+        type="text"
+        placeholder="搜索品牌"
+      />
 
       <label
-        v-for="brand in brands"
+        v-for="brand in visibleBrands"
         :key="brand.slug"
         class="product-sidebar__checkbox-row"
       >
@@ -102,7 +197,22 @@ function isBrandChecked(slug: string) {
         <span>({{ brand.count }})</span>
       </label>
 
-      <button class="product-sidebar__more" type="button">展开更多</button>
+      <button
+        v-if="filteredBrands.length > visibleBrands.length"
+        class="product-sidebar__more"
+        type="button"
+        @click="brandExpanded = true"
+      >
+        展开更多
+      </button>
+      <button
+        v-else-if="brandExpanded && filteredBrands.length > BRAND_VISIBLE_LIMIT"
+        class="product-sidebar__more"
+        type="button"
+        @click="brandExpanded = false"
+      >
+        收起
+      </button>
     </section>
 
     <section class="product-sidebar__block">
@@ -149,7 +259,7 @@ function isBrandChecked(slug: string) {
       <button class="is-primary" type="button" @click="emit('apply')">
         应用筛选
       </button>
-      <button type="button" @click="emit('reset')">保存视图</button>
+      <button type="button" @click="emit('reset')">重置条件</button>
     </div>
   </div>
 </template>

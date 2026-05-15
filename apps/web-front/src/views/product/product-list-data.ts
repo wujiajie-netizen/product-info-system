@@ -9,6 +9,7 @@ export interface ProductSpecLine {
 }
 
 export interface CatalogProduct {
+  companyId?: string;
   id: string;
   name: string;
   model: string;
@@ -19,12 +20,12 @@ export interface CatalogProduct {
   brandName: string;
   quoteRole: string;
   companyName: string;
-  companyRating: number;
+  productId?: string;
+  statusLabel?: string;
   updatedDate: string;
   updatedAgo: string;
   price: string;
   minimumOrder: string;
-  leadTime: string;
   image: string;
   docCount: number;
   docs: ProductDocLink[];

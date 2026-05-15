@@ -6,8 +6,8 @@ import { useRoute } from 'vue-router';
 import {
   formatMoney,
   isUsingDemoData,
+  listAllProducts,
   listCompanies,
-  listProducts,
   listQuotes,
   listUpdates,
 } from '#/api/product-info';
@@ -27,14 +27,37 @@ const loading = ref(false);
 const errorMessage = ref('');
 const keyword = ref(typeof route.query.keyword === 'string' ? route.query.keyword : '');
 const companies = ref<Awaited<ReturnType<typeof listCompanies>>>([]);
-const products = ref<Awaited<ReturnType<typeof listProducts>>>([]);
+const products = ref<Awaited<ReturnType<typeof listAllProducts>>>([]);
 const quotes = ref<Awaited<ReturnType<typeof listQuotes>>>([]);
 const updates = ref<Awaited<ReturnType<typeof listUpdates>>>([]);
 
 const visibleCompanies = computed(() => {
   const value = keyword.value.trim().toLowerCase();
+  const selectedCompanyId =
+    typeof route.query.companyId === 'string' ? route.query.companyId : '';
+  const selectedProductId =
+    typeof route.query.productId === 'string' ? route.query.productId : '';
+  const selectedProductModel =
+    typeof route.query.productModel === 'string' ? route.query.productModel : '';
 
   return companies.value.filter((item) => {
+    if (selectedCompanyId && item.id !== selectedCompanyId) {
+      return false;
+    }
+
+    if (selectedProductId || selectedProductModel) {
+      const relatedProducts = productsForCompany(item.id);
+      const matchesProduct = relatedProducts.some(
+        (product) =>
+          (!selectedProductId || product.id === selectedProductId) &&
+          (!selectedProductModel || product.model === selectedProductModel),
+      );
+
+      if (!matchesProduct) {
+        return false;
+      }
+    }
+
     if (!value) {
       return true;
     }
@@ -68,7 +91,7 @@ async function loadCompanies() {
   try {
     const [companyData, productData, quoteData, updateData] = await Promise.all([
       listCompanies(),
-      listProducts(),
+      listAllProducts(),
       listQuotes(),
       listUpdates(),
     ]);
@@ -92,7 +115,7 @@ watch(
 );
 
 watch(
-  () => [auth.initialized, isUsingDemoData()],
+  () => [auth.initialized, isUsingDemoData(), route.fullPath],
   ([initialized, demoMode]) => {
     if (!initialized && !demoMode) {
       return;
