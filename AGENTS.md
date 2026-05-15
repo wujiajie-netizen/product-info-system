@@ -6,24 +6,6 @@
 
 本文件是 Codex 和 coding agent 的项目级指令文档，应保持简洁、可执行、不过度记录业务背景。业务背景写入 `docs/PRD.md`，技术路线写入 `docs/ARCHITECTURE.md`，Supabase 操作细节写入 `supabase/README.md`，文档总入口写入 `docs/README.md`。
 
-## 文本读取约束
-
-项目内中文文本默认按 UTF-8 处理。使用 Windows PowerShell 5.1 读取文件时，不要直接用无编码参数的 `Get-Content`，否则可能按 GBK/936 解码导致乱码。
-
-读取文本文件时优先使用：
-
-- `Get-Content <file> -Encoding utf8`
-- `node`/`python` 按 UTF-8 显式读取
-
-如终端输出仍异常，先执行：
-
-```powershell
-chcp 65001
-[Console]::InputEncoding  = [System.Text.UTF8Encoding]::new($false)
-[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
-$OutputEncoding = [Console]::OutputEncoding
-```
-
 ## 未来本地迁移要求
 
 本项目后续可能从 Supabase Cloud 迁移到本地或私有服务器。所有开发工作都必须保持可迁移：
