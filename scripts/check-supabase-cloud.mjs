@@ -168,13 +168,15 @@ for (const target of appEnvs) {
 }
 
 async function fetchWithFriendlyError(url, options = {}) {
+  const { accessToken, headers, ...fetchOptions } = options;
+
   try {
     return await fetch(url, {
-      ...options,
+      ...fetchOptions,
       headers: {
         apikey: anonKey,
-        Authorization: `Bearer ${options.accessToken || anonKey}`,
-        ...options.headers,
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        ...headers,
       },
     });
   } catch (error) {
