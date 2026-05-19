@@ -6,6 +6,7 @@ export * from './dashboard';
 export * from './documents';
 export * from './import-workbench';
 export * from './products';
+export * from './quote-options';
 export * from './quotes';
 export * from './types';
 export * from './updates';
