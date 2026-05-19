@@ -10,7 +10,7 @@
     "typecheck": "vue-tsc --noEmit --skipLibCheck"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.105.1",
+    "@supabase/supabase-js": "^2.106.0",
     "@vueuse/core": "catalog:",
     "lucide-vue-next": "catalog:",
     "naive-ui": "catalog:",
