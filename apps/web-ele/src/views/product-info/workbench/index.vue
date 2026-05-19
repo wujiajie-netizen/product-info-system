@@ -48,11 +48,13 @@ import {
   listCategories,
   listCompanies,
   listProducts,
+  updateProduct,
 } from '#/api';
 
 type QuoteTierDraft = SaveQuoteTierInput;
-
 type ImportStatus = 'error' | 'imported' | 'ready' | 'skipped' | 'warning';
+type DuplicateStrategy = 'create_new' | 'only_quote' | 'skip' | 'update_existing';
+type FieldMergeStrategy = 'fill_empty' | 'overwrite';
 
 interface DraftProduct {
   brandId: string;
@@ -62,7 +64,9 @@ interface DraftProduct {
   chipset: string;
   companyId: string;
   description: string;
+  duplicateStrategy: DuplicateStrategy;
   errors: string[];
+  fieldMergeStrategy: FieldMergeStrategy;
   importedProductId?: string;
   model: string;
   name: string;
@@ -109,6 +113,7 @@ const parseSummary = ref('尚未上传 Excel');
 const importOnlyNormal = ref(false);
 const anomalyDialogVisible = ref(false);
 const importConfirmVisible = ref(false);
+const bulkDuplicateStrategy = ref<DuplicateStrategy>('only_quote');
 
 const defaults = reactive({
   brandId: '',
@@ -123,22 +128,10 @@ const defaults = reactive({
 });
 
 const activeStep = computed(() => {
-  if (importing.value) {
-    return 3;
-  }
-
-  if (drafts.value.some((item) => item.status === 'imported')) {
-    return 4;
-  }
-
-  if (drafts.value.length > 0) {
-    return 2;
-  }
-
-  if (fileName.value) {
-    return 1;
-  }
-
+  if (importing.value) return 3;
+  if (drafts.value.some((item) => item.status === 'imported')) return 4;
+  if (drafts.value.length > 0) return 2;
+  if (fileName.value) return 1;
   return 0;
 });
 
@@ -155,12 +148,13 @@ const importedCount = computed(
 );
 
 const completionPercent = computed(() => {
-  if (drafts.value.length === 0) {
-    return 0;
-  }
-
+  if (drafts.value.length === 0) return 0;
   return Math.round((importedCount.value / drafts.value.length) * 100);
 });
+
+const duplicateDrafts = computed(() =>
+  drafts.value.filter((draft) => Boolean(findExistingProduct(draft.model))),
+);
 
 const anomalyRows = computed(() =>
   drafts.value.filter((item) => item.errors.length > 0 || item.warnings.length > 0),
@@ -170,6 +164,7 @@ const importTargets = computed(() =>
   selectedDrafts.value.filter(
     (draft) =>
       draft.errors.length === 0 &&
+      draft.duplicateStrategy !== 'skip' &&
       (!importOnlyNormal.value || draft.warnings.length === 0),
   ),
 );
@@ -178,12 +173,9 @@ const duplicateModelGroups = computed(() => {
   const modelMap = new Map<string, DraftProduct[]>();
   for (const draft of drafts.value) {
     const key = lower(draft.model);
-    if (!key) {
-      continue;
-    }
+    if (!key) continue;
     modelMap.set(key, [...(modelMap.get(key) || []), draft]);
   }
-
   return [...modelMap.values()].filter((items) => items.length > 1);
 });
 
@@ -194,6 +186,11 @@ const preflightReport = computed(() => {
   const quoteTierCount = quoteRows.reduce(
     (total, draft) => total + draft.quoteTiers.length,
     0,
+  );
+  const quoteOnlyRows = targets.filter((draft) => draft.duplicateStrategy === 'only_quote');
+  const updateRows = targets.filter((draft) => draft.duplicateStrategy === 'update_existing');
+  const newProductRows = targets.filter(
+    (draft) => draft.duplicateStrategy === 'create_new' || !findExistingProduct(draft.model),
   );
 
   return {
@@ -210,16 +207,16 @@ const preflightReport = computed(() => {
     missingImageCount: targets.length,
     missingQuoteCount: targets.filter((draft) => draft.quoteTiers.length === 0).length,
     missingSpecCount: targets.filter((draft) => !draft.sourceSheetName).length,
-    newProductCount: targets.length,
+    newProductCount: newProductRows.length,
     normalCount: selectedDrafts.value.filter(
       (draft) => draft.errors.length === 0 && draft.warnings.length === 0,
     ).length,
     quoteBatchCount: quoteRows.length,
-    quoteOnlyCount: 0,
+    quoteOnlyCount: quoteOnlyRows.length,
     quoteTierCount,
     selectedCount: selectedDrafts.value.length,
     skippedCount: selectedDrafts.value.length - targets.length,
-    updateProductCount: 0,
+    updateProductCount: updateRows.length,
   };
 });
 
@@ -240,39 +237,20 @@ function parseNumber(value: unknown) {
 
 function parseBoolean(value: unknown) {
   const text = lower(value);
-  if (!text) {
-    return undefined;
-  }
-
-  if (['no', 'none', '否', '不支持', 'n/a'].some((item) => text.includes(item))) {
-    return false;
-  }
-
-  if (['yes', 'support', '支持', '802.3', 'poe'].some((item) => text.includes(item))) {
-    return true;
-  }
-
+  if (!text) return undefined;
+  if (['no', 'none', '否', '不支持', 'n/a'].some((item) => text.includes(item))) return false;
+  if (['yes', 'support', '支持', '802.3', 'poe'].some((item) => text.includes(item))) return true;
   return undefined;
 }
 
 function parseResolution(value: unknown) {
   const text = normalizeText(value);
   const matched = text.match(/(\d{3,5})\s*[xX*×]\s*(\d{3,5})/);
-  if (!matched) {
-    return {};
-  }
-
+  if (!matched) return {};
   return {
     resolutionHeight: Number(matched[2]),
     resolutionWidth: Number(matched[1]),
   };
-}
-
-function splitTags(value: string) {
-  return value
-    .split(/[,，/|]/)
-    .map((item) => item.trim())
-    .filter(Boolean);
 }
 
 function getCell(row: unknown[], index: number) {
@@ -303,16 +281,36 @@ function findExistingProduct(model: string) {
   return existingProducts.value.find((item) => lower(item.model) === normalizedModel);
 }
 
+function existingProductInfo(model: string) {
+  const product = findExistingProduct(model);
+  if (!product) return '';
+  return [
+    product.model,
+    product.name,
+    product.series_name,
+    product.category,
+    product.updated_at ? `更新：${product.updated_at.slice(0, 10)}` : '',
+  ]
+    .filter(Boolean)
+    .join(' / ');
+}
+
+function duplicateStrategyLabel(strategy: DuplicateStrategy) {
+  return {
+    create_new: '作为新商品创建',
+    only_quote: '只新增报价',
+    skip: '跳过该商品',
+    update_existing: '更新已有商品',
+  }[strategy];
+}
+
 function findCompanyName(rows: unknown[][]) {
   const allText = rows
     .slice(0, 8)
     .flat()
     .map((cell) => normalizeText(cell))
     .filter(Boolean);
-
-  return (
-    allText.find((text) => /co\.?\s*,?\s*ltd|company|公司/i.test(text)) || ''
-  );
+  return allText.find((text) => /co\.?\s*,?\s*ltd|company|公司/i.test(text)) || '';
 }
 
 function findQuoteSheet(sheetNames: string[]) {
@@ -347,9 +345,7 @@ function extractQuoteRows(workbook: ReturnType<typeof read>) {
     .map((item) => {
       const quantity = parseNumber(item.header);
       const isPriceColumn = /价|price|usd|cny/i.test(item.header);
-      return quantity && isPriceColumn
-        ? { index: item.index, minQuantity: quantity }
-        : null;
+      return quantity && isPriceColumn ? { index: item.index, minQuantity: quantity } : null;
     })
     .filter(Boolean) as Array<{ index: number; minQuantity: number }>;
 
@@ -358,9 +354,7 @@ function extractQuoteRows(workbook: ReturnType<typeof read>) {
 
   for (const row of dataRows) {
     const model = getByColumn(row, modelColumn);
-    if (!model || !/[a-z0-9]/i.test(model)) {
-      continue;
-    }
+    if (!model || !/[a-z0-9]/i.test(model)) continue;
 
     const tiers = tierColumns
       .map((column) => ({
@@ -372,10 +366,7 @@ function extractQuoteRows(workbook: ReturnType<typeof read>) {
 
     const sizeValue = getByColumn(row, sizeColumn);
     const configText = getByColumn(row, configColumn);
-    const remarks = [
-      getByColumn(row, remarkColumn),
-      imageColumn >= 0 ? getByColumn(row, imageColumn) : '',
-    ]
+    const remarks = [getByColumn(row, remarkColumn), imageColumn >= 0 ? getByColumn(row, imageColumn) : '']
       .filter(Boolean)
       .join(' / ');
 
@@ -399,31 +390,23 @@ function extractQuoteRows(workbook: ReturnType<typeof read>) {
       .map((cell) => normalizeText(cell))
       .find((cell) => cell.length > 8) || `${fileName.value} 报价批次`;
   detectedCompanyName.value = findCompanyName(rows);
-
   return quoteMap;
 }
 
 function findValue(rows: unknown[][], labels: string[]) {
   const normalizedLabels = labels.map((item) => item.toLowerCase());
-
   for (const row of rows) {
     for (let index = 0; index < row.length; index += 1) {
       const text = lower(row[index]);
-      if (!text) {
-        continue;
-      }
-
+      if (!text) continue;
       if (normalizedLabels.some((label) => text === label || text.includes(label))) {
         for (let offset = 1; offset <= 4; offset += 1) {
           const value = normalizeText(row[index + offset]);
-          if (value && !normalizedLabels.includes(value.toLowerCase())) {
-            return value;
-          }
+          if (value && !normalizedLabels.includes(value.toLowerCase())) return value;
         }
       }
     }
   }
-
   return '';
 }
 
@@ -447,12 +430,11 @@ function extractSpecFromSheet(workbook: ReturnType<typeof read>, sheetName: stri
   for (const row of rows) {
     const key = normalizeText(row[0] || row[1]);
     const value = normalizeText(row[1] || row[2]);
-    if (key && value && key !== value) {
-      specJson[key] = value;
-    }
+    if (key && value && key !== value) specJson[key] = value;
   }
 
   return {
+    brightnessNits: parseNumber(luminance),
     chipset: cpu,
     description,
     model,
@@ -466,17 +448,8 @@ function extractSpecFromSheet(workbook: ReturnType<typeof read>, sheetName: stri
     ...resolutionResult,
     sizeInch: parseNumber(panelSize),
     sourceSheetName: sheetName,
-    specJson: {
-      ...specJson,
-      luminance,
-      os,
-      panel_size: panelSize,
-      poe,
-      resolution,
-      storage,
-    },
+    specJson: { ...specJson, luminance, os, panel_size: panelSize, poe, resolution, storage },
     storageGb: parseNumber(storage),
-    brightnessNits: parseNumber(luminance),
   } as Partial<DraftProduct>;
 }
 
@@ -489,10 +462,7 @@ function buildDrafts(workbook: ReturnType<typeof read>) {
   }
 
   for (const sheetName of workbook.SheetNames) {
-    if (sheetName === quoteSheetName.value) {
-      continue;
-    }
-
+    if (sheetName === quoteSheetName.value) continue;
     const specDraft = extractSpecFromSheet(workbook, sheetName);
     const model = normalizeText(specDraft.model || sheetName);
     const existing = draftMap.get(model) || createEmptyDraft(model, {});
@@ -512,7 +482,9 @@ function createEmptyDraft(model: string, partial: Partial<DraftProduct>): DraftP
     chipset: '',
     companyId: defaults.companyId,
     description: '',
+    duplicateStrategy: 'create_new',
     errors: [],
+    fieldMergeStrategy: 'fill_empty',
     model,
     name: model,
     osName: '',
@@ -543,12 +515,11 @@ function mergeDraft(base: DraftProduct, partial: Partial<DraftProduct>) {
     category: partial.category || base.category,
     categoryId: partial.categoryId || base.categoryId,
     companyId: partial.companyId || base.companyId,
+    duplicateStrategy: partial.duplicateStrategy || base.duplicateStrategy,
+    fieldMergeStrategy: partial.fieldMergeStrategy || base.fieldMergeStrategy,
     quoteRemarks: partial.quoteRemarks || base.quoteRemarks,
     quoteTiers: partial.quoteTiers?.length ? partial.quoteTiers : base.quoteTiers,
-    specJson: {
-      ...base.specJson,
-      ...partial.specJson,
-    },
+    specJson: { ...base.specJson, ...partial.specJson },
     summaryConfigText: partial.summaryConfigText || base.summaryConfigText,
   } satisfies DraftProduct;
 }
@@ -556,40 +527,45 @@ function mergeDraft(base: DraftProduct, partial: Partial<DraftProduct>) {
 function validateDraft(draft: DraftProduct) {
   draft.errors = [];
   draft.warnings = [];
+  const existing = findExistingProduct(draft.model);
 
-  if (!draft.model) {
-    draft.errors.push('缺少型号');
+  if (!draft.model) draft.errors.push('缺少型号');
+  if (!draft.name) draft.errors.push('缺少产品名称');
+  if (!draft.category && !draft.categoryId) draft.errors.push('缺少分类');
+
+  if (existing && draft.duplicateStrategy === 'create_new') {
+    draft.warnings.push('型号已存在，当前策略为作为新商品创建');
   }
 
-  if (!draft.name) {
-    draft.errors.push('缺少产品名称');
+  if (existing && draft.duplicateStrategy === 'only_quote') {
+    draft.warnings.push('型号已存在，将只新增报价并挂到已有商品');
   }
 
-  if (!draft.category && !draft.categoryId) {
-    draft.errors.push('缺少分类');
+  if (existing && draft.duplicateStrategy === 'update_existing') {
+    draft.warnings.push(`型号已存在，将${draft.fieldMergeStrategy === 'overwrite' ? '用 Excel 覆盖已有字段' : '仅补齐已有空字段'}`);
   }
 
-  if (findExistingProduct(draft.model)) {
-    draft.warnings.push('型号已存在，导入会尝试新建，建议人工确认');
+  if (!existing && draft.duplicateStrategy !== 'create_new') {
+    draft.errors.push('未找到已有商品，不能执行当前重复处理策略');
   }
 
-  if (!draft.quoteTiers.length) {
-    draft.warnings.push('缺少报价阶梯');
-  }
+  if (!draft.quoteTiers.length) draft.warnings.push('缺少报价阶梯');
+  if (!draft.sourceSheetName) draft.warnings.push('缺少详情 Sheet');
 
-  if (!draft.sourceSheetName) {
-    draft.warnings.push('缺少详情 Sheet');
-  }
-
-  draft.status = draft.errors.length ? 'error' : draft.warnings.length ? 'warning' : 'ready';
+  draft.status =
+    draft.duplicateStrategy === 'skip'
+      ? 'skipped'
+      : draft.errors.length
+        ? 'error'
+        : draft.warnings.length
+          ? 'warning'
+          : 'ready';
   return draft;
 }
 
 async function handleExcelChange(file: UploadFile) {
   const rawFile = file.raw;
-  if (!rawFile) {
-    return;
-  }
+  if (!rawFile) return;
 
   fileName.value = rawFile.name;
   parsing.value = true;
@@ -608,18 +584,17 @@ async function handleExcelChange(file: UploadFile) {
 }
 
 async function loadOptions() {
-  const [categoryRecords, brandRecords, companyRecords, productRecords] =
-    await Promise.all([
-      listCategories(),
-      listBrands(),
-      listCompanies(),
-      listProducts(),
-    ]);
-
+  const [categoryRecords, brandRecords, companyRecords, productRecords] = await Promise.all([
+    listCategories(),
+    listBrands(),
+    listCompanies(),
+    listProducts(),
+  ]);
   categories.value = categoryRecords;
   brands.value = brandRecords;
   companies.value = companyRecords;
   existingProducts.value = productRecords;
+  drafts.value.forEach(validateDraft);
 }
 
 function applyDefaults() {
@@ -633,12 +608,50 @@ function applyDefaults() {
   }
 }
 
+function applyDuplicateStrategyToAll() {
+  for (const draft of duplicateDrafts.value) {
+    draft.duplicateStrategy = bulkDuplicateStrategy.value;
+    if (bulkDuplicateStrategy.value === 'skip') draft.selected = false;
+    validateDraft(draft);
+  }
+  ElMessage.success(`已为 ${duplicateDrafts.value.length} 条重复型号设置处理策略`);
+}
+
 function toggleAll(value: boolean) {
   for (const draft of drafts.value) {
-    if (draft.status !== 'imported') {
-      draft.selected = value;
-    }
+    if (draft.status !== 'imported') draft.selected = value;
   }
+}
+
+function mergeForFillEmpty(draft: DraftProduct, existing?: ProductRecord) {
+  if (!existing || draft.fieldMergeStrategy === 'overwrite') return buildProductInput(draft);
+  return {
+    ...buildProductInput(draft),
+    brandId: existing.brand_id || draft.brandId || undefined,
+    brightnessNits: existing.brightness_nits ?? draft.brightnessNits,
+    category: existing.category || draft.category || defaults.category || '未分类',
+    categoryId: existing.category_id || draft.categoryId || undefined,
+    chipset: existing.chipset || draft.chipset || undefined,
+    companyId: existing.company_id || draft.companyId || undefined,
+    description: existing.description || draft.description || undefined,
+    name: existing.name || draft.name.trim(),
+    osName: existing.os_name || draft.osName || undefined,
+    osVersion: existing.os_version || draft.osVersion || undefined,
+    poeStandard: existing.poe_standard || draft.poeStandard || undefined,
+    poeSupported: existing.poe_supported ?? draft.poeSupported,
+    productType: existing.product_type || draft.productType || undefined,
+    ramGb: existing.ram_gb ?? draft.ramGb,
+    resolutionHeight: existing.resolution_height ?? draft.resolutionHeight,
+    resolutionWidth: existing.resolution_width ?? draft.resolutionWidth,
+    seriesCode: existing.series_code || draft.seriesCode || draft.model,
+    seriesId: existing.series_id || undefined,
+    seriesName: existing.series_name || draft.seriesName || defaults.seriesName || draft.model,
+    sizeInch: existing.size_inch ?? draft.sizeInch,
+    specJson: { ...draft.specJson, ...(existing.spec_json || {}) },
+    storageGb: existing.storage_gb ?? draft.storageGb,
+    summaryConfigText: existing.summary_config_text || draft.summaryConfigText || undefined,
+    tags: existing.tags?.length ? existing.tags : draft.tags,
+  } satisfies SaveProductInput;
 }
 
 function buildProductInput(draft: DraftProduct): SaveProductInput {
@@ -681,18 +694,38 @@ function openImportConfirm() {
     ElMessage.warning('只有管理员可以执行入库');
     return;
   }
-
   if (!importTargets.value.length) {
     ElMessage.warning('没有符合当前预检条件的商品草稿');
     return;
   }
-
   importConfirmVisible.value = true;
+}
+
+async function resolveProductForDraft(draft: DraftProduct) {
+  const existing = findExistingProduct(draft.model);
+
+  if (draft.duplicateStrategy === 'skip') return undefined;
+
+  if (draft.duplicateStrategy === 'only_quote') {
+    if (!existing) throw new Error(`${draft.model} 未找到已有商品，无法只新增报价`);
+    draft.importedProductId = existing.id;
+    return existing;
+  }
+
+  if (draft.duplicateStrategy === 'update_existing') {
+    if (!existing) throw new Error(`${draft.model} 未找到已有商品，无法更新`);
+    const product = await updateProduct(existing.id, mergeForFillEmpty(draft, existing));
+    draft.importedProductId = product.id;
+    return product;
+  }
+
+  const product = await createProduct(buildProductInput(draft));
+  draft.importedProductId = product.id;
+  return product;
 }
 
 async function executeImport() {
   const targets = [...importTargets.value];
-
   if (!targets.length) {
     ElMessage.warning('没有可入库的商品草稿');
     return;
@@ -702,17 +735,19 @@ async function executeImport() {
     importing.value = true;
     importConfirmVisible.value = false;
     for (const draft of targets) {
-      const product = await createProduct(buildProductInput(draft));
-      draft.importedProductId = product.id;
-
-      if (draft.quoteTiers.length && draft.companyId) {
+      const product = await resolveProductForDraft(draft);
+      if (product && draft.quoteTiers.length && draft.companyId) {
         await createQuote({
           batchTitle: quoteBatchTitle.value || `${draft.model} Excel 报价批次`,
           companyId: draft.companyId,
           currency: defaults.currency,
           productId: product.id,
           publishedAt: defaults.publishedAt || undefined,
-          remarks: [draft.quoteRemarks, `来源文件：${fileName.value}`]
+          remarks: [
+            draft.quoteRemarks,
+            `来源文件：${fileName.value}`,
+            `重复型号策略：${duplicateStrategyLabel(draft.duplicateStrategy)}`,
+          ]
             .filter(Boolean)
             .join('\n'),
           standardConfigText: draft.summaryConfigText || undefined,
@@ -721,11 +756,9 @@ async function executeImport() {
           validFrom: defaults.validFrom || undefined,
         });
       }
-
       draft.status = 'imported';
       draft.selected = false;
     }
-
     ElMessage.success('入库完成');
     await loadOptions();
   } catch (error) {
@@ -745,13 +778,14 @@ function downloadErrorReport() {
     ElMessage.info('当前没有异常行');
     return;
   }
-
   const rows = [
-    ['型号', '名称', '状态', '错误', '警告', '来源 Sheet'],
+    ['型号', '名称', '状态', '重复策略', '已有商品', '错误', '警告', '来源 Sheet'],
     ...anomalyRows.value.map((draft) => [
       draft.model,
       draft.name,
       statusLabel(draft.status),
+      duplicateStrategyLabel(draft.duplicateStrategy),
+      existingProductInfo(draft.model),
       draft.errors.join('；'),
       draft.warnings.join('；'),
       draft.sourceSheetName,
@@ -768,22 +802,10 @@ function downloadErrorReport() {
 }
 
 function statusType(status: ImportStatus) {
-  if (status === 'imported') {
-    return 'success';
-  }
-
-  if (status === 'error') {
-    return 'danger';
-  }
-
-  if (status === 'warning') {
-    return 'warning';
-  }
-
-  if (status === 'skipped') {
-    return 'info';
-  }
-
+  if (status === 'imported') return 'success';
+  if (status === 'error') return 'danger';
+  if (status === 'warning') return 'warning';
+  if (status === 'skipped') return 'info';
   return 'primary';
 }
 
@@ -827,13 +849,7 @@ onMounted(loadOptions);
       <ElCard shadow="never">
         <template #header>1. 上传与默认设置</template>
 
-        <ElUpload
-          :auto-upload="false"
-          :limit="1"
-          :on-change="handleExcelChange"
-          accept=".xlsx,.xls"
-          drag
-        >
+        <ElUpload :auto-upload="false" :limit="1" :on-change="handleExcelChange" accept=".xlsx,.xls" drag>
           <div class="py-6">
             <div class="text-base font-medium">拖拽或选择 Excel</div>
             <div class="mt-2 text-sm text-gray-500">支持报价 Sheet + 型号详情 Sheet</div>
@@ -845,12 +861,7 @@ onMounted(loadOptions);
         <ElForm label-width="88px">
           <ElFormItem label="默认分类">
             <ElSelect v-model="defaults.categoryId" clearable filterable style="width: 100%">
-              <ElOption
-                v-for="category in categories"
-                :key="category.id"
-                :label="category.name"
-                :value="category.id"
-              />
+              <ElOption v-for="category in categories" :key="category.id" :label="category.name" :value="category.id" />
             </ElSelect>
           </ElFormItem>
           <ElFormItem label="备用分类">
@@ -858,22 +869,12 @@ onMounted(loadOptions);
           </ElFormItem>
           <ElFormItem label="默认品牌">
             <ElSelect v-model="defaults.brandId" clearable filterable style="width: 100%">
-              <ElOption
-                v-for="brand in brands"
-                :key="brand.id"
-                :label="brand.name"
-                :value="brand.id"
-              />
+              <ElOption v-for="brand in brands" :key="brand.id" :label="brand.name" :value="brand.id" />
             </ElSelect>
           </ElFormItem>
           <ElFormItem label="默认公司">
             <ElSelect v-model="defaults.companyId" clearable filterable style="width: 100%">
-              <ElOption
-                v-for="company in companies"
-                :key="company.id"
-                :label="company.name"
-                :value="company.id"
-              />
+              <ElOption v-for="company in companies" :key="company.id" :label="company.name" :value="company.id" />
             </ElSelect>
           </ElFormItem>
           <ElFormItem label="默认系列">
@@ -893,19 +894,11 @@ onMounted(loadOptions);
             </ElSelect>
           </ElFormItem>
           <ElFormItem label="生效日期">
-            <ElDatePicker
-              v-model="defaults.validFrom"
-              placeholder="报价生效日期"
-              style="width: 100%"
-              type="date"
-              value-format="YYYY-MM-DD"
-            />
+            <ElDatePicker v-model="defaults.validFrom" placeholder="报价生效日期" style="width: 100%" type="date" value-format="YYYY-MM-DD" />
           </ElFormItem>
         </ElForm>
 
-        <ElButton class="w-full" type="primary" @click="applyDefaults">
-          应用默认设置到草稿
-        </ElButton>
+        <ElButton class="w-full" type="primary" @click="applyDefaults">应用默认设置到草稿</ElButton>
       </ElCard>
 
       <div class="grid gap-4">
@@ -944,21 +937,13 @@ onMounted(loadOptions);
           <div class="mt-4 grid gap-3 md:grid-cols-3">
             <ElCard shadow="never">
               <div class="text-sm text-gray-500">商品计划</div>
-              <div class="mt-2 text-base font-medium">
-                新增 {{ preflightReport.newProductCount }} 个，更新 {{ preflightReport.updateProductCount }} 个
-              </div>
-              <div class="mt-1 text-xs text-gray-500">
-                重复型号 {{ preflightReport.duplicateExistingCount + preflightReport.duplicateInFileCount }} 个
-              </div>
+              <div class="mt-2 text-base font-medium">新增 {{ preflightReport.newProductCount }} 个，更新 {{ preflightReport.updateProductCount }} 个</div>
+              <div class="mt-1 text-xs text-gray-500">重复型号 {{ preflightReport.duplicateExistingCount + preflightReport.duplicateInFileCount }} 个</div>
             </ElCard>
             <ElCard shadow="never">
               <div class="text-sm text-gray-500">报价计划</div>
-              <div class="mt-2 text-base font-medium">
-                新增批次 {{ preflightReport.quoteBatchCount }} 个，新增阶梯价 {{ preflightReport.quoteTierCount }} 条
-              </div>
-              <div class="mt-1 text-xs text-gray-500">
-                只新增报价 {{ preflightReport.quoteOnlyCount }} 条
-              </div>
+              <div class="mt-2 text-base font-medium">新增批次 {{ preflightReport.quoteBatchCount }} 个，新增阶梯价 {{ preflightReport.quoteTierCount }} 条</div>
+              <div class="mt-1 text-xs text-gray-500">只新增报价 {{ preflightReport.quoteOnlyCount }} 条</div>
             </ElCard>
             <ElCard shadow="never">
               <div class="text-sm text-gray-500">缺失风险</div>
@@ -967,6 +952,25 @@ onMounted(loadOptions);
               </div>
             </ElCard>
           </div>
+        </ElCard>
+
+        <ElCard shadow="never">
+          <template #header>
+            <div class="flex items-center justify-between">
+              <span>2.2 重复型号处理</span>
+              <ElSpace>
+                <ElTag type="warning">重复型号 {{ duplicateDrafts.length }}</ElTag>
+                <ElSelect v-model="bulkDuplicateStrategy" size="small" style="width: 150px">
+                  <ElOption label="只新增报价" value="only_quote" />
+                  <ElOption label="更新已有商品" value="update_existing" />
+                  <ElOption label="跳过该商品" value="skip" />
+                  <ElOption label="作为新商品创建" value="create_new" />
+                </ElSelect>
+                <ElButton size="small" @click="applyDuplicateStrategyToAll">批量设置</ElButton>
+              </ElSpace>
+            </div>
+          </template>
+          <ElAlert :closable="false" show-icon title="默认不静默合并重复型号。管理员可逐行选择跳过、更新已有商品、只新增报价或作为新商品创建。" type="warning" />
         </ElCard>
 
         <ElCard shadow="never">
@@ -981,10 +985,10 @@ onMounted(loadOptions);
             </div>
           </template>
 
-          <ElTable v-if="drafts.length" :data="drafts" max-height="520" stripe>
+          <ElTable v-if="drafts.length" :data="drafts" max-height="620" stripe>
             <ElTableColumn width="54">
               <template #default="{ row }">
-                <ElCheckbox v-model="row.selected" :disabled="row.status === 'imported'" />
+                <ElCheckbox v-model="row.selected" :disabled="row.status === 'imported' || row.status === 'skipped'" />
               </template>
             </ElTableColumn>
             <ElTableColumn label="状态" width="90">
@@ -997,42 +1001,53 @@ onMounted(loadOptions);
                 <ElInput v-model="row.model" @blur="validateDraft(row)" />
               </template>
             </ElTableColumn>
+            <ElTableColumn label="重复处理" min-width="180">
+              <template #default="{ row }">
+                <ElSelect v-model="row.duplicateStrategy" style="width: 100%" @change="validateDraft(row)">
+                  <ElOption label="作为新商品创建" value="create_new" />
+                  <ElOption label="更新已有商品" value="update_existing" />
+                  <ElOption label="只新增报价" value="only_quote" />
+                  <ElOption label="跳过该商品" value="skip" />
+                </ElSelect>
+              </template>
+            </ElTableColumn>
+            <ElTableColumn label="覆盖策略" min-width="150">
+              <template #default="{ row }">
+                <ElSelect v-if="row.duplicateStrategy === 'update_existing'" v-model="row.fieldMergeStrategy" style="width: 100%" @change="validateDraft(row)">
+                  <ElOption label="只补空字段" value="fill_empty" />
+                  <ElOption label="Excel 覆盖" value="overwrite" />
+                </ElSelect>
+                <span v-else class="text-gray-400">-</span>
+              </template>
+            </ElTableColumn>
+            <ElTableColumn label="已有商品" min-width="260">
+              <template #default="{ row }">
+                <span class="text-xs text-gray-500">{{ existingProductInfo(row.model) || '-' }}</span>
+              </template>
+            </ElTableColumn>
             <ElTableColumn label="产品名称" min-width="220">
               <template #default="{ row }">
                 <ElInput v-model="row.name" @blur="validateDraft(row)" />
               </template>
             </ElTableColumn>
             <ElTableColumn label="系列" min-width="180">
-              <template #default="{ row }">
-                <ElInput v-model="row.seriesName" />
-              </template>
+              <template #default="{ row }"><ElInput v-model="row.seriesName" /></template>
             </ElTableColumn>
             <ElTableColumn label="分类" min-width="180">
-              <template #default="{ row }">
-                <ElInput v-model="row.category" @blur="validateDraft(row)" />
-              </template>
+              <template #default="{ row }"><ElInput v-model="row.category" @blur="validateDraft(row)" /></template>
             </ElTableColumn>
             <ElTableColumn label="公司" min-width="180">
               <template #default="{ row }">
                 <ElSelect v-model="row.companyId" clearable filterable style="width: 100%">
-                  <ElOption
-                    v-for="company in companies"
-                    :key="company.id"
-                    :label="company.name"
-                    :value="company.id"
-                  />
+                  <ElOption v-for="company in companies" :key="company.id" :label="company.name" :value="company.id" />
                 </ElSelect>
               </template>
             </ElTableColumn>
             <ElTableColumn label="尺寸" width="120">
-              <template #default="{ row }">
-                <ElInputNumber v-model="row.sizeInch" :min="0" controls-position="right" />
-              </template>
+              <template #default="{ row }"><ElInputNumber v-model="row.sizeInch" :min="0" controls-position="right" /></template>
             </ElTableColumn>
             <ElTableColumn label="芯片" min-width="140">
-              <template #default="{ row }">
-                <ElInput v-model="row.chipset" />
-              </template>
+              <template #default="{ row }"><ElInput v-model="row.chipset" /></template>
             </ElTableColumn>
             <ElTableColumn label="RAM/存储" min-width="190">
               <template #default="{ row }">
@@ -1055,7 +1070,7 @@ onMounted(loadOptions);
                 <div>{{ row.quoteTiers.map((tier) => `${tier.minQuantity}+/${tier.currency} ${tier.unitPrice}`).join(' | ') || '-' }}</div>
               </template>
             </ElTableColumn>
-            <ElTableColumn label="提示" min-width="260">
+            <ElTableColumn label="提示" min-width="300">
               <template #default="{ row }">
                 <ElSpace wrap>
                   <ElTag v-for="error in row.errors" :key="error" type="danger">{{ error }}</ElTag>
@@ -1076,31 +1091,27 @@ onMounted(loadOptions);
             <ElTag type="warning">报价状态：{{ defaults.status === 'draft' ? '草稿' : '启用' }}</ElTag>
           </ElSpace>
           <div class="mt-4">
-            <ElButton
-              :disabled="!isAdmin || importTargets.length === 0"
-              :loading="importing || parsing"
-              type="primary"
-              @click="openImportConfirm"
-            >
+            <ElButton :disabled="!isAdmin || importTargets.length === 0" :loading="importing || parsing" type="primary" @click="openImportConfirm">
               确认入库
             </ElButton>
-            <span class="ml-3 text-sm text-gray-500">
-              点击后会先弹出导入计划摘要；Excel 原始文件、图片提取和复杂选配项结构化将在下一阶段补齐。
-            </span>
+            <span class="ml-3 text-sm text-gray-500">点击后会先弹出导入计划摘要；重复型号会按所选策略处理。</span>
           </div>
         </ElCard>
       </div>
     </div>
 
-    <ElDialog v-model="anomalyDialogVisible" title="异常行明细" width="920px">
+    <ElDialog v-model="anomalyDialogVisible" title="异常行明细" width="1080px">
       <ElTable v-if="anomalyRows.length" :data="anomalyRows" max-height="460" stripe>
         <ElTableColumn label="状态" width="90">
-          <template #default="{ row }">
-            <ElTag :type="statusType(row.status)">{{ statusLabel(row.status) }}</ElTag>
-          </template>
+          <template #default="{ row }"><ElTag :type="statusType(row.status)">{{ statusLabel(row.status) }}</ElTag></template>
         </ElTableColumn>
         <ElTableColumn label="型号" min-width="140" prop="model" />
-        <ElTableColumn label="名称" min-width="180" prop="name" />
+        <ElTableColumn label="重复策略" min-width="130">
+          <template #default="{ row }">{{ duplicateStrategyLabel(row.duplicateStrategy) }}</template>
+        </ElTableColumn>
+        <ElTableColumn label="已有商品" min-width="260">
+          <template #default="{ row }">{{ existingProductInfo(row.model) || '-' }}</template>
+        </ElTableColumn>
         <ElTableColumn label="来源 Sheet" min-width="140" prop="sourceSheetName" />
         <ElTableColumn label="错误/警告" min-width="320">
           <template #default="{ row }">
@@ -1114,12 +1125,12 @@ onMounted(loadOptions);
       <ElEmpty v-else description="当前没有异常行" />
     </ElDialog>
 
-    <ElDialog v-model="importConfirmVisible" title="确认本次导入计划" width="620px">
+    <ElDialog v-model="importConfirmVisible" title="确认本次导入计划" width="660px">
       <div class="leading-7 text-sm text-gray-600">
         <p>商品：新增 {{ preflightReport.newProductCount }} 个，更新 {{ preflightReport.updateProductCount }} 个，跳过 {{ preflightReport.skippedCount }} 个</p>
-        <p>报价：新增批次 {{ preflightReport.quoteBatchCount }} 个，新增阶梯价 {{ preflightReport.quoteTierCount }} 条</p>
+        <p>报价：新增批次 {{ preflightReport.quoteBatchCount }} 个，只新增报价 {{ preflightReport.quoteOnlyCount }} 条，新增阶梯价 {{ preflightReport.quoteTierCount }} 条</p>
         <p>风险：重复型号 {{ preflightReport.duplicateExistingCount + preflightReport.duplicateInFileCount }} 个，缺公司 {{ preflightReport.missingCompanyCount }} 个，缺报价 {{ preflightReport.missingQuoteCount }} 个</p>
-        <p>当前策略：{{ importOnlyNormal ? '只导入无错误且无警告的正常行' : '导入无错误行，保留警告行需管理员自行确认' }}</p>
+        <p>当前策略：{{ importOnlyNormal ? '只导入无错误且无警告的正常行' : '导入无错误行，警告行按管理员所选重复策略执行' }}</p>
       </div>
       <template #footer>
         <ElButton @click="importConfirmVisible = false">取消</ElButton>
