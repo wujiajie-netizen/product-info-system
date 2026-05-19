@@ -13,9 +13,20 @@ const routes: RouteRecordRaw[] = [
     path: '/admin/dashboard',
   },
   {
+    component: () => import('#/views/product-info/workbench/index.vue'),
+    meta: {
+      authority: ['admin'],
+      order: 1,
+      icon: 'lucide:table-properties',
+      title: '快速入库工作台',
+    },
+    name: 'AdminProductWorkbench',
+    path: '/admin/product-info/workbench',
+  },
+  {
     component: () => import('#/views/product-info/products/index.vue'),
     meta: {
-      order: 1,
+      order: 2,
       icon: 'lucide:package-search',
       title: '产品管理',
     },
@@ -25,7 +36,7 @@ const routes: RouteRecordRaw[] = [
   {
     component: () => import('#/views/product-info/categories/index.vue'),
     meta: {
-      order: 2,
+      order: 3,
       icon: 'lucide:folder-tree',
       title: '分类管理',
     },
@@ -35,7 +46,7 @@ const routes: RouteRecordRaw[] = [
   {
     component: () => import('#/views/product-info/brands/index.vue'),
     meta: {
-      order: 3,
+      order: 4,
       icon: 'lucide:badge-check',
       title: '品牌管理',
     },
@@ -45,7 +56,7 @@ const routes: RouteRecordRaw[] = [
   {
     component: () => import('#/views/product-info/companies/index.vue'),
     meta: {
-      order: 4,
+      order: 5,
       icon: 'lucide:building-2',
       title: '公司管理',
     },
@@ -55,7 +66,7 @@ const routes: RouteRecordRaw[] = [
   {
     component: () => import('#/views/product-info/documents/index.vue'),
     meta: {
-      order: 5,
+      order: 6,
       icon: 'lucide:file-box',
       title: '文件资料',
     },
@@ -65,7 +76,7 @@ const routes: RouteRecordRaw[] = [
   {
     component: () => import('#/views/product-info/quotes/index.vue'),
     meta: {
-      order: 6,
+      order: 7,
       icon: 'lucide:receipt-text',
       title: '报价管理',
     },
@@ -75,7 +86,7 @@ const routes: RouteRecordRaw[] = [
   {
     component: () => import('#/views/product-info/updates/index.vue'),
     meta: {
-      order: 7,
+      order: 8,
       icon: 'lucide:radio',
       title: '动态管理',
     },
@@ -86,7 +97,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import('#/views/product-info/users/index.vue'),
     meta: {
       authority: ['admin'],
-      order: 8,
+      order: 9,
       icon: 'lucide:shield-check',
       title: '用户权限',
     },
