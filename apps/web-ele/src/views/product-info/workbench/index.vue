@@ -20,6 +20,7 @@ import {
   ElCard,
   ElCheckbox,
   ElDatePicker,
+  ElDialog,
   ElDivider,
   ElEmpty,
   ElForm,
@@ -105,6 +106,9 @@ const quoteSheetName = ref('');
 const quoteBatchTitle = ref('');
 const detectedCompanyName = ref('');
 const parseSummary = ref('尚未上传 Excel');
+const importOnlyNormal = ref(false);
+const anomalyDialogVisible = ref(false);
+const importConfirmVisible = ref(false);
 
 const defaults = reactive({
   brandId: '',
@@ -156,6 +160,67 @@ const completionPercent = computed(() => {
   }
 
   return Math.round((importedCount.value / drafts.value.length) * 100);
+});
+
+const anomalyRows = computed(() =>
+  drafts.value.filter((item) => item.errors.length > 0 || item.warnings.length > 0),
+);
+
+const importTargets = computed(() =>
+  selectedDrafts.value.filter(
+    (draft) =>
+      draft.errors.length === 0 &&
+      (!importOnlyNormal.value || draft.warnings.length === 0),
+  ),
+);
+
+const duplicateModelGroups = computed(() => {
+  const modelMap = new Map<string, DraftProduct[]>();
+  for (const draft of drafts.value) {
+    const key = lower(draft.model);
+    if (!key) {
+      continue;
+    }
+    modelMap.set(key, [...(modelMap.get(key) || []), draft]);
+  }
+
+  return [...modelMap.values()].filter((items) => items.length > 1);
+});
+
+const preflightReport = computed(() => {
+  const targets = importTargets.value;
+  const existingMatches = targets.filter((draft) => Boolean(findExistingProduct(draft.model)));
+  const quoteRows = targets.filter((draft) => draft.quoteTiers.length > 0 && draft.companyId);
+  const quoteTierCount = quoteRows.reduce(
+    (total, draft) => total + draft.quoteTiers.length,
+    0,
+  );
+
+  return {
+    anomalyCount: anomalyRows.value.length,
+    duplicateExistingCount: existingMatches.length,
+    duplicateInFileCount: duplicateModelGroups.value.reduce(
+      (total, group) => total + group.length,
+      0,
+    ),
+    importableCount: targets.length,
+    missingBrandCount: targets.filter((draft) => !draft.brandId).length,
+    missingCategoryCount: targets.filter((draft) => !draft.category && !draft.categoryId).length,
+    missingCompanyCount: targets.filter((draft) => !draft.companyId).length,
+    missingImageCount: targets.length,
+    missingQuoteCount: targets.filter((draft) => draft.quoteTiers.length === 0).length,
+    missingSpecCount: targets.filter((draft) => !draft.sourceSheetName).length,
+    newProductCount: targets.length,
+    normalCount: selectedDrafts.value.filter(
+      (draft) => draft.errors.length === 0 && draft.warnings.length === 0,
+    ).length,
+    quoteBatchCount: quoteRows.length,
+    quoteOnlyCount: 0,
+    quoteTierCount,
+    selectedCount: selectedDrafts.value.length,
+    skippedCount: selectedDrafts.value.length - targets.length,
+    updateProductCount: 0,
+  };
 });
 
 function normalizeText(value: unknown) {
@@ -231,6 +296,11 @@ function findColumn(headers: unknown[], patterns: Array<RegExp | string>) {
 
 function getByColumn(row: unknown[], index: number) {
   return index >= 0 ? getCell(row, index) : '';
+}
+
+function findExistingProduct(model: string) {
+  const normalizedModel = lower(model);
+  return existingProducts.value.find((item) => lower(item.model) === normalizedModel);
 }
 
 function findCompanyName(rows: unknown[][]) {
@@ -499,11 +569,7 @@ function validateDraft(draft: DraftProduct) {
     draft.errors.push('缺少分类');
   }
 
-  if (
-    existingProducts.value.some(
-      (item) => item.model.toLowerCase() === draft.model.toLowerCase(),
-    )
-  ) {
+  if (findExistingProduct(draft.model)) {
     draft.warnings.push('型号已存在，导入会尝试新建，建议人工确认');
   }
 
@@ -533,7 +599,7 @@ async function handleExcelChange(file: UploadFile) {
     const workbook = read(buffer, { cellDates: true, type: 'array' });
     workbookSheetNames.value = workbook.SheetNames;
     buildDrafts(workbook);
-    ElMessage.success('Excel 解析完成，请确认草稿后入库');
+    ElMessage.success('Excel 解析完成，请先查看预检报告再入库');
   } catch (error) {
     ElMessage.error((error as Error).message || 'Excel 解析失败');
   } finally {
@@ -610,13 +676,23 @@ function buildProductInput(draft: DraftProduct): SaveProductInput {
   };
 }
 
-async function confirmImport() {
+function openImportConfirm() {
   if (!isAdmin.value) {
     ElMessage.warning('只有管理员可以执行入库');
     return;
   }
 
-  const targets = selectedDrafts.value.filter((draft) => draft.errors.length === 0);
+  if (!importTargets.value.length) {
+    ElMessage.warning('没有符合当前预检条件的商品草稿');
+    return;
+  }
+
+  importConfirmVisible.value = true;
+}
+
+async function executeImport() {
+  const targets = [...importTargets.value];
+
   if (!targets.length) {
     ElMessage.warning('没有可入库的商品草稿');
     return;
@@ -624,6 +700,7 @@ async function confirmImport() {
 
   try {
     importing.value = true;
+    importConfirmVisible.value = false;
     for (const draft of targets) {
       const product = await createProduct(buildProductInput(draft));
       draft.importedProductId = product.id;
@@ -656,6 +733,38 @@ async function confirmImport() {
   } finally {
     importing.value = false;
   }
+}
+
+function csvCell(value: unknown) {
+  const text = normalizeText(value);
+  return `"${text.replaceAll('"', '""')}"`;
+}
+
+function downloadErrorReport() {
+  if (!anomalyRows.value.length) {
+    ElMessage.info('当前没有异常行');
+    return;
+  }
+
+  const rows = [
+    ['型号', '名称', '状态', '错误', '警告', '来源 Sheet'],
+    ...anomalyRows.value.map((draft) => [
+      draft.model,
+      draft.name,
+      statusLabel(draft.status),
+      draft.errors.join('；'),
+      draft.warnings.join('；'),
+      draft.sourceSheetName,
+    ]),
+  ];
+  const csv = `\uFEFF${rows.map((row) => row.map(csvCell).join(',')).join('\n')}`;
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${fileName.value || 'excel-import'}-error-report.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function statusType(status: ImportStatus) {
@@ -815,6 +924,54 @@ onMounted(loadOptions);
         <ElCard shadow="never">
           <template #header>
             <div class="flex items-center justify-between">
+              <span>2.1 导入预检报告</span>
+              <ElSpace>
+                <ElCheckbox v-model="importOnlyNormal">只导入正常行</ElCheckbox>
+                <ElButton size="small" @click="anomalyDialogVisible = true">查看异常行</ElButton>
+                <ElButton size="small" @click="downloadErrorReport">下载错误报告</ElButton>
+              </ElSpace>
+            </div>
+          </template>
+
+          <ElSpace wrap>
+            <ElTag type="primary">选中 {{ preflightReport.selectedCount }} 条</ElTag>
+            <ElTag type="success">将导入 {{ preflightReport.importableCount }} 条</ElTag>
+            <ElTag type="info">正常 {{ preflightReport.normalCount }} 条</ElTag>
+            <ElTag type="warning">跳过 {{ preflightReport.skippedCount }} 条</ElTag>
+            <ElTag type="danger">异常 {{ preflightReport.anomalyCount }} 条</ElTag>
+          </ElSpace>
+
+          <div class="mt-4 grid gap-3 md:grid-cols-3">
+            <ElCard shadow="never">
+              <div class="text-sm text-gray-500">商品计划</div>
+              <div class="mt-2 text-base font-medium">
+                新增 {{ preflightReport.newProductCount }} 个，更新 {{ preflightReport.updateProductCount }} 个
+              </div>
+              <div class="mt-1 text-xs text-gray-500">
+                重复型号 {{ preflightReport.duplicateExistingCount + preflightReport.duplicateInFileCount }} 个
+              </div>
+            </ElCard>
+            <ElCard shadow="never">
+              <div class="text-sm text-gray-500">报价计划</div>
+              <div class="mt-2 text-base font-medium">
+                新增批次 {{ preflightReport.quoteBatchCount }} 个，新增阶梯价 {{ preflightReport.quoteTierCount }} 条
+              </div>
+              <div class="mt-1 text-xs text-gray-500">
+                只新增报价 {{ preflightReport.quoteOnlyCount }} 条
+              </div>
+            </ElCard>
+            <ElCard shadow="never">
+              <div class="text-sm text-gray-500">缺失风险</div>
+              <div class="mt-2 text-xs leading-6 text-gray-600">
+                分类 {{ preflightReport.missingCategoryCount }} / 品牌 {{ preflightReport.missingBrandCount }} / 公司 {{ preflightReport.missingCompanyCount }} / 报价 {{ preflightReport.missingQuoteCount }} / 规格 {{ preflightReport.missingSpecCount }} / 图片 {{ preflightReport.missingImageCount }}
+              </div>
+            </ElCard>
+          </div>
+        </ElCard>
+
+        <ElCard shadow="never">
+          <template #header>
+            <div class="flex items-center justify-between">
               <span>3. 商品草稿确认</span>
               <ElSpace>
                 <ElCheckbox @change="toggleAll">全选/取消</ElCheckbox>
@@ -914,25 +1071,60 @@ onMounted(loadOptions);
           <template #header>4. 入库确认</template>
           <ElSpace wrap>
             <ElTag>选中 {{ selectedDrafts.length }} 条</ElTag>
-            <ElTag type="success">可入库 {{ readyCount }} 条</ElTag>
+            <ElTag type="success">当前将导入 {{ importTargets.length }} 条</ElTag>
             <ElTag type="warning">默认商品状态：停用</ElTag>
             <ElTag type="warning">报价状态：{{ defaults.status === 'draft' ? '草稿' : '启用' }}</ElTag>
           </ElSpace>
           <div class="mt-4">
             <ElButton
-              :disabled="!isAdmin || readyCount === 0"
+              :disabled="!isAdmin || importTargets.length === 0"
               :loading="importing || parsing"
               type="primary"
-              @click="confirmImport"
+              @click="openImportConfirm"
             >
               确认入库
             </ElButton>
             <span class="ml-3 text-sm text-gray-500">
-              入库会复用现有产品和报价接口；Excel 原始文件、图片提取和复杂选配项结构化将在下一阶段补齐。
+              点击后会先弹出导入计划摘要；Excel 原始文件、图片提取和复杂选配项结构化将在下一阶段补齐。
             </span>
           </div>
         </ElCard>
       </div>
     </div>
+
+    <ElDialog v-model="anomalyDialogVisible" title="异常行明细" width="920px">
+      <ElTable v-if="anomalyRows.length" :data="anomalyRows" max-height="460" stripe>
+        <ElTableColumn label="状态" width="90">
+          <template #default="{ row }">
+            <ElTag :type="statusType(row.status)">{{ statusLabel(row.status) }}</ElTag>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn label="型号" min-width="140" prop="model" />
+        <ElTableColumn label="名称" min-width="180" prop="name" />
+        <ElTableColumn label="来源 Sheet" min-width="140" prop="sourceSheetName" />
+        <ElTableColumn label="错误/警告" min-width="320">
+          <template #default="{ row }">
+            <ElSpace wrap>
+              <ElTag v-for="error in row.errors" :key="error" type="danger">{{ error }}</ElTag>
+              <ElTag v-for="warning in row.warnings" :key="warning" type="warning">{{ warning }}</ElTag>
+            </ElSpace>
+          </template>
+        </ElTableColumn>
+      </ElTable>
+      <ElEmpty v-else description="当前没有异常行" />
+    </ElDialog>
+
+    <ElDialog v-model="importConfirmVisible" title="确认本次导入计划" width="620px">
+      <div class="leading-7 text-sm text-gray-600">
+        <p>商品：新增 {{ preflightReport.newProductCount }} 个，更新 {{ preflightReport.updateProductCount }} 个，跳过 {{ preflightReport.skippedCount }} 个</p>
+        <p>报价：新增批次 {{ preflightReport.quoteBatchCount }} 个，新增阶梯价 {{ preflightReport.quoteTierCount }} 条</p>
+        <p>风险：重复型号 {{ preflightReport.duplicateExistingCount + preflightReport.duplicateInFileCount }} 个，缺公司 {{ preflightReport.missingCompanyCount }} 个，缺报价 {{ preflightReport.missingQuoteCount }} 个</p>
+        <p>当前策略：{{ importOnlyNormal ? '只导入无错误且无警告的正常行' : '导入无错误行，保留警告行需管理员自行确认' }}</p>
+      </div>
+      <template #footer>
+        <ElButton @click="importConfirmVisible = false">取消</ElButton>
+        <ElButton :loading="importing" type="primary" @click="executeImport">确认执行入库</ElButton>
+      </template>
+    </ElDialog>
   </Page>
 </template>
