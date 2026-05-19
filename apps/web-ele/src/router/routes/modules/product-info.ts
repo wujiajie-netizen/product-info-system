@@ -24,10 +24,32 @@ const routes: RouteRecordRaw[] = [
     path: '/admin/product-info/workbench',
   },
   {
-    component: () => import('#/views/product-info/import-templates/index.vue'),
+    component: () => import('#/views/product-info/manual-entry/index.vue'),
     meta: {
       authority: ['admin'],
       order: 2,
+      icon: 'lucide:package-plus',
+      title: '手动建档',
+    },
+    name: 'AdminManualProductEntry',
+    path: '/admin/product-info/manual-entry',
+  },
+  {
+    component: () => import('#/views/product-info/document-fill/index.vue'),
+    meta: {
+      authority: ['admin'],
+      order: 3,
+      icon: 'lucide:files',
+      title: '资料补齐',
+    },
+    name: 'AdminDocumentFill',
+    path: '/admin/product-info/document-fill',
+  },
+  {
+    component: () => import('#/views/product-info/import-templates/index.vue'),
+    meta: {
+      authority: ['admin'],
+      order: 4,
       icon: 'lucide:file-spreadsheet',
       title: '导入模板',
     },
@@ -38,7 +60,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import('#/views/product-info/import-history/index.vue'),
     meta: {
       authority: ['admin'],
-      order: 3,
+      order: 5,
       icon: 'lucide:history',
       title: '导入历史',
     },
@@ -48,7 +70,7 @@ const routes: RouteRecordRaw[] = [
   {
     component: () => import('#/views/product-info/products/index.vue'),
     meta: {
-      order: 4,
+      order: 6,
       icon: 'lucide:package-search',
       title: '产品管理',
     },
@@ -58,7 +80,7 @@ const routes: RouteRecordRaw[] = [
   {
     component: () => import('#/views/product-info/categories/index.vue'),
     meta: {
-      order: 5,
+      order: 7,
       icon: 'lucide:folder-tree',
       title: '分类管理',
     },
@@ -68,7 +90,7 @@ const routes: RouteRecordRaw[] = [
   {
     component: () => import('#/views/product-info/brands/index.vue'),
     meta: {
-      order: 6,
+      order: 8,
       icon: 'lucide:badge-check',
       title: '品牌管理',
     },
@@ -78,7 +100,7 @@ const routes: RouteRecordRaw[] = [
   {
     component: () => import('#/views/product-info/companies/index.vue'),
     meta: {
-      order: 7,
+      order: 9,
       icon: 'lucide:building-2',
       title: '公司管理',
     },
@@ -88,7 +110,7 @@ const routes: RouteRecordRaw[] = [
   {
     component: () => import('#/views/product-info/documents/index.vue'),
     meta: {
-      order: 8,
+      order: 10,
       icon: 'lucide:file-box',
       title: '文件资料',
     },
@@ -98,7 +120,7 @@ const routes: RouteRecordRaw[] = [
   {
     component: () => import('#/views/product-info/quotes/index.vue'),
     meta: {
-      order: 9,
+      order: 11,
       icon: 'lucide:receipt-text',
       title: '报价管理',
     },
@@ -108,7 +130,7 @@ const routes: RouteRecordRaw[] = [
   {
     component: () => import('#/views/product-info/updates/index.vue'),
     meta: {
-      order: 10,
+      order: 12,
       icon: 'lucide:radio',
       title: '动态管理',
     },
@@ -119,7 +141,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import('#/views/product-info/users/index.vue'),
     meta: {
       authority: ['admin'],
-      order: 11,
+      order: 13,
       icon: 'lucide:shield-check',
       title: '用户权限',
     },
