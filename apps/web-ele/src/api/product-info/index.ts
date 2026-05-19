@@ -4,6 +4,7 @@ export * from './client';
 export * from './companies';
 export * from './dashboard';
 export * from './documents';
+export * from './import-workbench';
 export * from './products';
 export * from './quotes';
 export * from './types';
