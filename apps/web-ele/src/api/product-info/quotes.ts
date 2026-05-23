@@ -548,7 +548,7 @@ function mapLineToQuoteRecord(params: {
   const company = companies.find((item) => item.id === batch.company_id) || null;
   const lineTiers = tiers
     .filter((item) => item.quote_line_id === line.id)
-    .sort((left, right) => left.min_quantity - right.min_quantity);
+    .toSorted((left, right) => left.min_quantity - right.min_quantity);
   const primaryTier = lineTiers[0] || null;
   const lineOptions = options.filter(
     (item) => item.quote_line_id === line.id || item.quote_batch_id === batch.id,

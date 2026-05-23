@@ -34,7 +34,7 @@ const quickActions = [
   },
   {
     description: '无 Excel 时录入单个型号、规格和报价阶梯',
-    path: '/admin/product-info/manual-entry',
+    path: '/admin/product-info/workbench?tab=manual-entry',
     title: '手动新建商品',
   },
   {

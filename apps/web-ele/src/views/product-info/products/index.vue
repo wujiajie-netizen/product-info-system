@@ -3,9 +3,12 @@ import type {
   BrandRecord,
   CategoryRecord,
   CompanyRecord,
+  DocumentFileType,
+  DocumentKind,
   ProductRecord,
   ProductStatus,
 } from '#/api';
+import type { UploadFile } from 'element-plus';
 
 import { computed, onMounted, reactive, ref } from 'vue';
 
@@ -29,13 +32,16 @@ import {
   ElTable,
   ElTableColumn,
   ElTag,
+  ElUpload,
 } from 'element-plus';
 
 import {
+  createDocument,
   createProduct,
   listBrands,
   listCategories,
   listCompanies,
+  listDocuments,
   listProducts,
   setProductStatus,
   updateProduct,
@@ -51,6 +57,22 @@ const brands = ref<BrandRecord[]>([]);
 const companies = ref<CompanyRecord[]>([]);
 const dialogVisible = ref(false);
 const editingProduct = ref<ProductRecord>();
+const documentDialogVisible = ref(false);
+const uploadingDocuments = ref(false);
+const documentProduct = ref<ProductRecord>();
+const existingDocumentCount = ref(0);
+
+interface DocumentDraft {
+  documentKind: DocumentKind;
+  file: File;
+  fileType: DocumentFileType;
+  rowKey: string;
+  status: 'failed' | 'pending' | 'uploaded';
+  title: string;
+  warning: string;
+}
+
+const documentDrafts = ref<DocumentDraft[]>([]);
 
 const isAdmin = computed(() => userStore.userRoles.includes('admin'));
 const dialogTitle = computed(() =>
@@ -162,6 +184,100 @@ function openEditDialog(row: ProductRecord) {
   form.summaryConfigText = row.summary_config_text || '';
   form.tagsText = row.tags.join(', ');
   dialogVisible.value = true;
+}
+
+function inferFileType(fileName: string): DocumentFileType {
+  const lowerName = fileName.toLowerCase();
+  if (/\.(png|jpe?g|webp|gif|bmp)$/i.test(fileName)) return 'image';
+  if (lowerName.includes('quote') || lowerName.includes('报价')) return 'quote';
+  if (lowerName.includes('spec') || lowerName.includes('规格')) return 'spec';
+  if (lowerName.includes('manual') || lowerName.includes('说明') || lowerName.includes('技术')) return 'technical';
+  return 'other';
+}
+
+function inferDocumentKind(fileName: string, fileType: DocumentFileType): DocumentKind {
+  const lowerName = fileName.toLowerCase();
+  if (fileType === 'image') return 'product_image';
+  if (fileType === 'quote') return 'quote_workbook';
+  if (lowerName.includes('draw') || lowerName.includes('图纸')) return 'drawing';
+  if (lowerName.includes('cert') || lowerName.includes('证书')) return 'certificate';
+  if (lowerName.includes('manual') || lowerName.includes('说明')) return 'manual';
+  if (fileType === 'spec') return 'spec_sheet';
+  if (fileType === 'technical') return 'technical';
+  return 'other';
+}
+
+async function openDocumentDialog(row: ProductRecord) {
+  documentProduct.value = row;
+  documentDrafts.value = [];
+  existingDocumentCount.value = 0;
+  documentDialogVisible.value = true;
+  try {
+    const documents = await listDocuments({ productId: row.id });
+    existingDocumentCount.value = documents.length;
+  } catch (error) {
+    ElMessage.error((error as Error).message);
+  }
+}
+
+function handleDocumentChange(file: UploadFile) {
+  const rawFile = file.raw;
+  if (!rawFile || !documentProduct.value) return;
+  const fileType = inferFileType(rawFile.name);
+  documentDrafts.value.push({
+    documentKind: inferDocumentKind(rawFile.name, fileType),
+    file: rawFile,
+    fileType,
+    rowKey: `${rawFile.name}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    status: 'pending',
+    title: rawFile.name,
+    warning: '',
+  });
+}
+
+function removeDocumentDraft(index: number) {
+  documentDrafts.value.splice(index, 1);
+}
+
+async function uploadDocuments() {
+  if (!documentProduct.value) return;
+  const targets = documentDrafts.value.filter((item) => item.status !== 'uploaded');
+  if (!targets.length) {
+    ElMessage.info('没有待上传资料');
+    return;
+  }
+
+  try {
+    uploadingDocuments.value = true;
+    for (const draft of targets) {
+      try {
+        await createDocument({
+          category: draft.documentKind,
+          companyId: documentProduct.value.company_id || undefined,
+          documentKind: draft.documentKind,
+          file: draft.file,
+          fileType: draft.fileType,
+          isPrimary: draft.documentKind === 'product_image',
+          productId: documentProduct.value.id,
+          productModel: documentProduct.value.model,
+          seriesId: documentProduct.value.series_id || undefined,
+          tags: ['产品页上传', draft.fileType, draft.documentKind],
+          title: draft.title,
+          variantId: documentProduct.value.id,
+        });
+        draft.status = 'uploaded';
+        draft.warning = '';
+      } catch (error) {
+        draft.status = 'failed';
+        draft.warning = (error as Error).message || '上传失败';
+      }
+    }
+    const documents = await listDocuments({ productId: documentProduct.value.id });
+    existingDocumentCount.value = documents.length;
+    ElMessage.success('资料上传完成');
+  } finally {
+    uploadingDocuments.value = false;
+  }
 }
 
 function parseSpecJson() {
@@ -351,10 +467,13 @@ onMounted(async () => {
             {{ formatDate(row.updated_at) }}
           </template>
         </ElTableColumn>
-        <ElTableColumn v-if="isAdmin" fixed="right" label="操作" width="150">
+        <ElTableColumn v-if="isAdmin" fixed="right" label="操作" width="210">
           <template #default="{ row }">
             <ElButton link type="primary" @click="openEditDialog(row)">
               编辑
+            </ElButton>
+            <ElButton link type="primary" @click="openDocumentDialog(row)">
+              补资料
             </ElButton>
             <ElPopconfirm
               :title="
@@ -543,6 +662,79 @@ onMounted(async () => {
         <ElButton @click="dialogVisible = false">取消</ElButton>
         <ElButton :loading="saving" type="primary" @click="submitProduct">
           保存
+        </ElButton>
+      </template>
+    </ElDialog>
+
+    <ElDialog
+      v-model="documentDialogVisible"
+      :title="`资料上传：${documentProduct?.model || ''}`"
+      width="880px"
+    >
+      <ElAlert
+        class="mb-4"
+        :closable="false"
+        show-icon
+        :title="`当前产品已有 ${existingDocumentCount} 份资料，可继续补充图片、规格书、说明书、图纸、证书和报价附件。`"
+        type="info"
+      />
+
+      <ElUpload :auto-upload="false" :on-change="handleDocumentChange" multiple drag>
+        <div class="py-6">
+          <div class="text-base font-medium">拖拽或选择资料文件</div>
+          <div class="mt-2 text-sm text-gray-500">当前上传会直接挂到该产品，无需再匹配型号</div>
+        </div>
+      </ElUpload>
+
+      <ElTable v-if="documentDrafts.length" class="mt-4" :data="documentDrafts" max-height="360" stripe>
+        <ElTableColumn label="标题" min-width="220">
+          <template #default="{ row }"><ElInput v-model="row.title" /></template>
+        </ElTableColumn>
+        <ElTableColumn label="文件类型" min-width="150">
+          <template #default="{ row }">
+            <ElSelect v-model="row.fileType" style="width: 100%">
+              <ElOption label="主图/图片" value="image" />
+              <ElOption label="规格书" value="spec" />
+              <ElOption label="技术资料" value="technical" />
+              <ElOption label="报价附件" value="quote" />
+              <ElOption label="其他" value="other" />
+            </ElSelect>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn label="资料细类" min-width="180">
+          <template #default="{ row }">
+            <ElSelect v-model="row.documentKind" style="width: 100%">
+              <ElOption label="主图/产品图" value="product_image" />
+              <ElOption label="规格书" value="spec_sheet" />
+              <ElOption label="技术资料" value="technical" />
+              <ElOption label="说明书" value="manual" />
+              <ElOption label="图纸" value="drawing" />
+              <ElOption label="证书" value="certificate" />
+              <ElOption label="报价工作簿" value="quote_workbook" />
+              <ElOption label="其他" value="other" />
+            </ElSelect>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn label="状态" width="100">
+          <template #default="{ row }">
+            <ElTag :type="row.status === 'uploaded' ? 'success' : row.status === 'failed' ? 'danger' : 'warning'">
+              {{ row.status === 'uploaded' ? '已上传' : row.status === 'failed' ? '失败' : '待上传' }}
+            </ElTag>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn label="提示" min-width="180">
+          <template #default="{ row }">{{ row.warning || '-' }}</template>
+        </ElTableColumn>
+        <ElTableColumn label="操作" width="90">
+          <template #default="{ $index }"><ElButton link type="danger" @click="removeDocumentDraft($index)">移除</ElButton></template>
+        </ElTableColumn>
+      </ElTable>
+      <ElEmpty v-else class="mt-4" description="请先选择资料文件" />
+
+      <template #footer>
+        <ElButton @click="documentDialogVisible = false">关闭</ElButton>
+        <ElButton :disabled="!documentDrafts.length" :loading="uploadingDocuments" type="primary" @click="uploadDocuments">
+          确认上传
         </ElButton>
       </template>
     </ElDialog>

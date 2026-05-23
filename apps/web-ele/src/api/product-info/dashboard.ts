@@ -230,7 +230,9 @@ function buildCategoryCoverage(
   return [...countMap.entries()]
     .map(([name, value]) => ({ name, value }))
     .filter((item) => item.value > 0 || item.name === '未分类')
-    .sort((left, right) => right.value - left.value || left.name.localeCompare(right.name));
+    .toSorted(
+      (left, right) => right.value - left.value || left.name.localeCompare(right.name),
+    );
 }
 
 function buildDocumentKindDistribution(documents: DocumentRecord[]) {
@@ -246,7 +248,9 @@ function buildDocumentKindDistribution(documents: DocumentRecord[]) {
 
   return [...countMap.entries()]
     .map(([name, value]) => ({ name, value }))
-    .sort((left, right) => right.value - left.value || left.name.localeCompare(right.name));
+    .toSorted(
+      (left, right) => right.value - left.value || left.name.localeCompare(right.name),
+    );
 }
 
 function buildLatestUpdates(
@@ -307,7 +311,7 @@ function buildPendingVariants(
       } satisfies AdminDashboardPendingVariant;
     })
     .filter((item) => item.missingImage || item.missingQuote || item.missingSpec)
-    .sort((left, right) => {
+    .toSorted((left, right) => {
       const missingDiff = getMissingCount(right) - getMissingCount(left);
       if (missingDiff !== 0) {
         return missingDiff;
@@ -331,7 +335,9 @@ function buildQuoteCompanyDistribution(
 
   return [...countMap.entries()]
     .map(([name, value]) => ({ name, value }))
-    .sort((left, right) => right.value - left.value || left.name.localeCompare(right.name));
+    .toSorted(
+      (left, right) => right.value - left.value || left.name.localeCompare(right.name),
+    );
 }
 
 function buildTrendTabs(

@@ -3,13 +3,16 @@ import type {
   BrandRecord,
   CategoryRecord,
   CompanyRecord,
+  ImportTemplateRecord,
   ProductRecord,
   SaveProductInput,
   SaveQuoteTierInput,
 } from '#/api';
-import type { UploadFile } from 'element-plus';
+import type { CheckboxValueType, UploadFile } from 'element-plus';
+import type { WorkSheet } from 'xlsx';
 
 import { computed, onMounted, reactive, ref } from 'vue';
+import { useRoute } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
 import { useUserStore } from '@vben/stores';
@@ -26,7 +29,6 @@ import {
   ElForm,
   ElFormItem,
   ElInput,
-  ElInputNumber,
   ElMessage,
   ElOption,
   ElProgress,
@@ -36,6 +38,8 @@ import {
   ElSteps,
   ElTable,
   ElTableColumn,
+  ElTabPane,
+  ElTabs,
   ElTag,
   ElUpload,
 } from 'element-plus';
@@ -43,13 +47,19 @@ import { read, utils } from 'xlsx';
 
 import {
   createProduct,
+  createImportHistory,
   createQuote,
   listBrands,
   listCategories,
   listCompanies,
+  listImportTemplates,
   listProducts,
   updateProduct,
 } from '#/api';
+
+import ImportHistoryPanel from './components/import-history-panel.vue';
+import ImportTemplatesPanel from './components/import-templates-panel.vue';
+import ManualEntryPanel from './components/manual-entry-panel.vue';
 
 type QuoteTierDraft = SaveQuoteTierInput;
 type ImportStatus = 'error' | 'imported' | 'ready' | 'skipped' | 'warning';
@@ -94,6 +104,20 @@ interface DraftProduct {
   warnings: string[];
 }
 
+interface TemplateDetailMapResult {
+  chipset?: string;
+  model?: string;
+  osName?: string;
+  ramGb?: string;
+  resolution?: string;
+  rowValues: Record<string, string>;
+  sizeInch?: string;
+  storageGb?: string;
+}
+
+type WorkbenchTab = 'excel-import' | 'import-history' | 'import-templates' | 'manual-entry';
+
+const route = useRoute();
 const userStore = useUserStore();
 const isAdmin = computed(() => userStore.userRoles.includes('admin'));
 
@@ -101,6 +125,7 @@ const categories = ref<CategoryRecord[]>([]);
 const brands = ref<BrandRecord[]>([]);
 const companies = ref<CompanyRecord[]>([]);
 const existingProducts = ref<ProductRecord[]>([]);
+const importTemplates = ref<ImportTemplateRecord[]>([]);
 const drafts = ref<DraftProduct[]>([]);
 const parsing = ref(false);
 const importing = ref(false);
@@ -114,6 +139,9 @@ const importOnlyNormal = ref(false);
 const anomalyDialogVisible = ref(false);
 const importConfirmVisible = ref(false);
 const bulkDuplicateStrategy = ref<DuplicateStrategy>('only_quote');
+const workbenchTab = ref<WorkbenchTab>('excel-import');
+const selectedTemplateId = ref('');
+const historyPanelRef = ref<InstanceType<typeof ImportHistoryPanel>>();
 
 const defaults = reactive({
   brandId: '',
@@ -126,6 +154,13 @@ const defaults = reactive({
   status: 'draft' as 'active' | 'draft',
   validFrom: '',
 });
+
+const currentTemplate = computed(
+  () =>
+    importTemplates.value.find((item) => item.id === selectedTemplateId.value) ||
+    importTemplates.value.find((item) => item.is_default) ||
+    undefined,
+);
 
 const activeStep = computed(() => {
   if (importing.value) return 3;
@@ -230,6 +265,22 @@ function lower(value: unknown) {
   return normalizeText(value).toLowerCase();
 }
 
+function normalizeWorkbenchTab(value: unknown): WorkbenchTab {
+  if (
+    value === 'manual-entry' ||
+    value === 'import-templates' ||
+    value === 'import-history' ||
+    value === 'excel-import'
+  ) {
+    return value;
+  }
+  return 'excel-import';
+}
+
+function handleWorkbenchTabChange(tab: string | number) {
+  workbenchTab.value = normalizeWorkbenchTab(tab);
+}
+
 function parseNumber(value: unknown) {
   const matched = normalizeText(value).match(/-?\d+(?:\.\d+)?/);
   return matched ? Number(matched[0]) : undefined;
@@ -276,6 +327,37 @@ function getByColumn(row: unknown[], index: number) {
   return index >= 0 ? getCell(row, index) : '';
 }
 
+function findColumnByTemplate(headers: unknown[], columnName?: null | string) {
+  if (!columnName) return -1;
+  const target = lower(columnName);
+  return headers.findIndex((header) => lower(header) === target || lower(header).includes(target));
+}
+
+function findTierColumnsByTemplate(headers: unknown[], template?: ImportTemplateRecord) {
+  const mappings = template?.tier_mappings || [];
+  if (!mappings.length) return [];
+  return mappings
+    .map((mapping) => {
+      const index = findColumnByTemplate(headers, mapping.column);
+      return index >= 0
+        ? {
+            currency: mapping.currency || defaults.currency,
+            index,
+            minQuantity: mapping.minQuantity,
+          }
+        : null;
+    })
+    .filter(
+      (
+        item,
+      ): item is {
+        currency: string;
+        index: number;
+        minQuantity: number;
+      } => Boolean(item),
+    );
+}
+
 function findExistingProduct(model: string) {
   const normalizedModel = lower(model);
   return existingProducts.value.find((item) => lower(item.model) === normalizedModel);
@@ -313,7 +395,19 @@ function findCompanyName(rows: unknown[][]) {
   return allText.find((text) => /co\.?\s*,?\s*ltd|company|公司/i.test(text)) || '';
 }
 
-function findQuoteSheet(sheetNames: string[]) {
+function findQuoteSheet(sheetNames: string[], template?: ImportTemplateRecord) {
+  const targetSheet = normalizeText(template?.quote_sheet_name);
+  if (targetSheet) {
+    const matchedByName = sheetNames.find((name) => lower(name) === lower(targetSheet));
+    if (matchedByName) return matchedByName;
+  }
+
+  const matcher = normalizeText(template?.quote_sheet_matcher);
+  if (matcher) {
+    const matchedByRule = sheetNames.find((name) => lower(name).includes(lower(matcher)));
+    if (matchedByRule) return matchedByRule;
+  }
+
   return (
     sheetNames.find((name) => name.includes('报价')) ||
     sheetNames.find((name) => /quote/i.test(name)) ||
@@ -323,31 +417,57 @@ function findQuoteSheet(sheetNames: string[]) {
 }
 
 function getSheetRows(workbook: ReturnType<typeof read>, sheetName: string) {
-  return utils.sheet_to_json<unknown[]>(workbook.Sheets[sheetName], {
+  const sheet = workbook.Sheets[sheetName] as WorkSheet | undefined;
+  if (!sheet) {
+    return [];
+  }
+
+  return utils.sheet_to_json<unknown[]>(sheet, {
     defval: '',
     header: 1,
     raw: false,
   });
 }
 
-function extractQuoteRows(workbook: ReturnType<typeof read>) {
-  const sheetName = findQuoteSheet(workbook.SheetNames);
+function extractQuoteRows(workbook: ReturnType<typeof read>, template?: ImportTemplateRecord) {
+  const sheetName = findQuoteSheet(workbook.SheetNames, template);
   const rows = getSheetRows(workbook, sheetName);
-  const headerIndex = findHeaderIndex(rows);
+  const headerIndex =
+    typeof template?.header_row === 'number' && template.header_row > 0
+      ? template.header_row - 1
+      : findHeaderIndex(rows);
   const headers = rows[headerIndex] || [];
-  const modelColumn = findColumn(headers, ['机型', '型号', 'model']);
-  const sizeColumn = findColumn(headers, ['尺寸', 'size']);
-  const configColumn = findColumn(headers, ['标准配置', '配置', 'config']);
+  const modelColumn =
+    findColumnByTemplate(headers, template?.model_column) >= 0
+      ? findColumnByTemplate(headers, template?.model_column)
+      : findColumn(headers, ['型号', '型号', 'model']);
+  const sizeColumn =
+    findColumnByTemplate(headers, template?.size_column) >= 0
+      ? findColumnByTemplate(headers, template?.size_column)
+      : findColumn(headers, ['尺寸', 'size']);
+  const configColumn =
+    findColumnByTemplate(headers, template?.summary_config_column) >= 0
+      ? findColumnByTemplate(headers, template?.summary_config_column)
+      : findColumn(headers, ['标准配置', '配置', 'config']);
   const imageColumn = findColumn(headers, ['产品图片', '图片', 'image']);
-  const remarkColumn = findColumn(headers, ['备注', '选配', 'remark']);
-  const tierColumns = headers
-    .map((header, index) => ({ header: normalizeText(header), index }))
-    .map((item) => {
-      const quantity = parseNumber(item.header);
-      const isPriceColumn = /价|price|usd|cny/i.test(item.header);
-      return quantity && isPriceColumn ? { index: item.index, minQuantity: quantity } : null;
-    })
-    .filter(Boolean) as Array<{ index: number; minQuantity: number }>;
+  const remarkColumn =
+    findColumnByTemplate(headers, template?.remark_column) >= 0
+      ? findColumnByTemplate(headers, template?.remark_column)
+      : findColumn(headers, ['备注', '选配', 'remark']);
+  const templateTiers = findTierColumnsByTemplate(headers, template);
+  const tierColumns =
+    templateTiers.length > 0
+      ? templateTiers
+      : (headers
+          .map((header, index) => ({ header: normalizeText(header), index }))
+          .map((item) => {
+            const quantity = parseNumber(item.header);
+            const isPriceColumn = /价|price|usd|cny|eur/i.test(item.header);
+            return quantity && isPriceColumn
+              ? { currency: defaults.currency, index: item.index, minQuantity: quantity }
+              : null;
+          })
+          .filter(Boolean) as Array<{ currency: string; index: number; minQuantity: number }>);
 
   const dataRows = headerIndex >= 0 ? rows.slice(headerIndex + 1) : [];
   const quoteMap = new Map<string, Partial<DraftProduct>>();
@@ -358,7 +478,7 @@ function extractQuoteRows(workbook: ReturnType<typeof read>) {
 
     const tiers = tierColumns
       .map((column) => ({
-        currency: defaults.currency,
+        currency: column.currency || defaults.currency,
         minQuantity: column.minQuantity,
         unitPrice: parseNumber(row[column.index]),
       }))
@@ -410,17 +530,51 @@ function findValue(rows: unknown[][], labels: string[]) {
   return '';
 }
 
-function extractSpecFromSheet(workbook: ReturnType<typeof read>, sheetName: string) {
+function extractTemplateDetails(rows: unknown[][], template?: ImportTemplateRecord): TemplateDetailMapResult {
+  const result: TemplateDetailMapResult = { rowValues: {} };
+  const mappings = template?.detail_mappings || {};
+  if (!Object.keys(mappings).length) {
+    return result;
+  }
+
+  for (const row of rows) {
+    const key = normalizeText(row[0] || row[1]);
+    const value = normalizeText(row[1] || row[2]);
+    if (key && value) {
+      result.rowValues[key] = value;
+    }
+  }
+
+  for (const [label, field] of Object.entries(mappings)) {
+    const matched = Object.entries(result.rowValues).find(
+      ([key]) => lower(key) === lower(label) || lower(key).includes(lower(label)),
+    );
+    if (matched) {
+      ((result as unknown) as Record<string, string | Record<string, string> | undefined>)[field] =
+        matched[1];
+    }
+  }
+  return result;
+}
+
+function shouldUseDetailSheet(sheetName: string, template?: ImportTemplateRecord) {
+  const rule = normalizeText(template?.detail_sheet_rule);
+  if (!rule) return true;
+  return lower(sheetName).includes(lower(rule));
+}
+
+function extractSpecFromSheet(workbook: ReturnType<typeof read>, sheetName: string, template?: ImportTemplateRecord) {
   const rows = getSheetRows(workbook, sheetName);
-  const model = findValue(rows, ['model no', 'model', '型号']) || sheetName;
+  const templateDetails = extractTemplateDetails(rows, template);
+  const model = normalizeText(templateDetails.model) || findValue(rows, ['model no', 'model', '型号']) || sheetName;
   const productType = findValue(rows, ['product type', '产品类型']);
   const description = findValue(rows, ['product description', 'description', '产品描述']);
-  const cpu = findValue(rows, ['cpu', 'chipset', '芯片']);
-  const ram = findValue(rows, ['ram', 'memory', '内存']);
-  const storage = findValue(rows, ['internal memory', 'storage', '存储']);
-  const os = findValue(rows, ['operation system', 'os', '系统']);
-  const panelSize = findValue(rows, ['panel size', 'size', '尺寸']);
-  const resolution = findValue(rows, ['resolution', '分辨率']);
+  const cpu = normalizeText(templateDetails.chipset) || findValue(rows, ['cpu', 'chipset', '芯片']);
+  const ram = normalizeText(templateDetails.ramGb) || findValue(rows, ['ram', 'memory', '内存']);
+  const storage = normalizeText(templateDetails.storageGb) || findValue(rows, ['internal memory', 'storage', '存储']);
+  const os = normalizeText(templateDetails.osName) || findValue(rows, ['operation system', 'os', '系统']);
+  const panelSize = normalizeText(templateDetails.sizeInch) || findValue(rows, ['panel size', 'size', '尺寸']);
+  const resolution = normalizeText(templateDetails.resolution) || findValue(rows, ['resolution', '分辨率']);
   const luminance = findValue(rows, ['luminance', 'brightness', '亮度']);
   const poe = findValue(rows, ['poe']);
   const productName = description || `${model} ${productType || ''}`.trim();
@@ -454,7 +608,8 @@ function extractSpecFromSheet(workbook: ReturnType<typeof read>, sheetName: stri
 }
 
 function buildDrafts(workbook: ReturnType<typeof read>) {
-  const quoteMap = extractQuoteRows(workbook);
+  const template = currentTemplate.value;
+  const quoteMap = extractQuoteRows(workbook, template);
   const draftMap = new Map<string, DraftProduct>();
 
   for (const [model, quoteDraft] of quoteMap) {
@@ -463,7 +618,8 @@ function buildDrafts(workbook: ReturnType<typeof read>) {
 
   for (const sheetName of workbook.SheetNames) {
     if (sheetName === quoteSheetName.value) continue;
-    const specDraft = extractSpecFromSheet(workbook, sheetName);
+    if (!shouldUseDetailSheet(sheetName, template)) continue;
+    const specDraft = extractSpecFromSheet(workbook, sheetName, template);
     const model = normalizeText(specDraft.model || sheetName);
     const existing = draftMap.get(model) || createEmptyDraft(model, {});
     draftMap.set(model, mergeDraft(existing, specDraft));
@@ -471,7 +627,7 @@ function buildDrafts(workbook: ReturnType<typeof read>) {
 
   const records = [...draftMap.values()].map(validateDraft);
   drafts.value = records;
-  parseSummary.value = `识别 ${workbook.SheetNames.length} 个工作表，生成 ${records.length} 条商品草稿，报价表：${quoteSheetName.value || '未识别'}`;
+  parseSummary.value = `识别 ${workbook.SheetNames.length} 个工作表，生成 ${records.length} 条商品草稿，报价表：${quoteSheetName.value || '未识别'}${template ? `，模板：${template.template_name}` : ''}`;
 }
 
 function createEmptyDraft(model: string, partial: Partial<DraftProduct>): DraftProduct {
@@ -575,7 +731,11 @@ async function handleExcelChange(file: UploadFile) {
     const workbook = read(buffer, { cellDates: true, type: 'array' });
     workbookSheetNames.value = workbook.SheetNames;
     buildDrafts(workbook);
-    ElMessage.success('Excel 解析完成，请先查看预检报告再入库');
+    ElMessage.success(
+      currentTemplate.value
+        ? `Excel 解析完成，已套用模板：${currentTemplate.value.template_name}`
+        : 'Excel 解析完成，请先查看预检报告再入库',
+    );
   } catch (error) {
     ElMessage.error((error as Error).message || 'Excel 解析失败');
   } finally {
@@ -584,16 +744,21 @@ async function handleExcelChange(file: UploadFile) {
 }
 
 async function loadOptions() {
-  const [categoryRecords, brandRecords, companyRecords, productRecords] = await Promise.all([
+  const [categoryRecords, brandRecords, companyRecords, productRecords, templateRecords] = await Promise.all([
     listCategories(),
     listBrands(),
     listCompanies(),
     listProducts(),
+    listImportTemplates(),
   ]);
   categories.value = categoryRecords;
   brands.value = brandRecords;
   companies.value = companyRecords;
   existingProducts.value = productRecords;
+  importTemplates.value = templateRecords.filter((item) => item.status === 'active');
+  if (!selectedTemplateId.value) {
+    selectedTemplateId.value = importTemplates.value.find((item) => item.is_default)?.id || '';
+  }
   drafts.value.forEach(validateDraft);
 }
 
@@ -608,6 +773,10 @@ function applyDefaults() {
   }
 }
 
+async function handleImportTemplateChanged() {
+  await loadOptions();
+}
+
 function applyDuplicateStrategyToAll() {
   for (const draft of duplicateDrafts.value) {
     draft.duplicateStrategy = bulkDuplicateStrategy.value;
@@ -617,9 +786,12 @@ function applyDuplicateStrategyToAll() {
   ElMessage.success(`已为 ${duplicateDrafts.value.length} 条重复型号设置处理策略`);
 }
 
-function toggleAll(value: boolean) {
+function toggleAll(value: CheckboxValueType) {
+  const checked = value === true;
   for (const draft of drafts.value) {
-    if (draft.status !== 'imported') draft.selected = value;
+    if (draft.status !== 'imported') {
+      draft.selected = checked;
+    }
   }
 }
 
@@ -647,11 +819,17 @@ function mergeForFillEmpty(draft: DraftProduct, existing?: ProductRecord) {
     seriesId: existing.series_id || undefined,
     seriesName: existing.series_name || draft.seriesName || defaults.seriesName || draft.model,
     sizeInch: existing.size_inch ?? draft.sizeInch,
-    specJson: { ...draft.specJson, ...(existing.spec_json || {}) },
+    specJson: { ...draft.specJson, ...existing.spec_json },
     storageGb: existing.storage_gb ?? draft.storageGb,
     summaryConfigText: existing.summary_config_text || draft.summaryConfigText || undefined,
     tags: existing.tags?.length ? existing.tags : draft.tags,
   } satisfies SaveProductInput;
+}
+
+function formatQuoteTiers(tiers: QuoteTierDraft[]) {
+  return tiers.length
+    ? tiers.map((tier) => `${tier.minQuantity}+/${tier.currency} ${tier.unitPrice}`).join(' | ')
+    : '-';
 }
 
 function buildProductInput(draft: DraftProduct): SaveProductInput {
@@ -731,36 +909,135 @@ async function executeImport() {
     return;
   }
 
+  const historyRows: Array<{
+    action: 'create' | 'failed' | 'quote_only' | 'skip' | 'update';
+    errorMessage?: string;
+    modelCode?: string;
+    quoteLineId?: string;
+    rawPayload?: Record<string, unknown>;
+    rowIndex?: number;
+    status: 'failed' | 'skipped' | 'success' | 'warning';
+    variantId?: string;
+    warningMessage?: string;
+  }> = [];
+  let failedRowCount = 0;
+  let newProductCount = 0;
+  let newQuoteCount = 0;
+  let quoteOnlyCount = 0;
+  let skippedRowCount = selectedDrafts.value.length - targets.length;
+  let updateProductCount = 0;
+
   try {
     importing.value = true;
     importConfirmVisible.value = false;
-    for (const draft of targets) {
-      const product = await resolveProductForDraft(draft);
-      if (product && draft.quoteTiers.length && draft.companyId) {
-        await createQuote({
-          batchTitle: quoteBatchTitle.value || `${draft.model} Excel 报价批次`,
-          companyId: draft.companyId,
-          currency: defaults.currency,
-          productId: product.id,
-          publishedAt: defaults.publishedAt || undefined,
-          remarks: [
-            draft.quoteRemarks,
-            `来源文件：${fileName.value}`,
-            `重复型号策略：${duplicateStrategyLabel(draft.duplicateStrategy)}`,
-          ]
-            .filter(Boolean)
-            .join('\n'),
-          standardConfigText: draft.summaryConfigText || undefined,
-          status: defaults.status,
-          tiers: draft.quoteTiers,
-          validFrom: defaults.validFrom || undefined,
+    for (const [index, draft] of targets.entries()) {
+      try {
+        const product = await resolveProductForDraft(draft);
+        let quoteLineId: string | undefined;
+
+        if (draft.duplicateStrategy === 'only_quote') {
+          quoteOnlyCount += 1;
+        } else if (draft.duplicateStrategy === 'update_existing') {
+          updateProductCount += 1;
+        } else {
+          newProductCount += 1;
+        }
+
+        if (product && draft.quoteTiers.length && draft.companyId) {
+          const quote = await createQuote({
+            batchTitle: quoteBatchTitle.value || `${draft.model} Excel 报价批次`,
+            companyId: draft.companyId,
+            currency: defaults.currency,
+            productId: product.id,
+            publishedAt: defaults.publishedAt || undefined,
+            remarks: [
+              draft.quoteRemarks,
+              `来源文件：${fileName.value}`,
+              `重复型号策略：${duplicateStrategyLabel(draft.duplicateStrategy)}`,
+            ]
+              .filter(Boolean)
+              .join('\n'),
+            standardConfigText: draft.summaryConfigText || undefined,
+            status: defaults.status,
+            tiers: draft.quoteTiers,
+            validFrom: defaults.validFrom || undefined,
+          });
+          quoteLineId = quote.id;
+          newQuoteCount += 1;
+        }
+
+        draft.status = 'imported';
+        draft.selected = false;
+        historyRows.push({
+          action:
+            draft.duplicateStrategy === 'only_quote'
+              ? 'quote_only'
+              : draft.duplicateStrategy === 'update_existing'
+                ? 'update'
+                : 'create',
+          modelCode: draft.model,
+          quoteLineId,
+          rawPayload: {
+            companyId: draft.companyId,
+            duplicateStrategy: draft.duplicateStrategy,
+            fieldMergeStrategy: draft.fieldMergeStrategy,
+            quoteTierCount: draft.quoteTiers.length,
+            sourceSheetName: draft.sourceSheetName,
+          },
+          rowIndex: index + 1,
+          status: draft.warnings.length ? 'warning' : 'success',
+          variantId: product?.id,
+          warningMessage: draft.warnings.join('；') || undefined,
+        });
+      } catch (error) {
+        failedRowCount += 1;
+        draft.status = 'error';
+        draft.selected = true;
+        historyRows.push({
+          action: 'failed',
+          errorMessage: (error as Error).message || '入库失败',
+          modelCode: draft.model,
+          rawPayload: {
+            companyId: draft.companyId,
+            duplicateStrategy: draft.duplicateStrategy,
+            fieldMergeStrategy: draft.fieldMergeStrategy,
+            quoteTierCount: draft.quoteTiers.length,
+            sourceSheetName: draft.sourceSheetName,
+          },
+          rowIndex: index + 1,
+          status: 'failed',
+          warningMessage: draft.warnings.join('；') || undefined,
         });
       }
-      draft.status = 'imported';
-      draft.selected = false;
     }
-    ElMessage.success('入库完成');
+
+    await createImportHistory({
+      failedRowCount,
+      fileName: fileName.value || `excel-import-${Date.now()}.xlsx`,
+      newProductCount,
+      newQuoteCount,
+      quoteOnlyCount,
+      rows: historyRows,
+      skippedRowCount,
+      status:
+        failedRowCount > 0
+          ? historyRows.some((row) => row.status === 'success' || row.status === 'warning')
+            ? 'partial_success'
+            : 'failed'
+          : 'success',
+      templateId: currentTemplate.value?.id,
+      totalRows: selectedDrafts.value.length,
+      updateProductCount,
+      warningSummary: {
+        anomalyCount: preflightReport.value.anomalyCount,
+        duplicateExistingCount: preflightReport.value.duplicateExistingCount,
+        duplicateInFileCount: preflightReport.value.duplicateInFileCount,
+      },
+    });
+
     await loadOptions();
+    await historyPanelRef.value?.refresh();
+    ElMessage.success(failedRowCount > 0 ? '入库完成，已有失败记录写入导入历史' : '入库完成');
   } catch (error) {
     ElMessage.error((error as Error).message || '入库失败');
   } finally {
@@ -819,286 +1096,275 @@ function statusLabel(status: ImportStatus) {
   }[status];
 }
 
-onMounted(loadOptions);
+onMounted(async () => {
+  workbenchTab.value = normalizeWorkbenchTab(route.query.tab);
+  await loadOptions();
+});
 </script>
 
 <template>
   <Page
-    description="上传真实报价 Excel，自动解析商品、规格和阶梯价，确认后批量入库"
-    title="Excel 商品快速入库工作台"
+    description="围绕 Excel 导入、快速建档、模板维护和导入追踪的一站式工作台"
+    title="商品入库工作台"
   >
     <ElAlert
       class="mb-4"
       :closable="false"
       show-icon
-      title="适配结构：报价总表 + 多个型号详情 Sheet。Excel 属于结构化解析，不依赖 AI；AI 仅用于后续 PDF、图片报价单等非结构化资料。"
+      title="结构化 Excel 导入、手动快速建档、模板维护和导入历史已经收拢到同一个工作台中，便于业务按同一流程完成录入。"
       type="info"
     />
 
-    <ElCard shadow="never">
-      <ElSteps :active="activeStep" finish-status="success" simple>
-        <ElStep title="上传 Excel" />
-        <ElStep title="解析字段" />
-        <ElStep title="人工确认" />
-        <ElStep title="批量入库" />
-        <ElStep title="完成" />
-      </ElSteps>
-    </ElCard>
-
-    <div class="mt-4 grid gap-4 xl:grid-cols-[360px_1fr]">
-      <ElCard shadow="never">
-        <template #header>1. 上传与默认设置</template>
-
-        <ElUpload :auto-upload="false" :limit="1" :on-change="handleExcelChange" accept=".xlsx,.xls" drag>
-          <div class="py-6">
-            <div class="text-base font-medium">拖拽或选择 Excel</div>
-            <div class="mt-2 text-sm text-gray-500">支持报价 Sheet + 型号详情 Sheet</div>
-          </div>
-        </ElUpload>
-
-        <ElDivider />
-
-        <ElForm label-width="88px">
-          <ElFormItem label="默认分类">
-            <ElSelect v-model="defaults.categoryId" clearable filterable style="width: 100%">
-              <ElOption v-for="category in categories" :key="category.id" :label="category.name" :value="category.id" />
-            </ElSelect>
-          </ElFormItem>
-          <ElFormItem label="备用分类">
-            <ElInput v-model="defaults.category" placeholder="匹配不到分类时使用" />
-          </ElFormItem>
-          <ElFormItem label="默认品牌">
-            <ElSelect v-model="defaults.brandId" clearable filterable style="width: 100%">
-              <ElOption v-for="brand in brands" :key="brand.id" :label="brand.name" :value="brand.id" />
-            </ElSelect>
-          </ElFormItem>
-          <ElFormItem label="默认公司">
-            <ElSelect v-model="defaults.companyId" clearable filterable style="width: 100%">
-              <ElOption v-for="company in companies" :key="company.id" :label="company.name" :value="company.id" />
-            </ElSelect>
-          </ElFormItem>
-          <ElFormItem label="默认系列">
-            <ElInput v-model="defaults.seriesName" />
-          </ElFormItem>
-          <ElFormItem label="币种">
-            <ElSelect v-model="defaults.currency" style="width: 100%">
-              <ElOption label="USD" value="USD" />
-              <ElOption label="CNY" value="CNY" />
-              <ElOption label="EUR" value="EUR" />
-            </ElSelect>
-          </ElFormItem>
-          <ElFormItem label="报价状态">
-            <ElSelect v-model="defaults.status" style="width: 100%">
-              <ElOption label="草稿" value="draft" />
-              <ElOption label="启用" value="active" />
-            </ElSelect>
-          </ElFormItem>
-          <ElFormItem label="生效日期">
-            <ElDatePicker v-model="defaults.validFrom" placeholder="报价生效日期" style="width: 100%" type="date" value-format="YYYY-MM-DD" />
-          </ElFormItem>
-        </ElForm>
-
-        <ElButton class="w-full" type="primary" @click="applyDefaults">应用默认设置到草稿</ElButton>
-      </ElCard>
-
-      <div class="grid gap-4">
+    <ElTabs v-model="workbenchTab" @tab-change="handleWorkbenchTabChange">
+      <ElTabPane label="Excel 导入" name="excel-import">
         <ElCard shadow="never">
-          <template #header>2. 解析结果</template>
-          <ElSpace wrap>
-            <ElTag type="primary">文件：{{ fileName || '-' }}</ElTag>
-            <ElTag type="success">报价表：{{ quoteSheetName || '-' }}</ElTag>
-            <ElTag type="info">Sheet：{{ workbookSheetNames.length }}</ElTag>
-            <ElTag type="warning">公司：{{ detectedCompanyName || '待选择' }}</ElTag>
-          </ElSpace>
-          <p class="mt-3 text-sm text-gray-500">{{ parseSummary }}</p>
-          <ElProgress v-if="importedCount" class="mt-3" :percentage="completionPercent" />
+          <ElSteps :active="activeStep" finish-status="success" simple>
+            <ElStep title="上传 Excel" />
+            <ElStep title="解析字段" />
+            <ElStep title="人工确认" />
+            <ElStep title="批量入库" />
+            <ElStep title="完成" />
+          </ElSteps>
         </ElCard>
 
-        <ElCard shadow="never">
-          <template #header>
-            <div class="flex items-center justify-between">
-              <span>2.1 导入预检报告</span>
-              <ElSpace>
-                <ElCheckbox v-model="importOnlyNormal">只导入正常行</ElCheckbox>
-                <ElButton size="small" @click="anomalyDialogVisible = true">查看异常行</ElButton>
-                <ElButton size="small" @click="downloadErrorReport">下载错误报告</ElButton>
+        <div class="mt-4 grid gap-4 xl:grid-cols-[360px_1fr]">
+          <ElCard shadow="never">
+            <template #header>1. 上传与默认设置</template>
+
+            <ElUpload :auto-upload="false" :limit="1" :on-change="handleExcelChange" accept=".xlsx,.xls" drag>
+              <div class="py-6">
+                <div class="text-base font-medium">拖拽或选择 Excel</div>
+                <div class="mt-2 text-sm text-gray-500">支持报价 Sheet + 多个型号详情 Sheet</div>
+              </div>
+            </ElUpload>
+
+            <ElDivider />
+
+            <ElForm label-width="96px">
+              <ElFormItem label="导入模板">
+                <ElSelect v-model="selectedTemplateId" clearable filterable placeholder="可不选，默认按内置规则解析" style="width: 100%">
+                  <ElOption v-for="template in importTemplates" :key="template.id" :label="template.template_name" :value="template.id" />
+                </ElSelect>
+              </ElFormItem>
+              <ElFormItem v-if="currentTemplate" label="当前模板">
+                <div class="text-sm text-gray-600">
+                  {{ currentTemplate.template_name }}
+                  <span v-if="currentTemplate.supplier_name"> / {{ currentTemplate.supplier_name }}</span>
+                </div>
+              </ElFormItem>
+              <ElFormItem label="默认分类">
+                <ElSelect v-model="defaults.categoryId" clearable filterable style="width: 100%">
+                  <ElOption v-for="category in categories" :key="category.id" :label="category.name" :value="category.id" />
+                </ElSelect>
+              </ElFormItem>
+              <ElFormItem label="备用分类">
+                <ElInput v-model="defaults.category" placeholder="匹配不到分类时使用" />
+              </ElFormItem>
+              <ElFormItem label="默认品牌">
+                <ElSelect v-model="defaults.brandId" clearable filterable style="width: 100%">
+                  <ElOption v-for="brand in brands" :key="brand.id" :label="brand.name" :value="brand.id" />
+                </ElSelect>
+              </ElFormItem>
+              <ElFormItem label="默认公司">
+                <ElSelect v-model="defaults.companyId" clearable filterable style="width: 100%">
+                  <ElOption v-for="company in companies" :key="company.id" :label="company.name" :value="company.id" />
+                </ElSelect>
+              </ElFormItem>
+              <ElFormItem label="默认系列">
+                <ElInput v-model="defaults.seriesName" />
+              </ElFormItem>
+              <ElFormItem label="币种">
+                <ElSelect v-model="defaults.currency" style="width: 100%">
+                  <ElOption label="USD" value="USD" />
+                  <ElOption label="CNY" value="CNY" />
+                  <ElOption label="EUR" value="EUR" />
+                </ElSelect>
+              </ElFormItem>
+              <ElFormItem label="报价状态">
+                <ElSelect v-model="defaults.status" style="width: 100%">
+                  <ElOption label="草稿" value="draft" />
+                  <ElOption label="启用" value="active" />
+                </ElSelect>
+              </ElFormItem>
+              <ElFormItem label="生效日期">
+                <ElDatePicker v-model="defaults.validFrom" placeholder="报价生效日期" style="width: 100%" type="date" value-format="YYYY-MM-DD" />
+              </ElFormItem>
+            </ElForm>
+
+            <ElButton class="w-full" type="primary" @click="applyDefaults">应用默认设置到草稿</ElButton>
+          </ElCard>
+
+          <div class="grid gap-4">
+            <ElCard shadow="never">
+              <template #header>2. 解析结果</template>
+              <ElSpace wrap>
+                <ElTag type="primary">文件：{{ fileName || '-' }}</ElTag>
+                <ElTag type="success">报价表：{{ quoteSheetName || '-' }}</ElTag>
+                <ElTag type="info">Sheet：{{ workbookSheetNames.length }}</ElTag>
+                <ElTag type="warning">公司：{{ detectedCompanyName || '待选择' }}</ElTag>
+                <ElTag v-if="currentTemplate" type="warning">模板：{{ currentTemplate.template_name }}</ElTag>
               </ElSpace>
-            </div>
-          </template>
-
-          <ElSpace wrap>
-            <ElTag type="primary">选中 {{ preflightReport.selectedCount }} 条</ElTag>
-            <ElTag type="success">将导入 {{ preflightReport.importableCount }} 条</ElTag>
-            <ElTag type="info">正常 {{ preflightReport.normalCount }} 条</ElTag>
-            <ElTag type="warning">跳过 {{ preflightReport.skippedCount }} 条</ElTag>
-            <ElTag type="danger">异常 {{ preflightReport.anomalyCount }} 条</ElTag>
-          </ElSpace>
-
-          <div class="mt-4 grid gap-3 md:grid-cols-3">
-            <ElCard shadow="never">
-              <div class="text-sm text-gray-500">商品计划</div>
-              <div class="mt-2 text-base font-medium">新增 {{ preflightReport.newProductCount }} 个，更新 {{ preflightReport.updateProductCount }} 个</div>
-              <div class="mt-1 text-xs text-gray-500">重复型号 {{ preflightReport.duplicateExistingCount + preflightReport.duplicateInFileCount }} 个</div>
+              <p class="mt-3 text-sm text-gray-500">{{ parseSummary }}</p>
+              <ElProgress v-if="importedCount" class="mt-3" :percentage="completionPercent" />
             </ElCard>
+
             <ElCard shadow="never">
-              <div class="text-sm text-gray-500">报价计划</div>
-              <div class="mt-2 text-base font-medium">新增批次 {{ preflightReport.quoteBatchCount }} 个，新增阶梯价 {{ preflightReport.quoteTierCount }} 条</div>
-              <div class="mt-1 text-xs text-gray-500">只新增报价 {{ preflightReport.quoteOnlyCount }} 条</div>
+              <template #header>
+                <div class="flex items-center justify-between">
+                  <span>2.1 导入预检报告</span>
+                  <ElSpace>
+                    <ElCheckbox v-model="importOnlyNormal">只导入正常行</ElCheckbox>
+                    <ElButton size="small" @click="anomalyDialogVisible = true">查看异常行</ElButton>
+                    <ElButton size="small" @click="downloadErrorReport">下载错误报告</ElButton>
+                  </ElSpace>
+                </div>
+              </template>
+
+              <ElSpace wrap>
+                <ElTag type="primary">选中 {{ preflightReport.selectedCount }} 条</ElTag>
+                <ElTag type="success">将导入 {{ preflightReport.importableCount }} 条</ElTag>
+                <ElTag type="info">正常 {{ preflightReport.normalCount }} 条</ElTag>
+                <ElTag type="warning">跳过 {{ preflightReport.skippedCount }} 条</ElTag>
+                <ElTag type="danger">异常 {{ preflightReport.anomalyCount }} 条</ElTag>
+              </ElSpace>
+
+              <div class="mt-4 grid gap-3 md:grid-cols-3">
+                <ElCard shadow="never">
+                  <div class="text-sm text-gray-500">商品计划</div>
+                  <div class="mt-2 text-base font-medium">新增 {{ preflightReport.newProductCount }}，更新 {{ preflightReport.updateProductCount }}</div>
+                  <div class="mt-1 text-xs text-gray-500">重复型号 {{ preflightReport.duplicateExistingCount + preflightReport.duplicateInFileCount }}</div>
+                </ElCard>
+                <ElCard shadow="never">
+                  <div class="text-sm text-gray-500">报价计划</div>
+                  <div class="mt-2 text-base font-medium">新增批次 {{ preflightReport.quoteBatchCount }}，新增阶梯价 {{ preflightReport.quoteTierCount }}</div>
+                  <div class="mt-1 text-xs text-gray-500">只新增报价 {{ preflightReport.quoteOnlyCount }}</div>
+                </ElCard>
+                <ElCard shadow="never">
+                  <div class="text-sm text-gray-500">缺失风险</div>
+                  <div class="mt-2 text-xs leading-6 text-gray-600">
+                    分类 {{ preflightReport.missingCategoryCount }} / 品牌 {{ preflightReport.missingBrandCount }} / 公司 {{ preflightReport.missingCompanyCount }} / 报价 {{ preflightReport.missingQuoteCount }} / 规格 {{ preflightReport.missingSpecCount }} / 图片 {{ preflightReport.missingImageCount }}
+                  </div>
+                </ElCard>
+              </div>
             </ElCard>
+
             <ElCard shadow="never">
-              <div class="text-sm text-gray-500">缺失风险</div>
-              <div class="mt-2 text-xs leading-6 text-gray-600">
-                分类 {{ preflightReport.missingCategoryCount }} / 品牌 {{ preflightReport.missingBrandCount }} / 公司 {{ preflightReport.missingCompanyCount }} / 报价 {{ preflightReport.missingQuoteCount }} / 规格 {{ preflightReport.missingSpecCount }} / 图片 {{ preflightReport.missingImageCount }}
+              <template #header>
+                <div class="flex items-center justify-between">
+                  <span>2.2 重复型号处理</span>
+                  <ElSpace>
+                    <ElTag type="warning">重复型号 {{ duplicateDrafts.length }}</ElTag>
+                    <ElSelect v-model="bulkDuplicateStrategy" size="small" style="width: 150px">
+                      <ElOption label="只新增报价" value="only_quote" />
+                      <ElOption label="更新已有商品" value="update_existing" />
+                      <ElOption label="跳过该商品" value="skip" />
+                      <ElOption label="作为新商品创建" value="create_new" />
+                    </ElSelect>
+                    <ElButton size="small" @click="applyDuplicateStrategyToAll">批量设置</ElButton>
+                  </ElSpace>
+                </div>
+              </template>
+              <ElAlert :closable="false" show-icon title="默认不会静默合并重复型号，需逐行确认是新建、更新、只增报价还是跳过。" type="warning" />
+            </ElCard>
+
+            <ElCard shadow="never">
+              <template #header>
+                <div class="flex items-center justify-between">
+                  <span>3. 商品草稿确认</span>
+                  <ElSpace>
+                    <ElCheckbox @change="toggleAll">全选/取消</ElCheckbox>
+                    <ElTag type="success">可入库 {{ readyCount }}</ElTag>
+                    <ElTag type="info">总数 {{ drafts.length }}</ElTag>
+                  </ElSpace>
+                </div>
+              </template>
+
+              <ElTable v-if="drafts.length" :data="drafts" max-height="620" stripe>
+                <ElTableColumn width="54">
+                  <template #default="{ row }">
+                    <ElCheckbox v-model="row.selected" :disabled="row.status === 'imported' || row.status === 'skipped'" />
+                  </template>
+                </ElTableColumn>
+                <ElTableColumn label="状态" width="90">
+                  <template #default="{ row }">
+                    <ElTag :type="statusType(row.status)">{{ statusLabel(row.status) }}</ElTag>
+                  </template>
+                </ElTableColumn>
+                <ElTableColumn label="型号" min-width="150">
+                  <template #default="{ row }"><ElInput v-model="row.model" @blur="validateDraft(row)" /></template>
+                </ElTableColumn>
+                <ElTableColumn label="重复处理" min-width="180">
+                  <template #default="{ row }">
+                    <ElSelect v-model="row.duplicateStrategy" style="width: 100%" @change="validateDraft(row)">
+                      <ElOption label="作为新商品创建" value="create_new" />
+                      <ElOption label="更新已有商品" value="update_existing" />
+                      <ElOption label="只新增报价" value="only_quote" />
+                      <ElOption label="跳过该商品" value="skip" />
+                    </ElSelect>
+                  </template>
+                </ElTableColumn>
+                <ElTableColumn label="商品名称" min-width="220">
+                  <template #default="{ row }"><ElInput v-model="row.name" @blur="validateDraft(row)" /></template>
+                </ElTableColumn>
+                <ElTableColumn label="分类" min-width="180">
+                  <template #default="{ row }"><ElInput v-model="row.category" @blur="validateDraft(row)" /></template>
+                </ElTableColumn>
+                <ElTableColumn label="公司" min-width="180">
+                  <template #default="{ row }">
+                    <ElSelect v-model="row.companyId" clearable filterable style="width: 100%">
+                      <ElOption v-for="company in companies" :key="company.id" :label="company.name" :value="company.id" />
+                    </ElSelect>
+                  </template>
+                </ElTableColumn>
+                <ElTableColumn label="已有商品" min-width="260">
+                  <template #default="{ row }"><span class="text-xs text-gray-500">{{ existingProductInfo(row.model) || '-' }}</span></template>
+                </ElTableColumn>
+                <ElTableColumn label="报价阶梯" min-width="240">
+                  <template #default="{ row }">{{ formatQuoteTiers(row.quoteTiers) }}</template>
+                </ElTableColumn>
+                <ElTableColumn label="提示" min-width="300">
+                  <template #default="{ row }">
+                    <ElSpace wrap>
+                      <ElTag v-for="error in row.errors" :key="error" type="danger">{{ error }}</ElTag>
+                      <ElTag v-for="warning in row.warnings" :key="warning" type="warning">{{ warning }}</ElTag>
+                    </ElSpace>
+                  </template>
+                </ElTableColumn>
+              </ElTable>
+              <ElEmpty v-else description="请先上传 Excel" />
+            </ElCard>
+
+            <ElCard shadow="never">
+              <template #header>4. 入库确认</template>
+              <ElSpace wrap>
+                <ElTag>选中 {{ selectedDrafts.length }} 条</ElTag>
+                <ElTag type="success">当前将导入 {{ importTargets.length }} 条</ElTag>
+                <ElTag type="warning">产品状态：停用</ElTag>
+                <ElTag type="warning">报价状态：{{ defaults.status === 'draft' ? '草稿' : '启用' }}</ElTag>
+              </ElSpace>
+              <div class="mt-4">
+                <ElButton :disabled="!isAdmin || importTargets.length === 0" :loading="importing || parsing" type="primary" @click="openImportConfirm">
+                  确认入库
+                </ElButton>
+                <span class="ml-3 text-sm text-gray-500">确认后会先写商品和报价，再把本次结果写入导入历史。</span>
               </div>
             </ElCard>
           </div>
-        </ElCard>
+        </div>
+      </ElTabPane>
 
-        <ElCard shadow="never">
-          <template #header>
-            <div class="flex items-center justify-between">
-              <span>2.2 重复型号处理</span>
-              <ElSpace>
-                <ElTag type="warning">重复型号 {{ duplicateDrafts.length }}</ElTag>
-                <ElSelect v-model="bulkDuplicateStrategy" size="small" style="width: 150px">
-                  <ElOption label="只新增报价" value="only_quote" />
-                  <ElOption label="更新已有商品" value="update_existing" />
-                  <ElOption label="跳过该商品" value="skip" />
-                  <ElOption label="作为新商品创建" value="create_new" />
-                </ElSelect>
-                <ElButton size="small" @click="applyDuplicateStrategyToAll">批量设置</ElButton>
-              </ElSpace>
-            </div>
-          </template>
-          <ElAlert :closable="false" show-icon title="默认不静默合并重复型号。管理员可逐行选择跳过、更新已有商品、只新增报价或作为新商品创建。" type="warning" />
-        </ElCard>
+      <ElTabPane label="快速建档" name="manual-entry">
+        <ManualEntryPanel />
+      </ElTabPane>
 
-        <ElCard shadow="never">
-          <template #header>
-            <div class="flex items-center justify-between">
-              <span>3. 商品草稿确认</span>
-              <ElSpace>
-                <ElCheckbox @change="toggleAll">全选/取消</ElCheckbox>
-                <ElTag type="success">可入库 {{ readyCount }}</ElTag>
-                <ElTag type="info">总数 {{ drafts.length }}</ElTag>
-              </ElSpace>
-            </div>
-          </template>
+      <ElTabPane label="导入模板" name="import-templates">
+        <ImportTemplatesPanel @changed="handleImportTemplateChanged" />
+      </ElTabPane>
 
-          <ElTable v-if="drafts.length" :data="drafts" max-height="620" stripe>
-            <ElTableColumn width="54">
-              <template #default="{ row }">
-                <ElCheckbox v-model="row.selected" :disabled="row.status === 'imported' || row.status === 'skipped'" />
-              </template>
-            </ElTableColumn>
-            <ElTableColumn label="状态" width="90">
-              <template #default="{ row }">
-                <ElTag :type="statusType(row.status)">{{ statusLabel(row.status) }}</ElTag>
-              </template>
-            </ElTableColumn>
-            <ElTableColumn label="型号" min-width="150">
-              <template #default="{ row }">
-                <ElInput v-model="row.model" @blur="validateDraft(row)" />
-              </template>
-            </ElTableColumn>
-            <ElTableColumn label="重复处理" min-width="180">
-              <template #default="{ row }">
-                <ElSelect v-model="row.duplicateStrategy" style="width: 100%" @change="validateDraft(row)">
-                  <ElOption label="作为新商品创建" value="create_new" />
-                  <ElOption label="更新已有商品" value="update_existing" />
-                  <ElOption label="只新增报价" value="only_quote" />
-                  <ElOption label="跳过该商品" value="skip" />
-                </ElSelect>
-              </template>
-            </ElTableColumn>
-            <ElTableColumn label="覆盖策略" min-width="150">
-              <template #default="{ row }">
-                <ElSelect v-if="row.duplicateStrategy === 'update_existing'" v-model="row.fieldMergeStrategy" style="width: 100%" @change="validateDraft(row)">
-                  <ElOption label="只补空字段" value="fill_empty" />
-                  <ElOption label="Excel 覆盖" value="overwrite" />
-                </ElSelect>
-                <span v-else class="text-gray-400">-</span>
-              </template>
-            </ElTableColumn>
-            <ElTableColumn label="已有商品" min-width="260">
-              <template #default="{ row }">
-                <span class="text-xs text-gray-500">{{ existingProductInfo(row.model) || '-' }}</span>
-              </template>
-            </ElTableColumn>
-            <ElTableColumn label="产品名称" min-width="220">
-              <template #default="{ row }">
-                <ElInput v-model="row.name" @blur="validateDraft(row)" />
-              </template>
-            </ElTableColumn>
-            <ElTableColumn label="系列" min-width="180">
-              <template #default="{ row }"><ElInput v-model="row.seriesName" /></template>
-            </ElTableColumn>
-            <ElTableColumn label="分类" min-width="180">
-              <template #default="{ row }"><ElInput v-model="row.category" @blur="validateDraft(row)" /></template>
-            </ElTableColumn>
-            <ElTableColumn label="公司" min-width="180">
-              <template #default="{ row }">
-                <ElSelect v-model="row.companyId" clearable filterable style="width: 100%">
-                  <ElOption v-for="company in companies" :key="company.id" :label="company.name" :value="company.id" />
-                </ElSelect>
-              </template>
-            </ElTableColumn>
-            <ElTableColumn label="尺寸" width="120">
-              <template #default="{ row }"><ElInputNumber v-model="row.sizeInch" :min="0" controls-position="right" /></template>
-            </ElTableColumn>
-            <ElTableColumn label="芯片" min-width="140">
-              <template #default="{ row }"><ElInput v-model="row.chipset" /></template>
-            </ElTableColumn>
-            <ElTableColumn label="RAM/存储" min-width="190">
-              <template #default="{ row }">
-                <ElSpace>
-                  <ElInputNumber v-model="row.ramGb" :min="0" controls-position="right" />
-                  <ElInputNumber v-model="row.storageGb" :min="0" controls-position="right" />
-                </ElSpace>
-              </template>
-            </ElTableColumn>
-            <ElTableColumn label="分辨率" min-width="190">
-              <template #default="{ row }">
-                <ElSpace>
-                  <ElInputNumber v-model="row.resolutionWidth" :min="0" controls-position="right" />
-                  <ElInputNumber v-model="row.resolutionHeight" :min="0" controls-position="right" />
-                </ElSpace>
-              </template>
-            </ElTableColumn>
-            <ElTableColumn label="报价阶梯" min-width="240">
-              <template #default="{ row }">
-                <div>{{ row.quoteTiers.map((tier) => `${tier.minQuantity}+/${tier.currency} ${tier.unitPrice}`).join(' | ') || '-' }}</div>
-              </template>
-            </ElTableColumn>
-            <ElTableColumn label="提示" min-width="300">
-              <template #default="{ row }">
-                <ElSpace wrap>
-                  <ElTag v-for="error in row.errors" :key="error" type="danger">{{ error }}</ElTag>
-                  <ElTag v-for="warning in row.warnings" :key="warning" type="warning">{{ warning }}</ElTag>
-                </ElSpace>
-              </template>
-            </ElTableColumn>
-          </ElTable>
-          <ElEmpty v-else description="请先上传 Excel" />
-        </ElCard>
-
-        <ElCard shadow="never">
-          <template #header>4. 入库确认</template>
-          <ElSpace wrap>
-            <ElTag>选中 {{ selectedDrafts.length }} 条</ElTag>
-            <ElTag type="success">当前将导入 {{ importTargets.length }} 条</ElTag>
-            <ElTag type="warning">默认商品状态：停用</ElTag>
-            <ElTag type="warning">报价状态：{{ defaults.status === 'draft' ? '草稿' : '启用' }}</ElTag>
-          </ElSpace>
-          <div class="mt-4">
-            <ElButton :disabled="!isAdmin || importTargets.length === 0" :loading="importing || parsing" type="primary" @click="openImportConfirm">
-              确认入库
-            </ElButton>
-            <span class="ml-3 text-sm text-gray-500">点击后会先弹出导入计划摘要；重复型号会按所选策略处理。</span>
-          </div>
-        </ElCard>
-      </div>
-    </div>
+      <ElTabPane label="导入历史" name="import-history">
+        <ImportHistoryPanel ref="historyPanelRef" />
+      </ElTabPane>
+    </ElTabs>
 
     <ElDialog v-model="anomalyDialogVisible" title="异常行明细" width="1080px">
       <ElTable v-if="anomalyRows.length" :data="anomalyRows" max-height="460" stripe>

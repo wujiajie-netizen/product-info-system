@@ -27,6 +27,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import('#/views/product-info/manual-entry/index.vue'),
     meta: {
       authority: ['admin'],
+      hideInMenu: true,
       order: 2,
       icon: 'lucide:package-plus',
       title: '手动建档',
@@ -49,6 +50,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import('#/views/product-info/import-templates/index.vue'),
     meta: {
       authority: ['admin'],
+      hideInMenu: true,
       order: 4,
       icon: 'lucide:file-spreadsheet',
       title: '导入模板',
@@ -60,6 +62,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import('#/views/product-info/import-history/index.vue'),
     meta: {
       authority: ['admin'],
+      hideInMenu: true,
       order: 5,
       icon: 'lucide:history',
       title: '导入历史',
