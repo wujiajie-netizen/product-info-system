@@ -3,6 +3,7 @@ import type {
   BrandRecord,
   CategoryRecord,
   CompanyRecord,
+  DocumentRecord,
   ImportTemplateRecord,
   ProductRecord,
   SaveProductInput,
@@ -10,6 +11,7 @@ import type {
 } from '#/api';
 import type { CheckboxValueType, UploadFile } from 'element-plus';
 import type { WorkSheet } from 'xlsx';
+import type { ExcelImageCandidate } from './utils/excel-image-extractor';
 
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute } from 'vue-router';
@@ -46,20 +48,24 @@ import {
 import { read, utils } from 'xlsx';
 
 import {
-  createProduct,
   createImportHistory,
+  createProduct,
   createQuote,
   listBrands,
   listCategories,
   listCompanies,
   listImportTemplates,
   listProducts,
+  saveQuoteWorkbookAttachments,
   updateProduct,
 } from '#/api';
 
+import ExcelImageImportPanel from './components/excel-image-import-panel.vue';
 import ImportHistoryPanel from './components/import-history-panel.vue';
 import ImportTemplatesPanel from './components/import-templates-panel.vue';
 import ManualEntryPanel from './components/manual-entry-panel.vue';
+import QuickCreateDictionaries from './components/quick-create-dictionaries.vue';
+import { extractExcelEmbeddedImages } from './utils/excel-image-extractor';
 
 type QuoteTierDraft = SaveQuoteTierInput;
 type ImportStatus = 'error' | 'imported' | 'ready' | 'skipped' | 'warning';
@@ -130,6 +136,9 @@ const drafts = ref<DraftProduct[]>([]);
 const parsing = ref(false);
 const importing = ref(false);
 const fileName = ref('');
+const sourceExcelFile = ref<File>();
+const excelImageCandidates = ref<ExcelImageCandidate[]>([]);
+const uploadedExcelImageDocuments = ref<DocumentRecord[]>([]);
 const workbookSheetNames = ref<string[]>([]);
 const quoteSheetName = ref('');
 const quoteBatchTitle = ref('');
@@ -724,13 +733,20 @@ async function handleExcelChange(file: UploadFile) {
   if (!rawFile) return;
 
   fileName.value = rawFile.name;
+  sourceExcelFile.value = rawFile;
+  excelImageCandidates.value = [];
+  uploadedExcelImageDocuments.value = [];
   parsing.value = true;
 
   try {
+    if (!existingProducts.value.length) {
+      await loadOptions();
+    }
     const buffer = await rawFile.arrayBuffer();
     const workbook = read(buffer, { cellDates: true, type: 'array' });
     workbookSheetNames.value = workbook.SheetNames;
     buildDrafts(workbook);
+    excelImageCandidates.value = await extractExcelEmbeddedImages(rawFile, existingProducts.value);
     ElMessage.success(
       currentTemplate.value
         ? `Excel 解析完成，已套用模板：${currentTemplate.value.template_name}`
@@ -775,6 +791,11 @@ function applyDefaults() {
 
 async function handleImportTemplateChanged() {
   await loadOptions();
+}
+
+function handleExcelImagesUploaded(documents: DocumentRecord[]) {
+  uploadedExcelImageDocuments.value = documents;
+  ElMessage.success(`已关联 ${documents.length} 张 Excel 图片`);
 }
 
 function applyDuplicateStrategyToAll() {
@@ -926,6 +947,7 @@ async function executeImport() {
   let quoteOnlyCount = 0;
   let skippedRowCount = selectedDrafts.value.length - targets.length;
   let updateProductCount = 0;
+  const quoteBatchIds = new Set<string>();
 
   try {
     importing.value = true;
@@ -964,6 +986,9 @@ async function executeImport() {
           });
           quoteLineId = quote.id;
           newQuoteCount += 1;
+          if (quote.batch_id) {
+            quoteBatchIds.add(quote.batch_id);
+          }
         }
 
         draft.status = 'imported';
@@ -1009,6 +1034,16 @@ async function executeImport() {
           warningMessage: draft.warnings.join('；') || undefined,
         });
       }
+    }
+
+    if (sourceExcelFile.value && quoteBatchIds.size > 0) {
+      await saveQuoteWorkbookAttachments({
+        companyId: defaults.companyId || undefined,
+        file: sourceExcelFile.value,
+        quoteBatchIds: [...quoteBatchIds],
+        sourceSheetName: quoteSheetName.value,
+        title: fileName.value || sourceExcelFile.value.name,
+      });
     }
 
     await createImportHistory({
@@ -1128,8 +1163,9 @@ onMounted(async () => {
         </ElCard>
 
         <div class="mt-4 grid gap-4 xl:grid-cols-[360px_1fr]">
-          <ElCard shadow="never">
-            <template #header>1. 上传与默认设置</template>
+          <div class="grid gap-4">
+            <ElCard shadow="never">
+              <template #header>1. 上传与默认设置</template>
 
             <ElUpload :auto-upload="false" :limit="1" :on-change="handleExcelChange" accept=".xlsx,.xls" drag>
               <div class="py-6">
@@ -1191,8 +1227,11 @@ onMounted(async () => {
               </ElFormItem>
             </ElForm>
 
-            <ElButton class="w-full" type="primary" @click="applyDefaults">应用默认设置到草稿</ElButton>
-          </ElCard>
+              <ElButton class="w-full" type="primary" @click="applyDefaults">应用默认设置到草稿</ElButton>
+            </ElCard>
+
+            <QuickCreateDictionaries @created="loadOptions" />
+          </div>
 
           <div class="grid gap-4">
             <ElCard shadow="never">
@@ -1207,6 +1246,13 @@ onMounted(async () => {
               <p class="mt-3 text-sm text-gray-500">{{ parseSummary }}</p>
               <ElProgress v-if="importedCount" class="mt-3" :percentage="completionPercent" />
             </ElCard>
+
+            <ExcelImageImportPanel
+              v-if="fileName || excelImageCandidates.length"
+              :candidates="excelImageCandidates"
+              :products="existingProducts"
+              @uploaded="handleExcelImagesUploaded"
+            />
 
             <ElCard shadow="never">
               <template #header>

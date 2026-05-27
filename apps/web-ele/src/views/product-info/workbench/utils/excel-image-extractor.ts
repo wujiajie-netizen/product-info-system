@@ -35,9 +35,10 @@ function inferMimeType(path: string) {
   return IMAGE_MIME_BY_EXTENSION[extension] || 'application/octet-stream';
 }
 
-function toBlobPart(content: ArrayBuffer | Uint8Array | string | undefined) {
-  if (!content) return new Uint8Array();
-  if (typeof content === 'string') return Uint8Array.from(content, (char) => char.charCodeAt(0));
+function toBlobPart(content: ArrayBuffer | Uint8Array | string | undefined): BlobPart {
+  if (!content) return new ArrayBuffer(0);
+  if (typeof content === 'string') return Uint8Array.from(content, (char) => char.charCodeAt(0)).buffer;
+  if (content instanceof Uint8Array) return new Uint8Array(content).buffer;
   return content;
 }
 

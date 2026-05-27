@@ -40,6 +40,10 @@ function handleProductChange(row: ExcelImageCandidate, productId: string) {
   row.warning = row.matchedProduct ? '' : '请选择关联产品';
 }
 
+function getPreviewUrl(rowKey: string) {
+  return previewUrls.value[rowKey] || '';
+}
+
 async function uploadImages() {
   const targets = props.candidates.filter((item) => item.matchedProduct);
   if (!targets.length) {
@@ -96,7 +100,7 @@ async function uploadImages() {
     <ElTable v-if="candidates.length" :data="candidates" stripe>
       <ElTableColumn label="预览" width="110">
         <template #default="{ row }">
-          <ElImage :preview-src-list="[previewUrls[row.rowKey]]" :src="previewUrls[row.rowKey]" fit="cover" style="height: 64px; width: 64px" />
+          <ElImage :preview-src-list="[getPreviewUrl(row.rowKey)]" :src="getPreviewUrl(row.rowKey)" fit="cover" style="height: 64px; width: 64px" />
         </template>
       </ElTableColumn>
       <ElTableColumn label="图片文件" min-width="180" prop="fileName" />
