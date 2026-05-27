@@ -2,7 +2,7 @@
 import type { DocumentRecord, ProductRecord } from '#/api';
 import type { ExcelImageCandidate } from '../utils/excel-image-extractor';
 
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import {
   ElButton,
@@ -30,9 +30,37 @@ const emit = defineEmits<{
 }>();
 
 const uploading = ref(false);
+const objectUrls = new Map<string, string>();
 const previewUrls = computed(() =>
-  Object.fromEntries(props.candidates.map((item) => [item.rowKey, URL.createObjectURL(item.file)])),
+  Object.fromEntries(
+    props.candidates.map((item) => {
+      if (!objectUrls.has(item.rowKey)) {
+        objectUrls.set(item.rowKey, URL.createObjectURL(item.file));
+      }
+      return [item.rowKey, objectUrls.get(item.rowKey) || ''];
+    }),
+  ),
 );
+
+watch(
+  () => props.candidates.map((item) => item.rowKey).join('|'),
+  () => {
+    const activeKeys = new Set(props.candidates.map((item) => item.rowKey));
+    for (const [key, url] of objectUrls.entries()) {
+      if (!activeKeys.has(key)) {
+        URL.revokeObjectURL(url);
+        objectUrls.delete(key);
+      }
+    }
+  },
+);
+
+onBeforeUnmount(() => {
+  for (const url of objectUrls.values()) {
+    URL.revokeObjectURL(url);
+  }
+  objectUrls.clear();
+});
 
 function handleProductChange(row: ExcelImageCandidate, productId: string) {
   row.matchedProduct = props.products.find((product) => product.id === productId);
@@ -65,10 +93,9 @@ async function uploadImages() {
         fileType: 'image',
         isPrimary: true,
         productId: product.id,
-        productModel: product.model,
         seriesId: product.series_id || undefined,
         tags: ['Excel嵌入图片', '自动提取'],
-        title: candidate.fileName,
+        title: `${product.model || 'product'}-${candidate.fileName}`,
         variantId: product.id,
       });
       documents.push(document);
@@ -100,7 +127,15 @@ async function uploadImages() {
     <ElTable v-if="candidates.length" :data="candidates" stripe>
       <ElTableColumn label="预览" width="110">
         <template #default="{ row }">
-          <ElImage :preview-src-list="[getPreviewUrl(row.rowKey)]" :src="getPreviewUrl(row.rowKey)" fit="cover" style="height: 64px; width: 64px" />
+          <ElImage
+            :preview-src-list="[getPreviewUrl(row.rowKey)]"
+            :preview-teleported="true"
+            :src="getPreviewUrl(row.rowKey)"
+            :z-index="5000"
+            fit="cover"
+            hide-on-click-modal
+            style="height: 64px; width: 64px"
+          />
         </template>
       </ElTableColumn>
       <ElTableColumn label="图片文件" min-width="180" prop="fileName" />
