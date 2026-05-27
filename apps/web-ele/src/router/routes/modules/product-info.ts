@@ -94,6 +94,17 @@ const routes: RouteRecordRaw[] = [
     path: '/admin/products',
   },
   {
+    component: () => import('#/views/product-info/products/detail.vue'),
+    meta: {
+      authority: ['admin'],
+      hideInMenu: true,
+      icon: 'lucide:package-search',
+      title: '系列详情',
+    },
+    name: 'AdminProductSeriesDetail',
+    path: '/admin/products/:seriesId',
+  },
+  {
     component: () => import('#/views/product-info/categories/index.vue'),
     meta: {
       order: 8,
