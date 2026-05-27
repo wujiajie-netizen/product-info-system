@@ -1,14 +1,21 @@
-import { assertSupabaseClient, normalizeKeyword, toLikePattern } from './client';
 import type { ListParams, UpdateRecord, UpdateType } from './types';
+
+import { assertSupabaseClient, normalizeKeyword, toLikePattern } from './client';
+import { canGenerateFrontendUpdate, normalizeFrontendUpdateType } from './governance';
 
 export interface CreateUpdateInput {
   content?: string;
+  documentVisible?: boolean;
   productModel?: string;
   quoteBatchId?: string;
+  quoteLineStatus?: string;
+  quoteStatus?: string;
   seriesId?: string;
+  seriesStatus?: string;
   title: string;
   type: UpdateType;
   variantId?: string;
+  variantStatus?: string;
 }
 
 export async function listUpdates(params: ListParams = {}) {
@@ -54,6 +61,21 @@ export async function countThisWeekUpdates() {
 }
 
 export async function createUpdate(input: CreateUpdateInput) {
+  const normalizedType = normalizeFrontendUpdateType(input.type);
+  if (
+    normalizedType &&
+    !canGenerateFrontendUpdate({
+      documentVisible: input.documentVisible,
+      quoteLineStatus: input.quoteLineStatus,
+      quoteStatus: input.quoteStatus,
+      seriesStatus: input.seriesStatus,
+      type: normalizedType,
+      variantStatus: input.variantStatus,
+    })
+  ) {
+    throw new Error('当前对象未满足前台动态可见规则，不能生成前台动态');
+  }
+
   const supabase = assertSupabaseClient();
   const {
     data: { user },
