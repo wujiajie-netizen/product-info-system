@@ -5,6 +5,7 @@ export * from './companies';
 export * from './dashboard';
 export * from './documents';
 export * from './governance';
+export * from './import-attachments';
 export * from './import-workbench';
 export * from './products';
 export * from './quote-options';
