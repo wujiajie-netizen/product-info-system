@@ -46,6 +46,7 @@ import {
 
 import {
   attachQuoteBatchDocument,
+  createDocumentSignedUrl,
   createQuote,
   createQuoteLine,
   createQuoteOption,
@@ -590,6 +591,15 @@ async function detachDocument(row: DocumentRecord) {
   }
 }
 
+async function openDocument(row: DocumentRecord) {
+  try {
+    const url = await createDocumentSignedUrl(row);
+    window.open(url, '_blank', 'noopener,noreferrer');
+  } catch (error) {
+    ElMessage.error((error as Error).message || '打开附件失败');
+  }
+}
+
 onMounted(async () => {
   await Promise.all([loadOptions(), loadData()]);
 });
@@ -700,27 +710,20 @@ watch(
       </ElForm>
     </ElCard>
 
-    <ElAlert
-      v-if="isCreateMode"
-      class="mt-4"
-      :closable="false"
-      show-icon
-      title="创建报价时需要先填写首条报价行；保存后会进入报价详情，继续维护更多报价行、选配项和附件。"
-      type="info"
-    />
-
-    <ElCard v-loading="loading" class="mt-4" shadow="never">
+    <ElCard class="mt-4" shadow="never">
       <ElTabs v-model="activeTab">
         <ElTabPane label="报价行与阶梯价" name="lines">
           <template v-if="isCreateMode">
+            <ElAlert
+              class="mb-4"
+              :closable="false"
+              show-icon
+              title="创建模式下需要先填写首条报价行，保存后才能维护更多报价行、选配项和附件。"
+              type="info"
+            />
             <ElForm label-width="96px">
               <ElFormItem label="商品">
-                <ElSelect
-                  v-model="lineForm.productId"
-                  filterable
-                  placeholder="选择商品"
-                  style="width: 100%"
-                >
+                <ElSelect v-model="lineForm.productId" filterable style="width: 100%">
                   <ElOption
                     v-for="product in products"
                     :key="product.id"
@@ -892,8 +895,9 @@ watch(
             <ElTableColumn label="更新时间" width="130">
               <template #default="{ row }">{{ formatDate(row.updated_at) }}</template>
             </ElTableColumn>
-            <ElTableColumn v-if="isAdmin" fixed="right" label="操作" width="100">
+            <ElTableColumn v-if="isAdmin" fixed="right" label="操作" width="150">
               <template #default="{ row }">
+                <ElButton link type="primary" @click="openDocument(row)">打开</ElButton>
                 <ElPopconfirm title="确认移除该附件关联？" @confirm="detachDocument(row)">
                   <template #reference>
                     <ElButton link type="danger">移除</ElButton>
