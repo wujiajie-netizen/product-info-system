@@ -168,6 +168,7 @@ export interface QuoteRecord {
   effective_from?: null | string;
   firmware_note?: null | string;
   id: string;
+  line_status?: QuoteLineStatus | string;
   min_order_quantity: null | number;
   published_at?: null | string;
   product_id: string;

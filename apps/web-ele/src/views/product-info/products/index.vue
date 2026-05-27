@@ -27,6 +27,7 @@ import {
   ElMessage,
   ElOption,
   ElPopconfirm,
+  ElPopover,
   ElSelect,
   ElSpace,
   ElTable,
@@ -72,7 +73,17 @@ interface DocumentDraft {
   warning: string;
 }
 
+interface BatchDocumentDraft extends DocumentDraft {
+  companyId: string;
+  matchedProduct?: ProductRecord;
+  productId: string;
+  productModel: string;
+}
+
 const documentDrafts = ref<DocumentDraft[]>([]);
+const batchDocumentDialogVisible = ref(false);
+const uploadingBatchDocuments = ref(false);
+const batchDocumentDrafts = ref<BatchDocumentDraft[]>([]);
 
 const isAdmin = computed(() => userStore.userRoles.includes('admin'));
 const dialogTitle = computed(() =>
@@ -207,6 +218,13 @@ function inferDocumentKind(fileName: string, fileType: DocumentFileType): Docume
   return 'other';
 }
 
+function findProductByFileName(fileName: string) {
+  const normalized = fileName.toLowerCase();
+  return products.value.find((product) =>
+    product.model && normalized.includes(product.model.toLowerCase()),
+  );
+}
+
 async function openDocumentDialog(row: ProductRecord) {
   documentProduct.value = row;
   documentDrafts.value = [];
@@ -218,6 +236,11 @@ async function openDocumentDialog(row: ProductRecord) {
   } catch (error) {
     ElMessage.error((error as Error).message);
   }
+}
+
+function openBatchDocumentDialog() {
+  batchDocumentDrafts.value = [];
+  batchDocumentDialogVisible.value = true;
 }
 
 function handleDocumentChange(file: UploadFile) {
@@ -235,8 +258,40 @@ function handleDocumentChange(file: UploadFile) {
   });
 }
 
+function handleBatchDocumentChange(file: UploadFile) {
+  const rawFile = file.raw;
+  if (!rawFile) return;
+  const matchedProduct = findProductByFileName(rawFile.name);
+  const fileType = inferFileType(rawFile.name);
+  batchDocumentDrafts.value.push({
+    companyId: matchedProduct?.company_id || '',
+    documentKind: inferDocumentKind(rawFile.name, fileType),
+    file: rawFile,
+    fileType,
+    matchedProduct,
+    productId: matchedProduct?.id || '',
+    productModel: matchedProduct?.model || '',
+    rowKey: `${rawFile.name}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    status: 'pending',
+    title: rawFile.name,
+    warning: matchedProduct ? '' : '未按文件名匹配到产品，请手动选择',
+  });
+}
+
 function removeDocumentDraft(index: number) {
   documentDrafts.value.splice(index, 1);
+}
+
+function removeBatchDocumentDraft(index: number) {
+  batchDocumentDrafts.value.splice(index, 1);
+}
+
+function handleBatchProductChange(row: BatchDocumentDraft) {
+  const product = products.value.find((item) => item.id === row.productId);
+  row.matchedProduct = product;
+  row.productModel = product?.model || '';
+  row.companyId = row.companyId || product?.company_id || '';
+  row.warning = product ? '' : '未选择产品';
 }
 
 async function uploadDocuments() {
@@ -277,6 +332,55 @@ async function uploadDocuments() {
     ElMessage.success('资料上传完成');
   } finally {
     uploadingDocuments.value = false;
+  }
+}
+
+async function uploadBatchDocuments() {
+  const targets = batchDocumentDrafts.value.filter(
+    (item) => item.status !== 'uploaded',
+  );
+  if (!targets.length) {
+    ElMessage.info('没有待上传资料');
+    return;
+  }
+
+  try {
+    uploadingBatchDocuments.value = true;
+    for (const draft of targets) {
+      const product =
+        draft.matchedProduct ||
+        products.value.find((item) => item.id === draft.productId);
+      if (!product) {
+        draft.status = 'failed';
+        draft.warning = '请选择要关联的产品';
+        continue;
+      }
+
+      try {
+        await createDocument({
+          category: draft.documentKind,
+          companyId: draft.companyId || product.company_id || undefined,
+          documentKind: draft.documentKind,
+          file: draft.file,
+          fileType: draft.fileType,
+          isPrimary: draft.documentKind === 'product_image',
+          productId: product.id,
+          productModel: product.model,
+          seriesId: product.series_id || undefined,
+          tags: ['批量补资料', draft.fileType, draft.documentKind],
+          title: draft.title,
+          variantId: product.id,
+        });
+        draft.status = 'uploaded';
+        draft.warning = '';
+      } catch (error) {
+        draft.status = 'failed';
+        draft.warning = (error as Error).message || '上传失败';
+      }
+    }
+    ElMessage.success('批量资料补齐处理完成');
+  } finally {
+    uploadingBatchDocuments.value = false;
   }
 }
 
@@ -408,6 +512,22 @@ onMounted(async () => {
         <ElButton v-if="isAdmin" type="primary" @click="openCreateDialog">
           新增产品
         </ElButton>
+        <ElButton v-if="isAdmin" @click="openBatchDocumentDialog">
+          批量补资料
+        </ElButton>
+        <ElPopover
+          v-if="isAdmin"
+          content="根据文件名中的型号自动关联产品"
+          placement="top"
+          trigger="hover"
+          width="fit-content"
+        >
+          <template #reference>
+            <button class="batch-document-help" type="button">
+              <span class="batch-document-help__mark">?</span>
+            </button>
+          </template>
+        </ElPopover>
       </ElSpace>
       <ElTable v-loading="loading" :data="products" stripe>
         <ElTableColumn label="系列" min-width="180">
@@ -738,5 +858,125 @@ onMounted(async () => {
         </ElButton>
       </template>
     </ElDialog>
+
+    <ElDialog
+      v-model="batchDocumentDialogVisible"
+      title="批量补资料"
+      width="1080px"
+    >
+      <ElAlert
+        class="mb-4"
+        :closable="false"
+        description="如果只给某一个产品补资料，请在该产品所在行点击“补资料”；这里会根据文件名中的型号自动关联多个产品，也可手动调整。"
+        show-icon
+        title="批量入口用于跨产品、多文件资料补齐"
+        type="info"
+      />
+
+      <ElUpload :auto-upload="false" :on-change="handleBatchDocumentChange" multiple drag>
+        <div class="py-6">
+          <div class="text-base font-medium">拖拽或选择多份资料文件</div>
+          <div class="mt-2 text-sm text-gray-500">支持产品图片、规格书、说明书、图纸、证书和报价附件</div>
+        </div>
+      </ElUpload>
+
+      <ElTable v-if="batchDocumentDrafts.length" class="mt-4" :data="batchDocumentDrafts" max-height="480" stripe>
+        <ElTableColumn label="标题" min-width="220">
+          <template #default="{ row }"><ElInput v-model="row.title" /></template>
+        </ElTableColumn>
+        <ElTableColumn label="文件类型" min-width="140">
+          <template #default="{ row }">
+            <ElSelect v-model="row.fileType" style="width: 100%">
+              <ElOption label="主图/图片" value="image" />
+              <ElOption label="规格书" value="spec" />
+              <ElOption label="技术资料" value="technical" />
+              <ElOption label="报价附件" value="quote" />
+              <ElOption label="其他" value="other" />
+            </ElSelect>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn label="资料细类" min-width="170">
+          <template #default="{ row }">
+            <ElSelect v-model="row.documentKind" style="width: 100%">
+              <ElOption label="主图/产品图" value="product_image" />
+              <ElOption label="规格书" value="spec_sheet" />
+              <ElOption label="技术资料" value="technical" />
+              <ElOption label="说明书" value="manual" />
+              <ElOption label="图纸" value="drawing" />
+              <ElOption label="证书" value="certificate" />
+              <ElOption label="报价工作簿" value="quote_workbook" />
+              <ElOption label="其他" value="other" />
+            </ElSelect>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn label="关联产品" min-width="240">
+          <template #default="{ row }">
+            <ElSelect v-model="row.productId" clearable filterable style="width: 100%" @change="handleBatchProductChange(row)">
+              <ElOption v-for="product in products" :key="product.id" :label="`${product.model} / ${product.name}`" :value="product.id" />
+            </ElSelect>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn label="关联公司" min-width="190">
+          <template #default="{ row }">
+            <ElSelect v-model="row.companyId" clearable filterable style="width: 100%">
+              <ElOption v-for="company in companies" :key="company.id" :label="company.name" :value="company.id" />
+            </ElSelect>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn label="状态" width="100">
+          <template #default="{ row }">
+            <ElTag :type="row.status === 'uploaded' ? 'success' : row.status === 'failed' ? 'danger' : 'warning'">
+              {{ row.status === 'uploaded' ? '已上传' : row.status === 'failed' ? '失败' : '待上传' }}
+            </ElTag>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn label="提示" min-width="180">
+          <template #default="{ row }">{{ row.warning || '-' }}</template>
+        </ElTableColumn>
+        <ElTableColumn label="操作" width="90">
+          <template #default="{ $index }"><ElButton link type="danger" @click="removeBatchDocumentDraft($index)">移除</ElButton></template>
+        </ElTableColumn>
+      </ElTable>
+      <ElEmpty v-else class="mt-4" description="请先选择资料文件" />
+
+      <template #footer>
+        <ElButton @click="batchDocumentDialogVisible = false">关闭</ElButton>
+        <ElButton :disabled="!batchDocumentDrafts.length" :loading="uploadingBatchDocuments" type="primary" @click="uploadBatchDocuments">
+          批量确认上传
+        </ElButton>
+      </template>
+    </ElDialog>
   </Page>
 </template>
+
+<style scoped>
+.batch-document-help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  color: #1677ff;
+  background: #ffffff;
+  border: 1px solid #bfdbfe;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.batch-document-help:hover {
+  color: #0958d9;
+  border-color: #91caff;
+  box-shadow: 0 0 0 3px rgb(22 119 255 / 12%);
+}
+
+.batch-document-help__mark {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+}
+</style>

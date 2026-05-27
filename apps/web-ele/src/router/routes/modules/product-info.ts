@@ -39,6 +39,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import('#/views/product-info/document-fill/index.vue'),
     meta: {
       authority: ['admin'],
+      hideInMenu: true,
       order: 3,
       icon: 'lucide:files',
       title: '资料补齐',
@@ -74,6 +75,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import('#/views/product-info/quote-options/index.vue'),
     meta: {
       authority: ['admin'],
+      hideInMenu: true,
       order: 6,
       icon: 'lucide:list-plus',
       title: '报价选配项',
@@ -140,6 +142,28 @@ const routes: RouteRecordRaw[] = [
     },
     name: 'AdminQuotes',
     path: '/admin/quotes',
+  },
+  {
+    component: () => import('#/views/product-info/quotes/detail.vue'),
+    meta: {
+      authority: ['admin'],
+      hideInMenu: true,
+      icon: 'lucide:receipt-text',
+      title: '新建报价',
+    },
+    name: 'AdminQuoteCreate',
+    path: '/admin/quotes/new',
+  },
+  {
+    component: () => import('#/views/product-info/quotes/detail.vue'),
+    meta: {
+      authority: ['admin'],
+      hideInMenu: true,
+      icon: 'lucide:receipt-text',
+      title: '报价详情',
+    },
+    name: 'AdminQuoteDetail',
+    path: '/admin/quotes/:batchId',
   },
   {
     component: () => import('#/views/product-info/updates/index.vue'),

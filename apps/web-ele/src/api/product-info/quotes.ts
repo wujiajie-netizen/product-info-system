@@ -2,6 +2,7 @@ import type {
   ListParams,
   QuoteBatchRecord,
   QuoteDocumentRecord,
+  QuoteLineStatus,
   QuoteOptionRecord,
   QuotePriceTierRecord,
   QuoteStatus,
@@ -40,6 +41,26 @@ export interface SaveQuoteInput {
   unitPrice?: number;
   validFrom?: string;
   validUntil?: string;
+}
+
+export interface SaveQuoteBatchInput {
+  batchTitle: string;
+  companyId: string;
+  currency?: string;
+  effectiveFrom?: string;
+  globalNote?: string;
+  publishedAt?: string;
+  status?: QuoteStatus;
+}
+
+export interface SaveQuoteLineInput {
+  batchId: string;
+  firmwareNote?: string;
+  productId: string;
+  remarks?: string;
+  standardConfigText?: string;
+  status?: QuoteLineStatus;
+  tiers?: SaveQuoteTierInput[];
 }
 
 type QuoteLineRow = {
@@ -178,6 +199,84 @@ export async function createQuote(input: SaveQuoteInput) {
 
   await replaceQuoteTiers(data.id as string, input);
   return await getQuoteByLineId(data.id as string);
+}
+
+export async function createQuoteLine(input: SaveQuoteLineInput) {
+  const supabase = assertSupabaseClient();
+  const { data, error } = await supabase
+    .from('quote_lines')
+    .insert({
+      firmware_note: input.firmwareNote?.trim() || null,
+      quote_batch_id: input.batchId,
+      row_note: input.remarks?.trim() || null,
+      standard_config_text: input.standardConfigText?.trim() || null,
+      status: input.status || 'active',
+      variant_id: input.productId,
+    })
+    .select('*')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  await replaceQuoteTiers(data.id as string, {
+    companyId: '',
+    productId: input.productId,
+    tiers: input.tiers,
+  });
+
+  return await getQuoteByLineId(data.id as string);
+}
+
+export async function updateQuoteBatch(id: string, input: SaveQuoteBatchInput) {
+  const supabase = assertSupabaseClient();
+  const { data, error } = await supabase
+    .from('quote_batches')
+    .update({
+      batch_title: input.batchTitle.trim(),
+      company_id: input.companyId,
+      currency: (input.currency || 'USD').toUpperCase(),
+      effective_from: input.effectiveFrom || null,
+      global_note: input.globalNote?.trim() || null,
+      published_at: input.publishedAt || input.effectiveFrom || null,
+      status: input.status || 'active',
+    })
+    .eq('id', id)
+    .select('*')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data as QuoteBatchRecord;
+}
+
+export async function updateQuoteLine(id: string, input: SaveQuoteLineInput) {
+  const supabase = assertSupabaseClient();
+  const { error } = await supabase
+    .from('quote_lines')
+    .update({
+      firmware_note: input.firmwareNote?.trim() || null,
+      row_note: input.remarks?.trim() || null,
+      standard_config_text: input.standardConfigText?.trim() || null,
+      status: input.status || 'active',
+      variant_id: input.productId,
+    })
+    .eq('id', id);
+
+  if (error) {
+    throw error;
+  }
+
+  await replaceQuoteTiers(id, {
+    companyId: '',
+    productId: input.productId,
+    tiers: input.tiers,
+  });
+
+  return await getQuoteByLineId(id);
 }
 
 export async function updateQuote(id: string, input: SaveQuoteInput) {
@@ -362,6 +461,38 @@ export async function detachQuoteDocument(_quoteId: string, documentId: string) 
   }
 }
 
+export async function attachQuoteBatchDocument(batchId: string, documentId: string) {
+  const supabase = assertSupabaseClient();
+  const { data, error } = await supabase
+    .from('documents')
+    .update({ quote_batch_id: batchId })
+    .eq('id', documentId)
+    .select('created_at, id')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return {
+    created_at: data.created_at as string,
+    document_id: data.id as string,
+    quote_id: batchId,
+  } satisfies QuoteDocumentRecord;
+}
+
+export async function detachQuoteBatchDocument(documentId: string) {
+  const supabase = assertSupabaseClient();
+  const { error } = await supabase
+    .from('documents')
+    .update({ quote_batch_id: null })
+    .eq('id', documentId);
+
+  if (error) {
+    throw error;
+  }
+}
+
 async function getQuoteByLineId(id: string) {
   const quotes = await listQuotes();
   const quote = quotes.find((item) => item.id === id);
@@ -422,7 +553,7 @@ async function getQuoteBatch(id: string) {
   return data as QuoteBatchRecord;
 }
 
-async function listQuoteBatches() {
+export async function listQuoteBatches() {
   const supabase = assertSupabaseClient();
   const { data, error } = await supabase
     .from('quote_batches')
@@ -565,6 +696,7 @@ function mapLineToQuoteRecord(params: {
     effective_from: batch.effective_from,
     firmware_note: line.firmware_note,
     id: line.id,
+    line_status: line.status,
     min_order_quantity: primaryTier?.min_quantity || null,
     published_at: batch.published_at,
     product,
