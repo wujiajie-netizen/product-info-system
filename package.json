@@ -87,7 +87,7 @@
     "oxlint-tsgolint": "catalog:",
     "playwright": "catalog:",
     "rimraf": "catalog:",
-    "supabase": "^2.98.0",
+    "supabase": "^2.104.0",
     "tailwindcss": "catalog:",
     "tsdown": "catalog:",
     "turbo": "catalog:",
