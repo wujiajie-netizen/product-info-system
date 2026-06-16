@@ -32,6 +32,10 @@ import FrontShell from '#/components/FrontShell.vue';
 import { useAuthState } from '#/lib/auth';
 import { getErrorMessage } from '#/lib/errors';
 
+defineOptions({
+  name: 'QaCenterView',
+});
+
 const auth = useAuthState();
 const route = useRoute();
 const router = useRouter();
@@ -51,6 +55,7 @@ const localQuestions = ref<QaQuestionItem[]>([]);
 const categories = ref<QaCategoryOption[]>([]);
 const overview = ref<QaCenterOverview | null>(null);
 const showAskModal = ref(false);
+const expandedQuestionIds = ref<string[]>([]);
 
 const askForm = ref({
   category: 'product' as QaQuestionCategory,
@@ -116,10 +121,6 @@ function isQaSortBy(value: string): value is QaSortBy {
   return sortOptions.some((item) => item.value === value);
 }
 
-function getCategoryLabel(category: QaQuestionCategory) {
-  return categories.value.find((item) => item.key === category)?.label || category;
-}
-
 function getStatusLabel(status: QaQuestionStatus) {
   return status === 'answered' ? '已回答' : '待补充';
 }
@@ -134,6 +135,16 @@ function getCategoryCount(category: QaQuestionCategory) {
 
 function formatDateTime(value: string) {
   return value.slice(0, 10);
+}
+
+function isExpanded(questionId: string) {
+  return expandedQuestionIds.value.includes(questionId);
+}
+
+function toggleQuestion(questionId: string) {
+  expandedQuestionIds.value = isExpanded(questionId)
+    ? expandedQuestionIds.value.filter((id) => id !== questionId)
+    : [...expandedQuestionIds.value, questionId];
 }
 
 function matchesCurrentFilters(item: QaQuestionItem) {
@@ -213,10 +224,18 @@ function submitSearch() {
 
 function selectCategory(category: 'all' | QaQuestionCategory) {
   selectedCategory.value = category;
+  expandedQuestionIds.value = [];
+  replaceQaRouteQuery();
+}
+
+function selectStatus(status: 'all' | QaQuestionStatus) {
+  selectedStatus.value = status;
+  expandedQuestionIds.value = [];
   replaceQaRouteQuery();
 }
 
 function handleSortChange() {
+  expandedQuestionIds.value = [];
   replaceQaRouteQuery();
 }
 
@@ -259,6 +278,7 @@ async function submitQuestion() {
     localQuestions.value = [question, ...localQuestions.value];
     selectedCategory.value = question.category;
     selectedStatus.value = 'all';
+    expandedQuestionIds.value = [question.id];
     resetAskForm(question.category);
     showAskModal.value = false;
     replaceQaRouteQuery();
@@ -376,19 +396,44 @@ watch(
       <section class="qa-center-content">
         <section class="qa-center-list-panel">
           <div class="qa-center-list-panel__head">
-            <div>
+            <div class="qa-center-list-panel__title">
               <h2>问题列表</h2>
-              <p>共 {{ renderedTotalLabel }} 条结果，答案默认单行预览，点击查看完整内容。</p>
+              <p>共 {{ renderedTotalLabel }} 条结果，答案默认单行预览，点击展开查看完整内容。</p>
             </div>
-            <label class="qa-center-sorter">
-              <span>排序</span>
-              <select v-model="sortBy" @change="handleSortChange">
-                <option v-for="item in sortOptions" :key="item.value" :value="item.value">
-                  {{ item.label }}
-                </option>
-              </select>
-              <AppIcon :icon="ChevronDown" :size="14" />
-            </label>
+            <div class="qa-center-toolbar-actions">
+              <div class="qa-center-status-tabs" aria-label="回答状态">
+                <button
+                  type="button"
+                  :class="{ 'is-active': selectedStatus === 'all' }"
+                  @click="selectStatus('all')"
+                >
+                  全部
+                </button>
+                <button
+                  type="button"
+                  :class="{ 'is-active': selectedStatus === 'answered' }"
+                  @click="selectStatus('answered')"
+                >
+                  已回答
+                </button>
+                <button
+                  type="button"
+                  :class="{ 'is-active': selectedStatus === 'pending' }"
+                  @click="selectStatus('pending')"
+                >
+                  待补充
+                </button>
+              </div>
+              <label class="qa-center-sorter">
+                <span>排序</span>
+                <select v-model="sortBy" @change="handleSortChange">
+                  <option v-for="item in sortOptions" :key="item.value" :value="item.value">
+                    {{ item.label }}
+                  </option>
+                </select>
+                <AppIcon :icon="ChevronDown" :size="14" />
+              </label>
+            </div>
           </div>
 
           <div class="qa-center-scroll-area">
@@ -404,7 +449,12 @@ watch(
             </div>
 
             <div v-else-if="renderedQuestions.length" class="qa-center-list">
-              <article v-for="item in renderedQuestions" :key="item.id" class="qa-card">
+              <article
+                v-for="item in renderedQuestions"
+                :key="item.id"
+                class="qa-card"
+                :class="{ 'is-expanded': isExpanded(item.id) }"
+              >
                 <div class="qa-card__main">
                   <div class="qa-card__meta-row">
                     <span class="qa-card__category">{{ item.categoryName }}</span>
@@ -416,6 +466,19 @@ watch(
                   </div>
                   <h3>{{ item.title }}</h3>
                   <p class="qa-card__answer-preview">{{ item.answer }}</p>
+                  <div v-if="isExpanded(item.id)" class="qa-card__expanded-body">
+                    <p>{{ item.answer }}</p>
+                    <div v-if="item.relatedSpecs.length" class="qa-card__specs">
+                      <span v-for="spec in item.relatedSpecs" :key="`${item.id}-${spec.key}`">
+                        {{ spec.label }}：{{ spec.value }}
+                      </span>
+                    </div>
+                    <div v-if="item.relatedDocuments.length" class="qa-card__docs">
+                      <span v-for="doc in item.relatedDocuments" :key="doc.id">
+                        {{ doc.fileTypeLabel }} · {{ doc.title }}
+                      </span>
+                    </div>
+                  </div>
                   <footer class="qa-card__footer">
                     <span>{{ formatDateTime(item.updatedAt) }}</span>
                     <span><AppIcon :icon="Eye" :size="14" />{{ item.viewCount }}</span>
@@ -427,7 +490,13 @@ watch(
                     <AppIcon :icon="item.status === 'answered' ? CheckCircle2 : CircleHelp" :size="13" />
                     {{ getStatusLabel(item.status) }}
                   </span>
-                  <button type="button">查看详情</button>
+                  <button
+                    type="button"
+                    :aria-expanded="isExpanded(item.id)"
+                    @click="toggleQuestion(item.id)"
+                  >
+                    {{ isExpanded(item.id) ? '收起' : '查看详情' }}
+                  </button>
                 </div>
               </article>
             </div>
@@ -519,18 +588,25 @@ watch(
 </template>
 
 <style scoped>
+* {
+  box-sizing: border-box;
+}
+
 .qa-center-page {
   display: grid;
   gap: 18px;
+  width: 100%;
   max-width: 1520px;
   padding: 28px 24px 24px;
   margin: 0 auto;
+  overflow-x: hidden;
   color: #12213d;
 }
 
 .qa-center-hero {
   display: grid;
   gap: 10px;
+  min-width: 0;
   padding: 0;
 }
 
@@ -570,6 +646,8 @@ watch(
 .qa-center-tabs-row,
 .qa-center-tabs,
 .qa-center-list-panel__head,
+.qa-center-toolbar-actions,
+.qa-center-status-tabs,
 .qa-card,
 .qa-card__meta-row,
 .qa-card__footer,
@@ -587,18 +665,20 @@ watch(
 
 .qa-center-search {
   gap: 14px;
+  min-width: 0;
   margin-top: 12px;
 }
 
 .qa-center-search__bar {
   flex: 1 1 auto;
   gap: 10px;
+  min-width: 0;
   height: 48px;
   padding: 0 16px;
   background: #fff;
   border: 1px solid #d9e3f0;
   border-radius: 12px;
-  box-shadow: 0 8px 22px rgb(18 33 61 / 0.035);
+  box-shadow: 0 8px 22px rgb(18 33 61 / 3.5%);
 }
 
 .qa-center-search__bar input {
@@ -611,6 +691,7 @@ watch(
 
 .qa-center-search__bar button,
 .qa-center-tabs button,
+.qa-center-status-tabs button,
 .qa-card__actions button,
 .qa-center-hot-list button,
 .qa-center-hot-more,
@@ -640,13 +721,15 @@ watch(
 .qa-center-tabs-row {
   gap: 18px;
   justify-content: space-between;
-  padding: 4px 0 0;
+  min-width: 0;
+  padding: 6px 0 0;
   border-top: 1px solid #e5edf7;
 }
 
 .qa-center-tabs {
+  flex: 1 1 auto;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 10px;
   min-width: 0;
 }
 
@@ -654,25 +737,49 @@ watch(
   display: inline-flex;
   gap: 8px;
   align-items: center;
+  min-width: 92px;
   height: 40px;
-  padding: 0 16px;
-  color: #33435f;
-  border-radius: 10px;
+  padding: 0 14px;
+  color: #4a5b78;
+  background: rgb(255 255 255 / 70%);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    color 0.18s ease;
+}
+
+.qa-center-tabs button:hover {
+  color: #1664d9;
+  background: #fff;
+  border-color: #d9e7fb;
 }
 
 .qa-center-tabs button strong {
-  font-size: 13px;
-  color: #6d7d97;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 22px;
+  padding: 0 7px;
+  font-size: 12px;
+  color: #647590;
+  background: #f2f6fb;
+  border-radius: 999px;
 }
 
 .qa-center-tabs button.is-active {
   color: #1664d9;
-  background: rgb(22 119 255 / 0.06);
-  box-shadow: inset 0 0 0 1px #9cc6ff;
+  background: linear-gradient(180deg, #fff 0%, #f2f8ff 100%);
+  border-color: #9cc6ff;
+  box-shadow: 0 8px 18px rgb(22 119 255 / 10%);
 }
 
 .qa-center-tabs button.is-active strong {
-  color: #1664d9;
+  color: #fff;
+  background: #1677ff;
 }
 
 .qa-center-submit-button {
@@ -687,30 +794,65 @@ watch(
   grid-template-columns: minmax(0, 1fr) 340px;
   gap: 20px;
   align-items: start;
+  min-width: 0;
 }
 
 .qa-center-list-panel,
 .qa-center-hot-panel {
+  min-width: 0;
   background: #fff;
   border: 1px solid #dfe8f5;
   border-radius: 16px;
-  box-shadow: 0 14px 36px rgb(18 33 61 / 0.06);
+  box-shadow: 0 14px 36px rgb(18 33 61 / 6%);
 }
 
 .qa-center-list-panel {
-  min-width: 0;
   overflow: hidden;
 }
 
 .qa-center-list-panel__head {
-  justify-content: space-between;
   gap: 16px;
+  justify-content: space-between;
+  min-width: 0;
   padding: 18px 20px 14px;
   border-bottom: 1px solid #edf2f8;
 }
 
+.qa-center-list-panel__title {
+  min-width: 0;
+}
+
 .qa-center-list-panel__head h2 {
   font-size: 20px;
+}
+
+.qa-center-toolbar-actions {
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.qa-center-status-tabs {
+  gap: 4px;
+  padding: 4px;
+  background: #f6f9fd;
+  border: 1px solid #dfe8f5;
+  border-radius: 999px;
+}
+
+.qa-center-status-tabs button {
+  height: 30px;
+  padding: 0 12px;
+  color: #5c6d88;
+  border-radius: 999px;
+}
+
+.qa-center-status-tabs button.is-active {
+  color: #1664d9;
+  background: #fff;
+  box-shadow: 0 4px 10px rgb(18 33 61 / 6%);
 }
 
 .qa-center-sorter {
@@ -720,7 +862,7 @@ watch(
   gap: 8px;
   align-items: center;
   min-width: 150px;
-  height: 36px;
+  height: 40px;
   padding: 0 28px 0 12px;
   color: #60708d;
   background: #fff;
@@ -730,6 +872,7 @@ watch(
 
 .qa-center-sorter select {
   flex: 1 1 auto;
+  min-width: 0;
   font: inherit;
   color: #22344f;
   appearance: none;
@@ -746,7 +889,8 @@ watch(
 .qa-center-scroll-area {
   height: min(640px, calc(100vh - 320px));
   min-height: 460px;
-  padding: 0 8px 0 0;
+  padding: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   scrollbar-color: #b9c6d8 transparent;
   scrollbar-width: thin;
@@ -764,12 +908,15 @@ watch(
 
 .qa-center-list {
   display: grid;
-  gap: 0;
+  min-width: 0;
 }
 
 .qa-card {
   gap: 18px;
   justify-content: space-between;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   padding: 18px 20px;
   border-bottom: 1px solid #edf2f8;
 }
@@ -777,11 +924,13 @@ watch(
 .qa-card__main {
   flex: 1 1 auto;
   min-width: 0;
+  max-width: 100%;
 }
 
 .qa-card__meta-row {
   flex-wrap: wrap;
   gap: 10px;
+  min-width: 0;
   color: #6b7b95;
 }
 
@@ -797,12 +946,14 @@ watch(
 }
 
 .qa-card__category {
+  flex: 0 0 auto;
   color: #1664d9;
   background: #edf5ff;
 }
 
 .qa-card__no,
 .qa-card__model {
+  flex: 0 0 auto;
   font-weight: 700;
   color: #60708d;
 }
@@ -816,6 +967,7 @@ watch(
 }
 
 .qa-card h3 {
+  max-width: 100%;
   margin: 10px 0 6px;
   overflow: hidden;
   font-size: 19px;
@@ -833,6 +985,50 @@ watch(
   color: #5c6d88;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.qa-card.is-expanded .qa-card__answer-preview {
+  display: none;
+}
+
+.qa-card__expanded-body {
+  display: grid;
+  gap: 12px;
+  max-width: 100%;
+  padding: 12px 14px;
+  margin-top: 10px;
+  overflow-wrap: anywhere;
+  background: #f7faff;
+  border: 1px solid #e1e9f5;
+  border-radius: 12px;
+}
+
+.qa-card__expanded-body p {
+  margin: 0;
+  line-height: 1.75;
+  color: #4f607c;
+}
+
+.qa-card__specs,
+.qa-card__docs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.qa-card__specs span,
+.qa-card__docs span {
+  max-width: 100%;
+  padding: 6px 9px;
+  overflow: hidden;
+  font-size: 12px;
+  color: #48617f;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: #fff;
+  border: 1px solid #dce8f6;
+  border-radius: 999px;
 }
 
 .qa-card__footer {
@@ -882,6 +1078,10 @@ watch(
   content: '›';
 }
 
+.qa-card.is-expanded .qa-card__actions button::after {
+  content: '⌃';
+}
+
 .qa-center-hot-panel {
   position: sticky;
   top: 84px;
@@ -910,6 +1110,7 @@ watch(
   gap: 12px;
   align-items: flex-start;
   width: 100%;
+  min-width: 0;
   color: #31425f;
   text-align: left;
 }
@@ -921,6 +1122,7 @@ watch(
 }
 
 .qa-center-hot-list span {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -952,17 +1154,18 @@ watch(
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgb(10 22 42 / 0.18);
+  background: rgb(10 22 42 / 18%);
   backdrop-filter: blur(3px);
 }
 
 .qa-modal {
   width: min(520px, 100%);
-  overflow: hidden;
+  max-height: calc(100vh - 48px);
+  overflow: auto;
   background: #fff;
   border: 1px solid #dfe8f5;
   border-radius: 16px;
-  box-shadow: 0 24px 60px rgb(10 22 42 / 0.18);
+  box-shadow: 0 24px 60px rgb(10 22 42 / 18%);
 }
 
 .qa-modal__header {
@@ -1072,35 +1275,100 @@ watch(
 
   .qa-center-hot-panel {
     position: static;
+    order: -1;
   }
 }
 
 @media (max-width: 760px) {
   .qa-center-page {
-    padding: 20px 16px;
+    gap: 14px;
+    padding: 18px 14px;
+  }
+
+  .qa-center-hero h1 {
+    font-size: 28px;
   }
 
   .qa-center-search,
   .qa-center-tabs-row,
   .qa-center-list-panel__head,
+  .qa-center-toolbar-actions,
   .qa-card {
     align-items: stretch;
     flex-direction: column;
   }
 
+  .qa-center-search__bar,
   .qa-center-search__button,
-  .qa-center-submit-button {
+  .qa-center-submit-button,
+  .qa-center-sorter {
     width: 100%;
+  }
+
+  .qa-center-tabs {
+    flex-wrap: nowrap;
+    gap: 8px;
+    padding-bottom: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .qa-center-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .qa-center-tabs button {
+    flex: 0 0 auto;
+    min-width: max-content;
+  }
+
+  .qa-center-status-tabs {
+    width: 100%;
+  }
+
+  .qa-center-status-tabs button {
+    flex: 1 1 0;
   }
 
   .qa-center-scroll-area {
     height: 620px;
+    min-height: 420px;
   }
 
   .qa-card__actions {
     flex: 0 0 auto;
     flex-direction: row;
     justify-content: space-between;
+  }
+
+  .qa-card h3,
+  .qa-card__answer-preview,
+  .qa-center-hot-list span {
+    white-space: normal;
+  }
+
+  .qa-card__answer-preview {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .qa-modal-mask {
+    align-items: end;
+    padding: 12px;
+  }
+
+  .qa-modal {
+    width: 100%;
+    max-height: calc(100vh - 24px);
+    border-radius: 16px 16px 12px 12px;
+  }
+
+  .qa-modal__header,
+  .qa-modal__body,
+  .qa-modal__footer {
+    padding-right: 16px;
+    padding-left: 16px;
   }
 }
 </style>
