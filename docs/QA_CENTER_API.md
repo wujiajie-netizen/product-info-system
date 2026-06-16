@@ -4,7 +4,13 @@
 
 问答中心用于沉淀商品信息平台中的结构化知识问答，问题方向围绕商品、技术、规格、报价采购、交付售后，不做网址使用帮助、页面操作说明或普通 FAQ。
 
-目标是在后端表结构完成前，先固定前后台字段口径，前端使用 mock 数据开发页面；后续后端按本文接口实现后，可将 `apps/web-front/src/api/qa-center.ts` 中的生成逻辑替换为真实请求。
+目标是在后端表结构完成前，先固定前后台字段口径，前端使用 mock 数据开发页面；后续后端按本文接口实现后，可将 `apps/web-front/src/api/qa-center.ts` 平滑切换到真实后端数据。
+
+当前实现已完成接口层双模式：
+
+- 配置 `VITE_SUPABASE_URL` 和 `VITE_SUPABASE_ANON_KEY` 时，优先读写 `qa_questions`、`qa_question_specs`、`qa_question_documents`。
+- 未配置 Supabase 时，继续从现有商品、资料和报价数据中生成 mock 问答，保证页面可直接预览。
+- 数据库表结构建议见 `docs/QA_CENTER_SCHEMA.sql`。
 
 ## 前台功能边界
 
@@ -203,5 +209,6 @@
 
 - 当前页面位于 `/qa-center`。
 - 前端接口封装位于 `apps/web-front/src/api/qa-center.ts`。
-- 在真实后端接口完成前，前端会从现有商品、资料和报价数据中生成 mock 问答，方向严格限制在商品、技术、规格、报价采购和交付售后。
-- 后续替换真实接口时，应保持字段名与本文一致，减少页面返工。
+- 当前接口封装已经优先尝试真实 Supabase 表；未配置 Supabase 时自动降级为 mock 数据。
+- 真实数据模式下，前台列表默认只展示 `answered` 和 `pending`，不会展示 `archived`。
+- 后续后台管理页可复用同一字段模型，扩展问题审核、回答维护、关联商品/资料/规格等操作。
