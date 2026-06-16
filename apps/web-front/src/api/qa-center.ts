@@ -1,3 +1,5 @@
+import { isSupabaseConfigured, supabase } from '#/lib/supabase';
+
 import type {
   DocumentRecord,
   PaginatedResult,
@@ -19,7 +21,7 @@ export type QaQuestionCategory =
   | 'spec'
   | 'technical';
 export type QaQuestionPriority = 'high' | 'low' | 'medium';
-export type QaQuestionStatus = 'answered' | 'pending';
+export type QaQuestionStatus = 'answered' | 'archived' | 'pending';
 export type QaSortBy = 'answered' | 'hot' | 'latest';
 
 export interface QaCategoryOption {
@@ -55,7 +57,7 @@ export interface QaQuestionItem {
   questionNo: string;
   relatedDocuments: QaDocumentRef[];
   relatedSpecs: SpecEntry[];
-  source: 'manual' | 'product_generated';
+  source: 'imported' | 'manual' | 'product_generated';
   status: QaQuestionStatus;
   tags: string[];
   title: string;
@@ -90,6 +92,45 @@ export interface CreateQaQuestionPayload {
   question: string;
   tags?: string[];
   title: string;
+}
+
+interface QaQuestionRecord {
+  answer?: null | string;
+  answered_at?: null | string;
+  answered_by?: null | string;
+  asked_by?: null | string;
+  asker_role?: null | string;
+  category: QaQuestionCategory;
+  created_at: string;
+  helpful_count?: null | number;
+  id: string;
+  priority?: null | QaQuestionPriority;
+  product_id?: null | string;
+  product_model?: null | string;
+  product_name?: null | string;
+  question: string;
+  question_no: string;
+  source?: null | QaQuestionItem['source'];
+  status: QaQuestionStatus;
+  tags?: null | string[];
+  title: string;
+  updated_at: string;
+  view_count?: null | number;
+}
+
+interface QaQuestionSpecRecord {
+  id?: string;
+  question_id: string;
+  sort_order?: null | number;
+  spec_key: string;
+  spec_label: string;
+  spec_value: string;
+}
+
+interface QaQuestionDocumentRecord {
+  document_id: string;
+  question_id: string;
+  relation_type?: null | DocumentRecord['file_type'];
 }
 
 const QA_CATEGORY_OPTIONS: Array<Omit<QaCategoryOption, 'count'>> = [
@@ -127,11 +168,368 @@ const CATEGORY_LABELS: Record<QaQuestionCategory, string> = {
   spec: '规格参数',
   technical: '技术问题',
 };
-
 const DEFAULT_PAGE_SIZE = 8;
+const PUBLIC_STATUSES: QaQuestionStatus[] = ['answered', 'pending'];
+
+function getSupabaseClient() {
+  return isSupabaseConfigured && supabase ? supabase : null;
+}
 
 function normalizeKeyword(keyword?: string) {
   return keyword?.trim().toLowerCase() || '';
+}
+
+function normalizePaginationValue(value: number | undefined, fallback: number) {
+  if (!Number.isFinite(value)) {
+    return fallback;
+  }
+
+  return Math.max(1, Math.floor(value || fallback));
+}
+
+function sanitizeIlikeValue(value: string) {
+  return value.replaceAll(/[,%()]/g, ' ').trim();
+}
+
+function buildQuestionNo(index: number) {
+  return `QA-${String(100_000 + index).slice(1)}`;
+}
+
+function emptyCategoryCounts() {
+  return QA_CATEGORY_OPTIONS.reduce(
+    (result, item) => ({ ...result, [item.key]: 0 }),
+    {} as Record<QaQuestionCategory, number>,
+  );
+}
+
+function mapDocumentRef(record: DocumentRecord): QaDocumentRef {
+  return {
+    fileType: record.file_type,
+    fileTypeLabel: formatDocumentType(record.file_type),
+    id: record.id,
+    title: record.title,
+    url: record.file_url,
+  };
+}
+
+function mapQaRecordToItem(
+  record: QaQuestionRecord,
+  specs: QaQuestionSpecRecord[] = [],
+  documents: DocumentRecord[] = [],
+): QaQuestionItem {
+  return {
+    answer: record.answer || '',
+    answeredAt: record.answered_at || null,
+    answeredBy: record.answered_by || null,
+    askerRole: record.asker_role || '前台用户',
+    category: record.category,
+    categoryName: CATEGORY_LABELS[record.category],
+    createdAt: record.created_at,
+    helpfulCount: record.helpful_count || 0,
+    id: record.id,
+    priority: record.priority || 'medium',
+    productId: record.product_id || null,
+    productModel: record.product_model || '未关联型号',
+    productName: record.product_name || record.product_model || '未关联商品',
+    question: record.question,
+    questionNo: record.question_no,
+    relatedDocuments: documents.map(mapDocumentRef),
+    relatedSpecs: specs
+      .toSorted((left, right) => (left.sort_order || 0) - (right.sort_order || 0))
+      .map((item) => ({
+        key: item.spec_key,
+        label: item.spec_label,
+        value: item.spec_value,
+      })),
+    source: record.source || 'manual',
+    status: record.status,
+    tags: record.tags || [],
+    title: record.title,
+    updatedAt: record.updated_at,
+    viewCount: record.view_count || 0,
+  };
+}
+
+async function listQaRelations(questionIds: string[]) {
+  const client = getSupabaseClient();
+  if (!client || questionIds.length === 0) {
+    return {
+      documentsByQuestionId: new Map<string, DocumentRecord[]>(),
+      specsByQuestionId: new Map<string, QaQuestionSpecRecord[]>(),
+    };
+  }
+
+  const [specResult, relationResult] = await Promise.all([
+    client
+      .from('qa_question_specs')
+      .select('*')
+      .in('question_id', questionIds)
+      .order('sort_order', { ascending: true }),
+    client
+      .from('qa_question_documents')
+      .select('*')
+      .in('question_id', questionIds),
+  ]);
+
+  if (specResult.error) {
+    throw specResult.error;
+  }
+
+  if (relationResult.error) {
+    throw relationResult.error;
+  }
+
+  const specsByQuestionId = new Map<string, QaQuestionSpecRecord[]>();
+  for (const item of (specResult.data || []) as QaQuestionSpecRecord[]) {
+    specsByQuestionId.set(item.question_id, [
+      ...(specsByQuestionId.get(item.question_id) || []),
+      item,
+    ]);
+  }
+
+  const relations = (relationResult.data || []) as QaQuestionDocumentRecord[];
+  const documentIds = [...new Set(relations.map((item) => item.document_id).filter(Boolean))];
+  const documentsById = new Map<string, DocumentRecord>();
+
+  if (documentIds.length > 0) {
+    const documentResult = await client
+      .from('documents')
+      .select('*')
+      .in('id', documentIds);
+
+    if (documentResult.error) {
+      throw documentResult.error;
+    }
+
+    for (const document of (documentResult.data || []) as DocumentRecord[]) {
+      documentsById.set(document.id, document);
+    }
+  }
+
+  const documentsByQuestionId = new Map<string, DocumentRecord[]>();
+  for (const relation of relations) {
+    const document = documentsById.get(relation.document_id);
+    if (!document) {
+      continue;
+    }
+
+    documentsByQuestionId.set(relation.question_id, [
+      ...(documentsByQuestionId.get(relation.question_id) || []),
+      document,
+    ]);
+  }
+
+  return {
+    documentsByQuestionId,
+    specsByQuestionId,
+  };
+}
+
+async function listSupabaseQaQuestions(
+  options: QaListOptions = {},
+): Promise<PaginatedResult<QaQuestionItem>> {
+  const client = getSupabaseClient();
+  if (!client) {
+    return listMockQaQuestions(options);
+  }
+
+  const pageSize = normalizePaginationValue(options.pageSize, DEFAULT_PAGE_SIZE);
+  const page = normalizePaginationValue(options.page, 1);
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+  const keyword = sanitizeIlikeValue(options.keyword || '');
+
+  let query = client
+    .from('qa_questions')
+    .select('*', { count: 'exact' })
+    .in('status', options.status ? [options.status] : PUBLIC_STATUSES);
+
+  if (options.category) {
+    query = query.eq('category', options.category);
+  }
+
+  if (options.productId) {
+    query = query.eq('product_id', options.productId);
+  }
+
+  if (keyword) {
+    query = query.or(
+      [
+        `title.ilike.%${keyword}%`,
+        `question.ilike.%${keyword}%`,
+        `answer.ilike.%${keyword}%`,
+        `product_model.ilike.%${keyword}%`,
+        `product_name.ilike.%${keyword}%`,
+      ].join(','),
+    );
+  }
+
+  if (options.sortBy === 'latest') {
+    query = query.order('updated_at', { ascending: false });
+  } else if (options.sortBy === 'answered') {
+    query = query
+      .order('status', { ascending: true })
+      .order('helpful_count', { ascending: false });
+  } else {
+    query = query
+      .order('helpful_count', { ascending: false })
+      .order('view_count', { ascending: false })
+      .order('updated_at', { ascending: false });
+  }
+
+  const { count, data, error } = await query.range(from, to);
+
+  if (error) {
+    throw error;
+  }
+
+  const records = (data || []) as QaQuestionRecord[];
+  const questionIds = records.map((item) => item.id);
+  const { documentsByQuestionId, specsByQuestionId } = await listQaRelations(questionIds);
+  const total = count || 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  return {
+    items: records.map((record) =>
+      mapQaRecordToItem(
+        record,
+        specsByQuestionId.get(record.id) || [],
+        documentsByQuestionId.get(record.id) || [],
+      ),
+    ),
+    page: Math.min(page, totalPages),
+    pageSize,
+    total,
+    totalPages,
+  };
+}
+
+async function listSupabaseQaCategories() {
+  const client = getSupabaseClient();
+  if (!client) {
+    return listMockQaCategories();
+  }
+
+  const { data, error } = await client
+    .from('qa_questions')
+    .select('category')
+    .in('status', PUBLIC_STATUSES);
+
+  if (error) {
+    throw error;
+  }
+
+  const counts = emptyCategoryCounts();
+  for (const item of (data || []) as Array<Pick<QaQuestionRecord, 'category'>>) {
+    counts[item.category] += 1;
+  }
+
+  return QA_CATEGORY_OPTIONS.map((item) => ({
+    ...item,
+    count: counts[item.key],
+  }));
+}
+
+async function getSupabaseQaCenterOverview(): Promise<QaCenterOverview> {
+  const client = getSupabaseClient();
+  if (!client) {
+    return getMockQaCenterOverview();
+  }
+
+  const { data, error } = await client
+    .from('qa_questions')
+    .select('id, category, product_id, status')
+    .in('status', PUBLIC_STATUSES);
+
+  if (error) {
+    throw error;
+  }
+
+  const records = (data || []) as Pick<QaQuestionRecord, 'category' | 'id' | 'product_id' | 'status'>[];
+  const categoryCounts = emptyCategoryCounts();
+  const productIds = new Set<string>();
+  const questionIds = records.map((item) => item.id);
+
+  for (const question of records) {
+    categoryCounts[question.category] += 1;
+
+    if (question.product_id) {
+      productIds.add(question.product_id);
+    }
+  }
+
+  const featuredQuestions = await listSupabaseQaQuestions({
+    page: 1,
+    pageSize: 4,
+    sortBy: 'hot',
+  });
+  const { documentsByQuestionId } = await listQaRelations(questionIds);
+  const documentIds = new Set<string>();
+
+  for (const documents of documentsByQuestionId.values()) {
+    for (const document of documents) {
+      documentIds.add(document.id);
+    }
+  }
+
+  return {
+    answeredQuestions: records.filter((item) => item.status === 'answered').length,
+    categoryCounts,
+    featuredQuestions: featuredQuestions.items,
+    pendingQuestions: records.filter((item) => item.status === 'pending').length,
+    productCoverage: productIds.size,
+    relatedDocumentCount: documentIds.size,
+    totalQuestions: records.length,
+  };
+}
+
+async function createSupabaseQaQuestion(
+  payload: CreateQaQuestionPayload,
+): Promise<QaQuestionItem> {
+  const client = getSupabaseClient();
+  if (!client) {
+    return createMockQaQuestion(payload);
+  }
+
+  const now = new Date().toISOString();
+  const productModel = payload.productModel?.trim() || null;
+  const title = payload.title.trim();
+  const question = payload.question.trim();
+  const questionNo = `QA-${String(Date.now()).slice(-6)}`;
+
+  const insertPayload = {
+    answer: null,
+    answered_at: null,
+    answered_by: null,
+    asker_role: payload.contact?.trim() || '前台用户',
+    category: payload.category,
+    created_at: now,
+    helpful_count: 0,
+    priority: 'medium' as QaQuestionPriority,
+    product_id: null,
+    product_model: productModel,
+    product_name: productModel,
+    question,
+    question_no: questionNo,
+    source: 'manual' as const,
+    status: 'pending' as QaQuestionStatus,
+    tags: [...new Set(payload.tags || [])],
+    title,
+    updated_at: now,
+    view_count: 0,
+  };
+
+  const { data, error } = await client
+    .from('qa_questions')
+    .insert(insertPayload)
+    .select('*')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return mapQaRecordToItem(data as QaQuestionRecord);
 }
 
 function pickSpecs(product: ProductListItem, keywords: string[]) {
@@ -161,17 +559,7 @@ function buildDocumentRefs(product: ProductListItem, documents: DocumentRecord[]
     )
     .filter((item) => item.file_type !== 'image')
     .slice(0, 3)
-    .map((item) => ({
-      fileType: item.file_type,
-      fileTypeLabel: formatDocumentType(item.file_type),
-      id: item.id,
-      title: item.title,
-      url: item.file_url,
-    }));
-}
-
-function buildQuestionNo(index: number) {
-  return `QA-${String(100_000 + index).slice(1)}`;
+    .map(mapDocumentRef);
 }
 
 function createQuestion({
@@ -327,7 +715,7 @@ function buildProductQuestions(
   ];
 }
 
-async function listAllQaQuestions() {
+async function listAllMockQaQuestions() {
   const products = await listAllProducts({ sortBy: '最新更新' });
   const productIds = products.map((item) => item.id);
   const documents = await listDocuments({ productIds });
@@ -350,6 +738,10 @@ function filterQuestions(questions: QaQuestionItem[], options: QaListOptions) {
     }
 
     if (options.productId && item.productId !== options.productId) {
+      return false;
+    }
+
+    if (!PUBLIC_STATUSES.includes(item.status)) {
       return false;
     }
 
@@ -397,15 +789,8 @@ function sortQuestions(questions: QaQuestionItem[], sortBy: QaSortBy = 'hot') {
   );
 }
 
-function emptyCategoryCounts() {
-  return QA_CATEGORY_OPTIONS.reduce(
-    (result, item) => ({ ...result, [item.key]: 0 }),
-    {} as Record<QaQuestionCategory, number>,
-  );
-}
-
-export async function listQaCategories() {
-  const questions = await listAllQaQuestions();
+async function listMockQaCategories() {
+  const questions = await listAllMockQaQuestions();
   const counts = emptyCategoryCounts();
 
   for (const question of questions) {
@@ -418,10 +803,10 @@ export async function listQaCategories() {
   }));
 }
 
-export async function listQaQuestions(
+async function listMockQaQuestions(
   options: QaListOptions = {},
 ): Promise<PaginatedResult<QaQuestionItem>> {
-  const questions = await listAllQaQuestions();
+  const questions = await listAllMockQaQuestions();
   const filtered = filterQuestions(questions, options);
   const sorted = sortQuestions(filtered, options.sortBy);
 
@@ -431,8 +816,8 @@ export async function listQaQuestions(
   });
 }
 
-export async function getQaCenterOverview(): Promise<QaCenterOverview> {
-  const questions = await listAllQaQuestions();
+async function getMockQaCenterOverview(): Promise<QaCenterOverview> {
+  const questions = await listAllMockQaQuestions();
   const categoryCounts = emptyCategoryCounts();
   const productIds = new Set<string>();
   const documentIds = new Set<string>();
@@ -460,7 +845,7 @@ export async function getQaCenterOverview(): Promise<QaCenterOverview> {
   };
 }
 
-export async function createQaQuestion(
+async function createMockQaQuestion(
   payload: CreateQaQuestionPayload,
 ): Promise<QaQuestionItem> {
   const now = new Date().toISOString();
@@ -493,4 +878,24 @@ export async function createQaQuestion(
     updatedAt: now,
     viewCount: 0,
   };
+}
+
+export async function listQaCategories() {
+  return listSupabaseQaCategories();
+}
+
+export async function listQaQuestions(
+  options: QaListOptions = {},
+): Promise<PaginatedResult<QaQuestionItem>> {
+  return listSupabaseQaQuestions(options);
+}
+
+export async function getQaCenterOverview(): Promise<QaCenterOverview> {
+  return getSupabaseQaCenterOverview();
+}
+
+export async function createQaQuestion(
+  payload: CreateQaQuestionPayload,
+): Promise<QaQuestionItem> {
+  return createSupabaseQaQuestion(payload);
 }
