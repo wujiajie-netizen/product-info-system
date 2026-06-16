@@ -73,12 +73,14 @@ alter table public.qa_questions enable row level security;
 alter table public.qa_question_specs enable row level security;
 alter table public.qa_question_documents enable row level security;
 
-create policy if not exists "qa_questions_public_read"
+drop policy if exists "qa_questions_public_read" on public.qa_questions;
+create policy "qa_questions_public_read"
   on public.qa_questions
   for select
   using (status in ('answered', 'pending'));
 
-create policy if not exists "qa_question_specs_public_read"
+drop policy if exists "qa_question_specs_public_read" on public.qa_question_specs;
+create policy "qa_question_specs_public_read"
   on public.qa_question_specs
   for select
   using (
@@ -90,7 +92,8 @@ create policy if not exists "qa_question_specs_public_read"
     )
   );
 
-create policy if not exists "qa_question_documents_public_read"
+drop policy if exists "qa_question_documents_public_read" on public.qa_question_documents;
+create policy "qa_question_documents_public_read"
   on public.qa_question_documents
   for select
   using (
@@ -102,7 +105,8 @@ create policy if not exists "qa_question_documents_public_read"
     )
   );
 
-create policy if not exists "qa_questions_public_insert_pending"
+drop policy if exists "qa_questions_public_insert_pending" on public.qa_questions;
+create policy "qa_questions_public_insert_pending"
   on public.qa_questions
   for insert
   with check (status = 'pending' and source = 'manual');
