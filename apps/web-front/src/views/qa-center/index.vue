@@ -1,15 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { NPagination } from 'naive-ui';
 import {
   CheckCircle2,
   ChevronDown,
-  Clock3,
-  Cpu,
+  CircleHelp,
   Eye,
-  FileText,
-  MessageCircle,
-  Package,
+  Flame,
+  PlusCircle,
   Search,
   Send,
   ThumbsUp,
@@ -38,6 +35,7 @@ import { getErrorMessage } from '#/lib/errors';
 const auth = useAuthState();
 const route = useRoute();
 const router = useRouter();
+
 const loading = ref(false);
 const submitting = ref(false);
 const errorMessage = ref('');
@@ -46,14 +44,20 @@ const keyword = ref('');
 const selectedCategory = ref<'all' | QaQuestionCategory>('all');
 const selectedStatus = ref<'all' | QaQuestionStatus>('all');
 const sortBy = ref<QaSortBy>('hot');
-const currentPage = ref(1);
-const pageSize = 8;
+const pageSize = 80;
 const totalResults = ref(0);
-const totalPages = ref(1);
 const questions = ref<QaQuestionItem[]>([]);
 const localQuestions = ref<QaQuestionItem[]>([]);
 const categories = ref<QaCategoryOption[]>([]);
 const overview = ref<QaCenterOverview | null>(null);
+const showAskModal = ref(false);
+
+const askForm = ref({
+  category: 'product' as QaQuestionCategory,
+  productModel: '',
+  question: '',
+  title: '',
+});
 
 const qaCategoryKeys: QaQuestionCategory[] = [
   'product',
@@ -63,73 +67,38 @@ const qaCategoryKeys: QaQuestionCategory[] = [
   'after_sales',
 ];
 const qaStatusKeys: QaQuestionStatus[] = ['answered', 'pending'];
-
 const sortOptions: Array<{ label: string; value: QaSortBy }> = [
   { label: '热门优先', value: 'hot' },
   { label: '最新更新', value: 'latest' },
   { label: '已回答优先', value: 'answered' },
 ];
 
-const askForm = ref({
-  category: 'product' as QaQuestionCategory,
-  contact: '',
-  productModel: '',
-  question: '',
-  tags: '',
-  title: '',
-});
-
-const totalQuestionLabel = computed(() =>
-  (overview.value?.totalQuestions || 0).toLocaleString('zh-CN'),
-);
-const answeredQuestionLabel = computed(() =>
-  (overview.value?.answeredQuestions || 0).toLocaleString('zh-CN'),
-);
-const pendingQuestionLabel = computed(() =>
-  (overview.value?.pendingQuestions || 0).toLocaleString('zh-CN'),
-);
-const productCoverageLabel = computed(() =>
-  (overview.value?.productCoverage || 0).toLocaleString('zh-CN'),
-);
-const relatedDocumentLabel = computed(() =>
-  (overview.value?.relatedDocumentCount || 0).toLocaleString('zh-CN'),
-);
-
+const renderedQuestions = computed(() => [
+  ...matchedLocalQuestions.value,
+  ...questions.value,
+]);
 const renderedTotal = computed(() => totalResults.value + matchedLocalQuestions.value.length);
 const renderedTotalLabel = computed(() => renderedTotal.value.toLocaleString('zh-CN'));
-const renderedQuestions = computed(() => {
-  if (currentPage.value !== 1) {
-    return questions.value;
-  }
-
-  return [...matchedLocalQuestions.value, ...questions.value].slice(0, pageSize);
-});
 const canSubmitQuestion = computed(
   () => Boolean(askForm.value.title.trim()) && Boolean(askForm.value.question.trim()),
 );
-const activeFilterChips = computed(() => {
-  const chips: Array<{ key: string; label: string }> = [];
-
-  if (keyword.value.trim()) {
-    chips.push({ key: 'keyword', label: `关键词：${keyword.value.trim()}` });
-  }
-
-  if (selectedCategory.value !== 'all') {
-    chips.push({
-      key: 'category',
-      label: `分类：${getCategoryLabel(selectedCategory.value)}`,
-    });
-  }
-
-  if (selectedStatus.value !== 'all') {
-    chips.push({ key: 'status', label: `状态：${getStatusLabel(selectedStatus.value)}` });
-  }
-
-  return chips;
-});
+const categoryTabs = computed(() => [
+  {
+    count: overview.value?.totalQuestions || renderedTotal.value || 0,
+    key: 'all' as const,
+    label: '全部',
+  },
+  ...categories.value.map((item) => ({
+    count: getCategoryCount(item.key) || item.count,
+    key: item.key,
+    label: item.label,
+  })),
+]);
+const hotQuestions = computed(() => (overview.value?.featuredQuestions || []).slice(0, 5));
 const matchedLocalQuestions = computed(() =>
   localQuestions.value.filter((item) => matchesCurrentFilters(item)),
 );
+const modalDescriptionCount = computed(() => askForm.value.question.length);
 
 function normalizeQueryValue(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
@@ -153,14 +122,6 @@ function getCategoryLabel(category: QaQuestionCategory) {
 
 function getStatusLabel(status: QaQuestionStatus) {
   return status === 'answered' ? '已回答' : '待补充';
-}
-
-function getPriorityLabel(priority: QaQuestionItem['priority']) {
-  if (priority === 'high') {
-    return '重点';
-  }
-
-  return priority === 'medium' ? '常规' : '低优先级';
 }
 
 function getQuestionStatusClass(status: QaQuestionStatus) {
@@ -191,6 +152,7 @@ function matchesCurrentFilters(item: QaQuestionItem) {
 
   return [
     item.answer,
+    item.categoryName,
     item.productModel,
     item.productName,
     item.question,
@@ -214,8 +176,6 @@ function syncRouteFilters() {
 
   const nextSortBy = normalizeQueryValue(route.query.sortBy);
   sortBy.value = isQaSortBy(nextSortBy) ? nextSortBy : 'hot';
-
-  currentPage.value = Math.max(1, Number(normalizeQueryValue(route.query.page)) || 1);
 }
 
 function buildQaRouteQuery() {
@@ -237,15 +197,10 @@ function buildQaRouteQuery() {
     query.sortBy = sortBy.value;
   }
 
-  if (currentPage.value > 1) {
-    query.page = String(currentPage.value);
-  }
-
   return query;
 }
 
-function replaceQaRouteQuery(page = currentPage.value) {
-  currentPage.value = page;
+function replaceQaRouteQuery() {
   void router.replace({
     name: 'qa-center',
     query: buildQaRouteQuery(),
@@ -253,45 +208,35 @@ function replaceQaRouteQuery(page = currentPage.value) {
 }
 
 function submitSearch() {
-  replaceQaRouteQuery(1);
+  replaceQaRouteQuery();
 }
 
 function selectCategory(category: 'all' | QaQuestionCategory) {
   selectedCategory.value = category;
-  replaceQaRouteQuery(1);
-}
-
-function selectStatus(status: 'all' | QaQuestionStatus) {
-  selectedStatus.value = status;
-  replaceQaRouteQuery(1);
+  replaceQaRouteQuery();
 }
 
 function handleSortChange() {
-  replaceQaRouteQuery(1);
+  replaceQaRouteQuery();
 }
 
-function handlePageChange(page: number) {
-  replaceQaRouteQuery(page);
+function openAskModal() {
+  submittedMessage.value = '';
+  showAskModal.value = true;
 }
 
-function clearChip(key: string) {
-  if (key === 'keyword') {
-    keyword.value = '';
-  } else if (key === 'category') {
-    selectedCategory.value = 'all';
-  } else if (key === 'status') {
-    selectedStatus.value = 'all';
-  }
-
-  replaceQaRouteQuery(1);
+function closeAskModal() {
+  showAskModal.value = false;
+  submittedMessage.value = '';
 }
 
-function clearAllFilters() {
-  keyword.value = '';
-  selectedCategory.value = 'all';
-  selectedStatus.value = 'all';
-  sortBy.value = 'hot';
-  replaceQaRouteQuery(1);
+function resetAskForm(category: QaQuestionCategory) {
+  askForm.value = {
+    category,
+    productModel: '',
+    question: '',
+    title: '',
+  };
 }
 
 async function submitQuestion() {
@@ -303,33 +248,20 @@ async function submitQuestion() {
   submittedMessage.value = '';
 
   try {
-    const tags = askForm.value.tags
-      .split(/[，,\s]+/)
-      .map((item) => item.trim())
-      .filter(Boolean);
     const question = await createQaQuestion({
       category: askForm.value.category,
-      contact: askForm.value.contact,
       productModel: askForm.value.productModel,
       question: askForm.value.question,
-      tags,
+      tags: [],
       title: askForm.value.title,
     });
 
     localQuestions.value = [question, ...localQuestions.value];
     selectedCategory.value = question.category;
     selectedStatus.value = 'all';
-    currentPage.value = 1;
-    submittedMessage.value = '已生成待补充问题，等待产品/技术同事补充正式回答。';
-    askForm.value = {
-      category: question.category,
-      contact: '',
-      productModel: '',
-      question: '',
-      tags: '',
-      title: '',
-    };
-    replaceQaRouteQuery(1);
+    resetAskForm(question.category);
+    showAskModal.value = false;
+    replaceQaRouteQuery();
   } catch (error) {
     submittedMessage.value = getErrorMessage(error);
   } finally {
@@ -346,7 +278,7 @@ async function loadQaCenter() {
       listQaQuestions({
         category: selectedCategory.value === 'all' ? undefined : selectedCategory.value,
         keyword: keyword.value || undefined,
-        page: currentPage.value,
+        page: 1,
         pageSize,
         sortBy: sortBy.value,
         status: selectedStatus.value === 'all' ? undefined : selectedStatus.value,
@@ -359,16 +291,10 @@ async function loadQaCenter() {
     categories.value = nextCategories;
     overview.value = nextOverview;
     totalResults.value = pagedResult.total;
-    totalPages.value = pagedResult.totalPages;
-
-    if (pagedResult.page !== currentPage.value) {
-      replaceQaRouteQuery(pagedResult.page);
-    }
   } catch (error) {
     errorMessage.value = getErrorMessage(error);
     questions.value = [];
     totalResults.value = 0;
-    totalPages.value = 1;
   } finally {
     loading.value = false;
   }
@@ -399,112 +325,60 @@ watch(
   <FrontShell>
     <main class="qa-center-page">
       <section class="qa-center-hero">
-        <div class="qa-center-hero__copy">
-          <span class="qa-center-hero__eyebrow">商品知识问答</span>
-          <h1>问答中心</h1>
-          <p>
-            围绕商品、技术、规格、报价和交付售后沉淀标准回答，帮助销售、采购和技术同事快速查清型号与资料。
-          </p>
-        </div>
-
-        <div class="qa-center-hero__stats">
-          <div>
-            <strong>{{ totalQuestionLabel }}</strong>
-            <span>知识问题</span>
+        <span class="qa-center-hero__eyebrow">商品知识问答</span>
+        <h1>问答中心</h1>
+        <p>
+          围绕商品、技术、规格、配件和交付等问题，帮助销售、采购和技术同事快速查询与资料。
+        </p>
+        <div class="qa-center-search">
+          <div class="qa-center-search__bar">
+            <AppIcon :icon="Search" :size="18" />
+            <input
+              v-model="keyword"
+              type="text"
+              placeholder="搜索商品型号 / 技术问题 / 规格参数 / 应用场景"
+              @keyup.enter="submitSearch"
+            />
+            <button
+              v-if="keyword"
+              type="button"
+              aria-label="清空搜索"
+              @click="keyword = ''; submitSearch()"
+            >
+              <AppIcon :icon="X" :size="16" />
+            </button>
           </div>
-          <div>
-            <strong>{{ answeredQuestionLabel }}</strong>
-            <span>已回答</span>
-          </div>
-          <div>
-            <strong>{{ productCoverageLabel }}</strong>
-            <span>覆盖商品</span>
-          </div>
-          <div>
-            <strong>{{ relatedDocumentLabel }}</strong>
-            <span>关联资料</span>
-          </div>
+          <button class="qa-center-search__button" type="button" @click="submitSearch">
+            搜索问答
+          </button>
         </div>
       </section>
 
-      <section class="qa-center-search">
-        <div class="qa-center-search__bar">
-          <AppIcon :icon="Search" :size="18" />
-          <input
-            v-model="keyword"
-            type="text"
-            placeholder="搜索商品型号 / 技术问题 / 规格参数 / 应用场景"
-            @keyup.enter="submitSearch"
-          />
-          <button v-if="keyword" type="button" aria-label="清空搜索" @click="keyword = ''; submitSearch()">
-            <AppIcon :icon="X" :size="16" />
+      <section class="qa-center-tabs-row">
+        <div class="qa-center-tabs" aria-label="问题分类">
+          <button
+            v-for="tab in categoryTabs"
+            :key="tab.key"
+            type="button"
+            :class="{ 'is-active': selectedCategory === tab.key }"
+            @click="selectCategory(tab.key)"
+          >
+            <span>{{ tab.label }}</span>
+            <strong>{{ tab.count }}</strong>
           </button>
         </div>
-        <button class="qa-center-search__button" type="button" @click="submitSearch">
-          搜索问答
+        <button class="qa-center-submit-button" type="button" @click="openAskModal">
+          <AppIcon :icon="PlusCircle" :size="17" />
+          提交商品问题
         </button>
       </section>
 
-      <section class="qa-center-layout">
-        <aside class="qa-center-sidebar">
-          <div class="qa-center-panel">
-            <h2>问题方向</h2>
-            <button
-              type="button"
-              class="qa-center-category"
-              :class="{ 'is-active': selectedCategory === 'all' }"
-              @click="selectCategory('all')"
-            >
-              <span>全部问题</span>
-              <strong>{{ overview?.totalQuestions || 0 }}</strong>
-            </button>
-            <button
-              v-for="category in categories"
-              :key="category.key"
-              type="button"
-              class="qa-center-category"
-              :class="{ 'is-active': selectedCategory === category.key }"
-              @click="selectCategory(category.key)"
-            >
-              <span>{{ category.label }}</span>
-              <strong>{{ getCategoryCount(category.key) }}</strong>
-              <small>{{ category.description }}</small>
-            </button>
-          </div>
-
-          <div class="qa-center-panel">
-            <h2>回答状态</h2>
-            <div class="qa-center-status-filter">
-              <button
-                type="button"
-                :class="{ 'is-active': selectedStatus === 'all' }"
-                @click="selectStatus('all')"
-              >
-                全部
-              </button>
-              <button
-                type="button"
-                :class="{ 'is-active': selectedStatus === 'answered' }"
-                @click="selectStatus('answered')"
-              >
-                已回答 {{ answeredQuestionLabel }}
-              </button>
-              <button
-                type="button"
-                :class="{ 'is-active': selectedStatus === 'pending' }"
-                @click="selectStatus('pending')"
-              >
-                待补充 {{ pendingQuestionLabel }}
-              </button>
-            </div>
-          </div>
-        </aside>
-
-        <section class="qa-center-main">
-          <div class="qa-center-toolbar">
+      <section class="qa-center-content">
+        <section class="qa-center-list-panel">
+          <div class="qa-center-list-panel__head">
             <div>
               <h2>问题列表</h2>
-              <p>共 {{ renderedTotalLabel }} 条结果，优先展示商品、技术、规格和采购相关问题。</p>
+              <p>共 {{ renderedTotalLabel }} 条结果，答案默认单行预览，点击查看完整内容。</p>
             </div>
             <label class="qa-center-sorter">
               <span>排序</span>
@@ -517,173 +391,130 @@ watch(
             </label>
           </div>
 
-          <div v-if="activeFilterChips.length" class="qa-center-chips">
-            <button
-              v-for="chip in activeFilterChips"
-              :key="chip.key"
-              type="button"
-              @click="clearChip(chip.key)"
-            >
-              <AppIcon :icon="X" :size="12" />
-              {{ chip.label }}
-            </button>
-            <button type="button" class="qa-center-chips__clear" @click="clearAllFilters">
-              清空全部
-            </button>
-          </div>
+          <div class="qa-center-scroll-area">
+            <div v-if="errorMessage" class="qa-center-empty">
+              <strong>问答加载失败</strong>
+              <p>{{ errorMessage }}</p>
+              <button type="button" @click="loadQaCenter">重新加载</button>
+            </div>
 
-          <div v-if="errorMessage" class="qa-center-empty">
-            <strong>问答加载失败</strong>
-            <p>{{ errorMessage }}</p>
-            <button type="button" @click="loadQaCenter">重新加载</button>
-          </div>
+            <div v-else-if="loading" class="qa-center-empty">
+              <strong>正在整理问答知识库</strong>
+              <p>正在从商品、规格、资料和报价数据中生成问答内容。</p>
+            </div>
 
-          <div v-else-if="loading" class="qa-center-empty">
-            <strong>正在整理问答知识库</strong>
-            <p>正在从商品、规格、资料和报价数据中生成问答内容。</p>
-          </div>
-
-          <div v-else-if="renderedQuestions.length" class="qa-center-list">
-            <article
-              v-for="item in renderedQuestions"
-              :key="item.id"
-              class="qa-card"
-            >
-              <header class="qa-card__header">
-                <div>
-                  <span class="qa-card__category">{{ item.categoryName }}</span>
-                  <span class="qa-card__no">{{ item.questionNo }}</span>
+            <div v-else-if="renderedQuestions.length" class="qa-center-list">
+              <article v-for="item in renderedQuestions" :key="item.id" class="qa-card">
+                <div class="qa-card__main">
+                  <div class="qa-card__meta-row">
+                    <span class="qa-card__category">{{ item.categoryName }}</span>
+                    <span class="qa-card__no">{{ item.questionNo }}</span>
+                    <span class="qa-card__model">{{ item.productModel }}</span>
+                    <span v-if="item.productName" class="qa-card__product-name">
+                      {{ item.productName }}
+                    </span>
+                  </div>
+                  <h3>{{ item.title }}</h3>
+                  <p class="qa-card__answer-preview">{{ item.answer }}</p>
+                  <footer class="qa-card__footer">
+                    <span>{{ formatDateTime(item.updatedAt) }}</span>
+                    <span><AppIcon :icon="Eye" :size="14" />{{ item.viewCount }}</span>
+                    <span><AppIcon :icon="ThumbsUp" :size="14" />{{ item.helpfulCount }}</span>
+                  </footer>
                 </div>
-                <span class="qa-card__status" :class="getQuestionStatusClass(item.status)">
-                  <AppIcon :icon="item.status === 'answered' ? CheckCircle2 : Clock3" :size="14" />
-                  {{ getStatusLabel(item.status) }}
-                </span>
-              </header>
+                <div class="qa-card__actions">
+                  <span class="qa-card__status" :class="getQuestionStatusClass(item.status)">
+                    <AppIcon :icon="item.status === 'answered' ? CheckCircle2 : CircleHelp" :size="13" />
+                    {{ getStatusLabel(item.status) }}
+                  </span>
+                  <button type="button">查看详情</button>
+                </div>
+              </article>
+            </div>
 
-              <div class="qa-card__product">
-                <AppIcon :icon="Package" :size="16" />
-                <strong>{{ item.productModel }}</strong>
-                <span>{{ item.productName }}</span>
-              </div>
-
-              <h3>{{ item.title }}</h3>
-              <p class="qa-card__question">{{ item.question }}</p>
-              <p class="qa-card__answer">{{ item.answer }}</p>
-
-              <div v-if="item.relatedSpecs.length" class="qa-card__specs">
-                <span v-for="spec in item.relatedSpecs" :key="`${item.id}-${spec.key}`">
-                  {{ spec.label }}：{{ spec.value }}
-                </span>
-              </div>
-
-              <div v-if="item.relatedDocuments.length" class="qa-card__docs">
-                <AppIcon :icon="FileText" :size="15" />
-                <span v-for="doc in item.relatedDocuments" :key="doc.id">
-                  {{ doc.fileTypeLabel }} · {{ doc.title }}
-                </span>
-              </div>
-
-              <footer class="qa-card__footer">
-                <span>{{ getPriorityLabel(item.priority) }}</span>
-                <span>{{ formatDateTime(item.updatedAt) }}</span>
-                <span><AppIcon :icon="Eye" :size="14" /> {{ item.viewCount }}</span>
-                <span><AppIcon :icon="ThumbsUp" :size="14" /> {{ item.helpfulCount }}</span>
-              </footer>
-            </article>
-          </div>
-
-          <div v-else class="qa-center-empty">
-            <strong>没有匹配的问答</strong>
-            <p>换一个商品型号、规格参数或技术关键词再搜索。</p>
-            <button type="button" @click="clearAllFilters">重置筛选</button>
-          </div>
-
-          <div v-if="!loading && !errorMessage && renderedTotal > 0" class="qa-center-pagination">
-            <span>第 {{ currentPage }} / {{ totalPages }} 页</span>
-            <n-pagination
-              :item-count="renderedTotal"
-              :page="currentPage"
-              :page-size="pageSize"
-              @update:page="handlePageChange"
-            />
+            <div v-else class="qa-center-empty">
+              <strong>没有匹配的问答</strong>
+              <p>换一个商品型号、规格参数或技术关键词再搜索。</p>
+            </div>
           </div>
         </section>
 
-        <aside class="qa-center-ask">
-          <div class="qa-center-panel qa-center-ask__form">
-            <div class="qa-center-ask__head">
-              <span>
-                <AppIcon :icon="MessageCircle" :size="18" />
-              </span>
-              <div>
-                <h2>提交商品问题</h2>
-                <p>用于收集待补充的商品、技术、规格和报价问题。</p>
-              </div>
-            </div>
-
-            <label>
-              商品型号
-              <input v-model="askForm.productModel" placeholder="如 KDS2189T / AOC 27B2H" />
-            </label>
-            <label>
-              问题方向
-              <select v-model="askForm.category">
-                <option v-for="category in categories" :key="category.key" :value="category.key">
-                  {{ category.label }}
-                </option>
-              </select>
-            </label>
-            <label>
-              问题标题
-              <input v-model="askForm.title" placeholder="简要描述要确认的问题" />
-            </label>
-            <label>
-              问题描述
-              <textarea
-                v-model="askForm.question"
-                rows="4"
-                placeholder="补充客户场景、规格疑问、报价口径或技术确认点"
-                @keydown.ctrl.enter="submitQuestion"
-              ></textarea>
-            </label>
-            <label>
-              标签
-              <input v-model="askForm.tags" placeholder="可选，如 选型, HDMI, 起订量" />
-            </label>
-            <label>
-              联系人/角色
-              <input v-model="askForm.contact" placeholder="可选，如 销售A / 技术B" />
-            </label>
-
-            <button
-              class="qa-center-ask__submit"
-              type="button"
-              :disabled="submitting || !canSubmitQuestion"
-              @click="submitQuestion"
-            >
-              <AppIcon :icon="Send" :size="16" />
-              {{ submitting ? '提交中' : '提交问题' }}
-            </button>
-            <p v-if="submittedMessage" class="qa-center-ask__message">
-              {{ submittedMessage }}
-            </p>
-          </div>
-
-          <div class="qa-center-panel qa-center-hot">
+        <aside class="qa-center-hot-panel">
+          <div class="qa-center-hot-panel__title">
+            <AppIcon :icon="Flame" :size="18" />
             <h2>热门问题</h2>
-            <a
-              v-for="item in overview?.featuredQuestions || []"
-              :key="item.id"
-              href="#"
-              @click.prevent="keyword = item.productModel; submitSearch()"
-            >
-              <AppIcon :icon="Cpu" :size="15" />
-              <span>{{ item.title }}</span>
-            </a>
           </div>
+          <div class="qa-center-hot-list">
+            <button
+              v-for="(item, index) in hotQuestions"
+              :key="item.id"
+              type="button"
+              @click="keyword = item.productModel; submitSearch()"
+            >
+              <strong>{{ index + 1 }}</strong>
+              <span>{{ item.title }}</span>
+            </button>
+          </div>
+          <button class="qa-center-hot-more" type="button" @click="selectCategory('all')">
+            查看更多
+          </button>
         </aside>
       </section>
     </main>
+
+    <div v-if="showAskModal" class="qa-modal-mask" @click.self="closeAskModal">
+      <section class="qa-modal" role="dialog" aria-modal="true" aria-label="提交商品问题">
+        <header class="qa-modal__header">
+          <h2>提交商品问题</h2>
+          <button type="button" aria-label="关闭弹窗" @click="closeAskModal">
+            <AppIcon :icon="X" :size="18" />
+          </button>
+        </header>
+
+        <div class="qa-modal__body">
+          <label>
+            商品型号 <span>*</span>
+            <input v-model="askForm.productModel" placeholder="请输入商品型号，如 CTRL-200A" />
+          </label>
+          <label>
+            问题方向 <span>*</span>
+            <select v-model="askForm.category">
+              <option v-for="category in categories" :key="category.key" :value="category.key">
+                {{ category.label }}
+              </option>
+            </select>
+          </label>
+          <label>
+            问题标题 <span>*</span>
+            <input v-model="askForm.title" placeholder="请简明扼要输入问题标题" />
+          </label>
+          <label>
+            问题描述 <span>*</span>
+            <textarea
+              v-model="askForm.question"
+              rows="5"
+              maxlength="500"
+              placeholder="请详细描述您的问题，以便我们更准确地为您解答"
+            ></textarea>
+            <small>{{ modalDescriptionCount }}/500</small>
+          </label>
+          <p v-if="submittedMessage" class="qa-modal__message">{{ submittedMessage }}</p>
+        </div>
+
+        <footer class="qa-modal__footer">
+          <button type="button" class="qa-modal__cancel" @click="closeAskModal">取消</button>
+          <button
+            type="button"
+            class="qa-modal__submit"
+            :disabled="submitting || !canSubmitQuestion"
+            @click="submitQuestion"
+          >
+            <AppIcon :icon="Send" :size="15" />
+            {{ submitting ? '提交中' : '提交问题' }}
+          </button>
+        </footer>
+      </section>
+    </div>
   </FrontShell>
 </template>
 
@@ -692,33 +523,23 @@ watch(
   display: grid;
   gap: 18px;
   max-width: 1520px;
-  padding: 24px;
+  padding: 28px 24px 24px;
   margin: 0 auto;
   color: #12213d;
 }
 
 .qa-center-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.72fr);
-  gap: 18px;
-  align-items: stretch;
-  padding: 26px;
-  overflow: hidden;
-  background:
-    radial-gradient(circle at 78% 10%, rgb(22 119 255 / 0.16), transparent 34%),
-    linear-gradient(135deg, #ffffff 0%, #eef6ff 100%);
-  border: 1px solid #dce8f6;
-  border-radius: 18px;
-  box-shadow: 0 18px 42px rgb(18 33 61 / 0.08);
+  gap: 10px;
+  padding: 0;
 }
 
 .qa-center-hero__eyebrow {
   display: inline-flex;
   width: fit-content;
   padding: 6px 12px;
-  margin-bottom: 14px;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 800;
   color: #1664d9;
   background: #edf5ff;
   border: 1px solid #cfdef4;
@@ -726,8 +547,9 @@ watch(
 }
 
 .qa-center-hero h1,
-.qa-center-toolbar h2,
-.qa-center-panel h2 {
+.qa-center-list-panel__head h2,
+.qa-center-hot-panel h2,
+.qa-modal h2 {
   margin: 0;
 }
 
@@ -737,64 +559,46 @@ watch(
 }
 
 .qa-center-hero p,
-.qa-center-toolbar p,
-.qa-center-ask__head p {
-  margin: 8px 0 0;
+.qa-center-list-panel__head p {
+  margin: 0;
   line-height: 1.7;
   color: #52627d;
 }
 
-.qa-center-hero__stats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.qa-center-hero__stats div {
-  display: grid;
-  gap: 8px;
-  align-content: center;
-  min-height: 104px;
-  padding: 18px;
-  background: rgb(255 255 255 / 0.78);
-  border: 1px solid #dce8f6;
-  border-radius: 14px;
-}
-
-.qa-center-hero__stats strong {
-  font-size: 28px;
-}
-
-.qa-center-hero__stats span {
-  color: #60708d;
-}
-
 .qa-center-search,
 .qa-center-search__bar,
-.qa-center-toolbar,
-.qa-card__header,
+.qa-center-tabs-row,
+.qa-center-tabs,
+.qa-center-list-panel__head,
+.qa-card,
+.qa-card__meta-row,
 .qa-card__footer,
-.qa-card__product,
-.qa-card__docs,
-.qa-center-pagination,
-.qa-center-ask__head,
-.qa-center-hot a {
+.qa-card__actions,
+.qa-card__status,
+.qa-center-hot-panel__title,
+.qa-center-hot-list button,
+.qa-center-submit-button,
+.qa-modal__header,
+.qa-modal__footer,
+.qa-modal__submit {
   display: flex;
   align-items: center;
 }
 
 .qa-center-search {
-  gap: 10px;
+  gap: 14px;
+  margin-top: 12px;
 }
 
 .qa-center-search__bar {
   flex: 1 1 auto;
   gap: 10px;
-  height: 46px;
-  padding: 0 14px;
+  height: 48px;
+  padding: 0 16px;
   background: #fff;
   border: 1px solid #d9e3f0;
   border-radius: 12px;
+  box-shadow: 0 8px 22px rgb(18 33 61 / 0.035);
 }
 
 .qa-center-search__bar input {
@@ -806,9 +610,11 @@ watch(
 }
 
 .qa-center-search__bar button,
-.qa-center-chips button,
-.qa-center-category,
-.qa-center-status-filter button {
+.qa-center-tabs button,
+.qa-card__actions button,
+.qa-center-hot-list button,
+.qa-center-hot-more,
+.qa-modal__header button {
   font: inherit;
   cursor: pointer;
   background: transparent;
@@ -816,98 +622,101 @@ watch(
 }
 
 .qa-center-search__button,
-.qa-center-empty button,
-.qa-center-ask__submit {
-  height: 46px;
-  padding: 0 20px;
+.qa-center-submit-button,
+.qa-modal__submit,
+.qa-center-empty button {
+  height: 48px;
+  padding: 0 22px;
   font: inherit;
-  font-weight: 700;
+  font-weight: 800;
   color: #fff;
   cursor: pointer;
   background: linear-gradient(135deg, #1677ff, #0f63d4);
   border: 0;
   border-radius: 12px;
+  box-shadow: 0 12px 24px rgb(22 119 255 / 18%);
 }
 
-.qa-center-layout {
-  display: grid;
-  grid-template-columns: 260px minmax(0, 1fr) 360px;
+.qa-center-tabs-row {
   gap: 18px;
-  align-items: start;
+  justify-content: space-between;
+  padding: 4px 0 0;
+  border-top: 1px solid #e5edf7;
 }
 
-.qa-center-sidebar,
-.qa-center-ask {
-  position: sticky;
-  top: 82px;
-  display: grid;
-  gap: 14px;
-}
-
-.qa-center-panel {
-  padding: 18px;
-  background: #fff;
-  border: 1px solid #e1e9f5;
-  border-radius: 16px;
-  box-shadow: 0 12px 30px rgb(18 33 61 / 0.055);
-}
-
-.qa-center-panel h2 {
-  margin-bottom: 14px;
-  font-size: 17px;
-}
-
-.qa-center-category {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 4px 10px;
-  width: 100%;
-  padding: 12px;
-  color: #33435f;
-  text-align: left;
-  border-radius: 12px;
-}
-
-.qa-center-category + .qa-center-category {
-  margin-top: 6px;
-}
-
-.qa-center-category small {
-  grid-column: 1 / -1;
-  color: #7a8aa5;
-}
-
-.qa-center-category.is-active,
-.qa-center-status-filter button.is-active {
-  color: #1664d9;
-  background: #edf5ff;
-}
-
-.qa-center-status-filter {
-  display: grid;
-  gap: 8px;
-}
-
-.qa-center-status-filter button {
-  padding: 10px 12px;
-  color: #52627d;
-  text-align: left;
-  border-radius: 10px;
-}
-
-.qa-center-main {
+.qa-center-tabs {
+  flex-wrap: wrap;
+  gap: 16px;
   min-width: 0;
 }
 
-.qa-center-toolbar {
+.qa-center-tabs button {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  height: 40px;
+  padding: 0 16px;
+  color: #33435f;
+  border-radius: 10px;
+}
+
+.qa-center-tabs button strong {
+  font-size: 13px;
+  color: #6d7d97;
+}
+
+.qa-center-tabs button.is-active {
+  color: #1664d9;
+  background: rgb(22 119 255 / 0.06);
+  box-shadow: inset 0 0 0 1px #9cc6ff;
+}
+
+.qa-center-tabs button.is-active strong {
+  color: #1664d9;
+}
+
+.qa-center-submit-button {
+  flex: 0 0 auto;
+  gap: 8px;
+  height: 42px;
+  padding: 0 18px;
+}
+
+.qa-center-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 20px;
+  align-items: start;
+}
+
+.qa-center-list-panel,
+.qa-center-hot-panel {
+  background: #fff;
+  border: 1px solid #dfe8f5;
+  border-radius: 16px;
+  box-shadow: 0 14px 36px rgb(18 33 61 / 0.06);
+}
+
+.qa-center-list-panel {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.qa-center-list-panel__head {
   justify-content: space-between;
-  gap: 14px;
-  padding: 4px 0 12px;
+  gap: 16px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid #edf2f8;
+}
+
+.qa-center-list-panel__head h2 {
+  font-size: 20px;
 }
 
 .qa-center-sorter {
   position: relative;
   display: inline-flex;
+  flex: 0 0 auto;
   gap: 8px;
   align-items: center;
   min-width: 150px;
@@ -934,58 +743,56 @@ watch(
   right: 10px;
 }
 
-.qa-center-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 12px;
+.qa-center-scroll-area {
+  height: min(640px, calc(100vh - 320px));
+  min-height: 460px;
+  padding: 0 8px 0 0;
+  overflow-y: auto;
+  scrollbar-color: #b9c6d8 transparent;
+  scrollbar-width: thin;
 }
 
-.qa-center-chips button {
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-  height: 30px;
-  padding: 0 10px;
-  color: #52627d;
-  background: #fff;
-  border: 1px solid #dfe8f6;
+.qa-center-scroll-area::-webkit-scrollbar {
+  width: 8px;
+}
+
+.qa-center-scroll-area::-webkit-scrollbar-thumb {
+  background: #b9c6d8;
+  border: 2px solid #fff;
   border-radius: 999px;
-}
-
-.qa-center-chips .qa-center-chips__clear {
-  color: #1664d9;
-  background: transparent;
-  border-color: transparent;
 }
 
 .qa-center-list {
   display: grid;
-  gap: 12px;
+  gap: 0;
 }
 
 .qa-card {
-  padding: 18px;
-  background: #fff;
-  border: 1px solid #e1e9f5;
-  border-radius: 16px;
-  box-shadow: 0 12px 28px rgb(18 33 61 / 0.055);
+  gap: 18px;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border-bottom: 1px solid #edf2f8;
 }
 
-.qa-card__header {
-  justify-content: space-between;
-  gap: 12px;
+.qa-card__main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.qa-card__meta-row {
+  flex-wrap: wrap;
+  gap: 10px;
+  color: #6b7b95;
 }
 
 .qa-card__category,
-.qa-card__status,
-.qa-card__no {
+.qa-card__status {
   display: inline-flex;
   align-items: center;
-  height: 26px;
+  height: 24px;
   padding: 0 9px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 800;
   border-radius: 999px;
 }
 
@@ -994,87 +801,46 @@ watch(
   background: #edf5ff;
 }
 
-.qa-card__no {
-  margin-left: 6px;
-  color: #6d7d97;
-  background: #f4f7fb;
-}
-
-.qa-card__status {
-  gap: 5px;
-}
-
-.qa-card__status.is-answered {
-  color: #0f9488;
-  background: #eef9f7;
-}
-
-.qa-card__status.is-pending {
-  color: #d87312;
-  background: #fff7ea;
-}
-
-.qa-card__product {
-  gap: 8px;
-  margin-top: 12px;
+.qa-card__no,
+.qa-card__model {
+  font-weight: 700;
   color: #60708d;
+}
+
+.qa-card__product-name {
+  min-width: 0;
+  overflow: hidden;
+  color: #7b8ba5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .qa-card h3 {
-  margin: 14px 0 8px;
+  margin: 10px 0 6px;
+  overflow: hidden;
   font-size: 19px;
+  line-height: 1.35;
+  color: #10203a;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.qa-card__question,
-.qa-card__answer {
+.qa-card__answer-preview {
+  max-width: 100%;
   margin: 0;
+  overflow: hidden;
   line-height: 1.7;
-}
-
-.qa-card__question {
-  color: #233450;
-}
-
-.qa-card__answer {
-  margin-top: 8px;
   color: #5c6d88;
-}
-
-.qa-card__specs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 14px;
-}
-
-.qa-card__specs span {
-  padding: 7px 10px;
-  font-size: 13px;
-  color: #435672;
-  background: #f7faff;
-  border: 1px solid #e1e9f5;
-  border-radius: 999px;
-}
-
-.qa-card__docs {
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
-  color: #60708d;
-}
-
-.qa-card__docs span {
-  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .qa-card__footer {
   flex-wrap: wrap;
-  gap: 12px;
-  padding-top: 14px;
-  margin-top: 14px;
+  gap: 14px;
+  margin-top: 10px;
   font-size: 13px;
-  color: #71829e;
-  border-top: 1px solid #edf2f8;
+  color: #7d8da8;
 }
 
 .qa-card__footer span {
@@ -1083,14 +849,95 @@ watch(
   align-items: center;
 }
 
+.qa-card__actions {
+  flex: 0 0 108px;
+  flex-direction: column;
+  gap: 22px;
+  align-self: stretch;
+  justify-content: center;
+}
+
+.qa-card__status {
+  gap: 5px;
+}
+
+.qa-card__status.is-answered {
+  color: #0f9488;
+  background: #eaf8f5;
+}
+
+.qa-card__status.is-pending {
+  color: #d87312;
+  background: #fff7ea;
+}
+
+.qa-card__actions button {
+  font-weight: 800;
+  color: #1664d9;
+}
+
+.qa-card__actions button::after,
+.qa-center-hot-more::after {
+  margin-left: 7px;
+  content: '›';
+}
+
+.qa-center-hot-panel {
+  position: sticky;
+  top: 84px;
+  padding: 22px;
+}
+
+.qa-center-hot-panel__title {
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.qa-center-hot-panel__title .app-icon {
+  color: #ef4c3c;
+}
+
+.qa-center-hot-panel h2 {
+  font-size: 18px;
+}
+
+.qa-center-hot-list {
+  display: grid;
+  gap: 14px;
+}
+
+.qa-center-hot-list button {
+  gap: 12px;
+  align-items: flex-start;
+  width: 100%;
+  color: #31425f;
+  text-align: left;
+}
+
+.qa-center-hot-list strong {
+  flex: 0 0 auto;
+  min-width: 18px;
+  color: #1664d9;
+}
+
+.qa-center-hot-list span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qa-center-hot-more {
+  margin-top: 18px;
+  font-weight: 800;
+  color: #1664d9;
+}
+
 .qa-center-empty {
   display: grid;
   gap: 10px;
   justify-items: center;
-  padding: 56px 20px;
-  background: #fff;
-  border: 1px solid #e1e9f5;
-  border-radius: 16px;
+  padding: 88px 20px;
+  text-align: center;
 }
 
 .qa-center-empty p {
@@ -1098,125 +945,162 @@ watch(
   color: #60708d;
 }
 
-.qa-center-pagination {
+.qa-modal-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(10 22 42 / 0.18);
+  backdrop-filter: blur(3px);
+}
+
+.qa-modal {
+  width: min(520px, 100%);
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #dfe8f5;
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgb(10 22 42 / 0.18);
+}
+
+.qa-modal__header {
   justify-content: space-between;
-  gap: 12px;
-  padding: 16px 4px 0;
-  color: #60708d;
+  padding: 22px 24px 10px;
 }
 
-.qa-center-ask__head {
-  gap: 12px;
-  align-items: flex-start;
-  margin-bottom: 14px;
+.qa-modal__header h2 {
+  font-size: 20px;
 }
 
-.qa-center-ask__head > span {
+.qa-modal__header button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
-  color: #fff;
-  background: #1664d9;
-  border-radius: 12px;
+  width: 32px;
+  height: 32px;
+  color: #2d3d59;
+  border-radius: 8px;
 }
 
-.qa-center-ask__form label {
+.qa-modal__body {
   display: grid;
-  gap: 6px;
-  margin-top: 12px;
+  gap: 14px;
+  padding: 8px 24px 18px;
+}
+
+.qa-modal__body label {
+  position: relative;
+  display: grid;
+  gap: 7px;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 800;
   color: #52627d;
 }
 
-.qa-center-ask__form input,
-.qa-center-ask__form select,
-.qa-center-ask__form textarea {
+.qa-modal__body label span {
+  color: #d84a4a;
+}
+
+.qa-modal__body input,
+.qa-modal__body select,
+.qa-modal__body textarea {
   width: 100%;
   padding: 10px 12px;
   font: inherit;
+  font-weight: 400;
   color: #233450;
   background: #fff;
   border: 1px solid #dce4f0;
-  border-radius: 10px;
+  border-radius: 9px;
   outline: none;
 }
 
-.qa-center-ask__form textarea {
+.qa-modal__body textarea {
   resize: vertical;
 }
 
-.qa-center-ask__submit {
-  display: inline-flex;
-  gap: 8px;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  margin-top: 14px;
+.qa-modal__body small {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #7385a1;
 }
 
-.qa-center-ask__submit:disabled {
+.qa-modal__message {
+  margin: 0;
+  line-height: 1.6;
+  color: #d84a4a;
+}
+
+.qa-modal__footer {
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 0 24px 24px;
+}
+
+.qa-modal__cancel {
+  height: 38px;
+  padding: 0 22px;
+  font: inherit;
+  color: #4f607c;
+  cursor: pointer;
+  background: #fff;
+  border: 1px solid #dce4f0;
+  border-radius: 9px;
+}
+
+.qa-modal__submit {
+  gap: 8px;
+  height: 38px;
+  padding: 0 22px;
+  border-radius: 9px;
+}
+
+.qa-modal__submit:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
 
-.qa-center-ask__message {
-  margin: 10px 0 0;
-  line-height: 1.6;
-  color: #0f9488;
-}
-
-.qa-center-hot {
-  display: grid;
-  gap: 10px;
-}
-
-.qa-center-hot a {
-  gap: 8px;
-  padding: 10px 0;
-  color: #33435f;
-}
-
-.qa-center-hot a + a {
-  border-top: 1px solid #edf2f8;
-}
-
-@media (max-width: 1200px) {
-  .qa-center-layout {
-    grid-template-columns: 220px minmax(0, 1fr);
-  }
-
-  .qa-center-ask {
-    position: static;
-    grid-column: 1 / -1;
-  }
-}
-
-@media (max-width: 860px) {
-  .qa-center-page {
-    padding: 16px;
-  }
-
-  .qa-center-hero,
-  .qa-center-layout {
+@media (max-width: 1100px) {
+  .qa-center-content {
     grid-template-columns: 1fr;
   }
 
-  .qa-center-sidebar {
+  .qa-center-hot-panel {
     position: static;
+  }
+}
+
+@media (max-width: 760px) {
+  .qa-center-page {
+    padding: 20px 16px;
   }
 
   .qa-center-search,
-  .qa-center-toolbar,
-  .qa-center-pagination {
+  .qa-center-tabs-row,
+  .qa-center-list-panel__head,
+  .qa-card {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .qa-center-search__button {
+  .qa-center-search__button,
+  .qa-center-submit-button {
     width: 100%;
+  }
+
+  .qa-center-scroll-area {
+    height: 620px;
+  }
+
+  .qa-card__actions {
+    flex: 0 0 auto;
+    flex-direction: row;
+    justify-content: space-between;
   }
 }
 </style>
