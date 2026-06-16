@@ -723,7 +723,6 @@ watch(
   justify-content: space-between;
   min-width: 0;
   padding: 6px 0 0;
-  border-top: 1px solid #e5edf7;
 }
 
 .qa-center-tabs {
