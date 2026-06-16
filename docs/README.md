@@ -8,6 +8,7 @@
 
 - [PRD.md](./PRD.md)：项目背景、目标用户、平台能力边界和当前实施阶段。
 - [ARCHITECTURE.md](./ARCHITECTURE.md)：前后台架构、页面结构、数据模型和实施顺序。
+- [QA_CENTER_API.md](./QA_CENTER_API.md)：问答中心前后台接口、字段模型和当前 mock 开发口径。
 - [CLOUDFLARE_PAGES_DEPLOY.md](./CLOUDFLARE_PAGES_DEPLOY.md)：Cloudflare Pages 双项目部署、分支策略和 watch paths 配置。
 
 ## 相关配套
