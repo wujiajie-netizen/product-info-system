@@ -2,14 +2,11 @@
 import { computed, ref, watch } from 'vue';
 import {
   CheckCircle2,
-  ChevronDown,
   CircleHelp,
-  Eye,
   Flame,
   PlusCircle,
   Search,
   Send,
-  ThumbsUp,
   X,
 } from 'lucide-vue-next';
 import { useRoute, useRouter } from 'vue-router';
@@ -23,8 +20,6 @@ import {
   type QaCenterOverview,
   type QaQuestionCategory,
   type QaQuestionItem,
-  type QaQuestionStatus,
-  type QaSortBy,
 } from '#/api/qa-center';
 import { isUsingDemoData } from '#/api/product-info';
 import AppIcon from '#/components/AppIcon.vue';
@@ -46,9 +41,9 @@ const errorMessage = ref('');
 const submittedMessage = ref('');
 const keyword = ref('');
 const selectedCategory = ref<'all' | QaQuestionCategory>('all');
-const selectedStatus = ref<'all' | QaQuestionStatus>('all');
-const sortBy = ref<QaSortBy>('hot');
-const pageSize = 80;
+const currentPage = ref(1);
+const pageSize = 10;
+const fetchPageSize = 200;
 const totalResults = ref(0);
 const questions = ref<QaQuestionItem[]>([]);
 const localQuestions = ref<QaQuestionItem[]>([]);
@@ -71,12 +66,6 @@ const qaCategoryKeys: QaQuestionCategory[] = [
   'quote',
   'after_sales',
 ];
-const qaStatusKeys: QaQuestionStatus[] = ['answered', 'pending'];
-const sortOptions: Array<{ label: string; value: QaSortBy }> = [
-  { label: '热门优先', value: 'hot' },
-  { label: '最新更新', value: 'latest' },
-  { label: '已回答优先', value: 'answered' },
-];
 
 const renderedQuestions = computed(() => [
   ...matchedLocalQuestions.value,
@@ -84,6 +73,11 @@ const renderedQuestions = computed(() => [
 ]);
 const renderedTotal = computed(() => totalResults.value + matchedLocalQuestions.value.length);
 const renderedTotalLabel = computed(() => renderedTotal.value.toLocaleString('zh-CN'));
+const totalPages = computed(() => Math.max(1, Math.ceil(renderedQuestions.value.length / pageSize)));
+const paginatedQuestions = computed(() => {
+  const start = (currentPage.value - 1) * pageSize;
+  return renderedQuestions.value.slice(start, start + pageSize);
+});
 const canSubmitQuestion = computed(
   () => Boolean(askForm.value.title.trim()) && Boolean(askForm.value.question.trim()),
 );
@@ -113,19 +107,11 @@ function isQaCategory(value: string): value is QaQuestionCategory {
   return qaCategoryKeys.includes(value as QaQuestionCategory);
 }
 
-function isQaStatus(value: string): value is QaQuestionStatus {
-  return qaStatusKeys.includes(value as QaQuestionStatus);
-}
-
-function isQaSortBy(value: string): value is QaSortBy {
-  return sortOptions.some((item) => item.value === value);
-}
-
-function getStatusLabel(status: QaQuestionStatus) {
+function getStatusLabel(status: QaQuestionItem['status']) {
   return status === 'answered' ? '已回答' : '待补充';
 }
 
-function getQuestionStatusClass(status: QaQuestionStatus) {
+function getQuestionStatusClass(status: QaQuestionItem['status']) {
   return status === 'answered' ? 'is-answered' : 'is-pending';
 }
 
@@ -137,22 +123,26 @@ function formatDateTime(value: string) {
   return value.slice(0, 10);
 }
 
+function hasAnswer(item: QaQuestionItem) {
+  return item.status === 'answered' && Boolean(item.answer?.trim());
+}
+
 function isExpanded(questionId: string) {
   return expandedQuestionIds.value.includes(questionId);
 }
 
-function toggleQuestion(questionId: string) {
-  expandedQuestionIds.value = isExpanded(questionId)
-    ? expandedQuestionIds.value.filter((id) => id !== questionId)
-    : [...expandedQuestionIds.value, questionId];
+function toggleQuestion(item: QaQuestionItem) {
+  if (!hasAnswer(item)) {
+    return;
+  }
+
+  expandedQuestionIds.value = isExpanded(item.id)
+    ? expandedQuestionIds.value.filter((id) => id !== item.id)
+    : [...expandedQuestionIds.value, item.id];
 }
 
 function matchesCurrentFilters(item: QaQuestionItem) {
   if (selectedCategory.value !== 'all' && item.category !== selectedCategory.value) {
-    return false;
-  }
-
-  if (selectedStatus.value !== 'all' && item.status !== selectedStatus.value) {
     return false;
   }
 
@@ -182,11 +172,8 @@ function syncRouteFilters() {
   const category = normalizeQueryValue(route.query.category);
   selectedCategory.value = isQaCategory(category) ? category : 'all';
 
-  const status = normalizeQueryValue(route.query.status);
-  selectedStatus.value = isQaStatus(status) ? status : 'all';
-
-  const nextSortBy = normalizeQueryValue(route.query.sortBy);
-  sortBy.value = isQaSortBy(nextSortBy) ? nextSortBy : 'hot';
+  const page = Number(normalizeQueryValue(route.query.page));
+  currentPage.value = Number.isFinite(page) && page > 0 ? page : 1;
 }
 
 function buildQaRouteQuery() {
@@ -200,12 +187,8 @@ function buildQaRouteQuery() {
     query.category = selectedCategory.value;
   }
 
-  if (selectedStatus.value !== 'all') {
-    query.status = selectedStatus.value;
-  }
-
-  if (sortBy.value !== 'hot') {
-    query.sortBy = sortBy.value;
+  if (currentPage.value > 1) {
+    query.page = String(currentPage.value);
   }
 
   return query;
@@ -219,22 +202,20 @@ function replaceQaRouteQuery() {
 }
 
 function submitSearch() {
+  currentPage.value = 1;
+  expandedQuestionIds.value = [];
   replaceQaRouteQuery();
 }
 
 function selectCategory(category: 'all' | QaQuestionCategory) {
   selectedCategory.value = category;
+  currentPage.value = 1;
   expandedQuestionIds.value = [];
   replaceQaRouteQuery();
 }
 
-function selectStatus(status: 'all' | QaQuestionStatus) {
-  selectedStatus.value = status;
-  expandedQuestionIds.value = [];
-  replaceQaRouteQuery();
-}
-
-function handleSortChange() {
+function handlePageChange(page: number) {
+  currentPage.value = page;
   expandedQuestionIds.value = [];
   replaceQaRouteQuery();
 }
@@ -277,8 +258,8 @@ async function submitQuestion() {
 
     localQuestions.value = [question, ...localQuestions.value];
     selectedCategory.value = question.category;
-    selectedStatus.value = 'all';
-    expandedQuestionIds.value = [question.id];
+    currentPage.value = 1;
+    expandedQuestionIds.value = [];
     resetAskForm(question.category);
     showAskModal.value = false;
     replaceQaRouteQuery();
@@ -299,9 +280,8 @@ async function loadQaCenter() {
         category: selectedCategory.value === 'all' ? undefined : selectedCategory.value,
         keyword: keyword.value || undefined,
         page: 1,
-        pageSize,
-        sortBy: sortBy.value,
-        status: selectedStatus.value === 'all' ? undefined : selectedStatus.value,
+        pageSize: fetchPageSize,
+        sortBy: 'hot',
       }),
       listQaCategories(),
       getQaCenterOverview(),
@@ -311,6 +291,11 @@ async function loadQaCenter() {
     categories.value = nextCategories;
     overview.value = nextOverview;
     totalResults.value = pagedResult.total;
+
+    if (currentPage.value > totalPages.value) {
+      currentPage.value = totalPages.value;
+      replaceQaRouteQuery();
+    }
   } catch (error) {
     errorMessage.value = getErrorMessage(error);
     questions.value = [];
@@ -398,41 +383,7 @@ watch(
           <div class="qa-center-list-panel__head">
             <div class="qa-center-list-panel__title">
               <h2>问题列表</h2>
-              <p>共 {{ renderedTotalLabel }} 条结果，答案默认单行预览，点击展开查看完整内容。</p>
-            </div>
-            <div class="qa-center-toolbar-actions">
-              <div class="qa-center-status-tabs" aria-label="回答状态">
-                <button
-                  type="button"
-                  :class="{ 'is-active': selectedStatus === 'all' }"
-                  @click="selectStatus('all')"
-                >
-                  全部
-                </button>
-                <button
-                  type="button"
-                  :class="{ 'is-active': selectedStatus === 'answered' }"
-                  @click="selectStatus('answered')"
-                >
-                  已回答
-                </button>
-                <button
-                  type="button"
-                  :class="{ 'is-active': selectedStatus === 'pending' }"
-                  @click="selectStatus('pending')"
-                >
-                  待补充
-                </button>
-              </div>
-              <label class="qa-center-sorter">
-                <span>排序</span>
-                <select v-model="sortBy" @change="handleSortChange">
-                  <option v-for="item in sortOptions" :key="item.value" :value="item.value">
-                    {{ item.label }}
-                  </option>
-                </select>
-                <AppIcon :icon="ChevronDown" :size="14" />
-              </label>
+              <p>共 {{ renderedTotalLabel }} 条结果，每页展示 10 条，只有已回答问题展示答案。</p>
             </div>
           </div>
 
@@ -448,9 +399,9 @@ watch(
               <p>正在从商品、规格、资料和报价数据中生成问答内容。</p>
             </div>
 
-            <div v-else-if="renderedQuestions.length" class="qa-center-list">
+            <div v-else-if="paginatedQuestions.length" class="qa-center-list">
               <article
-                v-for="item in renderedQuestions"
+                v-for="item in paginatedQuestions"
                 :key="item.id"
                 class="qa-card"
                 :class="{ 'is-expanded': isExpanded(item.id) }"
@@ -465,8 +416,8 @@ watch(
                     </span>
                   </div>
                   <h3>{{ item.title }}</h3>
-                  <p class="qa-card__answer-preview">{{ item.answer }}</p>
-                  <div v-if="isExpanded(item.id)" class="qa-card__expanded-body">
+                  <p v-if="hasAnswer(item)" class="qa-card__answer-preview">{{ item.answer }}</p>
+                  <div v-if="isExpanded(item.id) && hasAnswer(item)" class="qa-card__expanded-body">
                     <p>{{ item.answer }}</p>
                     <div v-if="item.relatedSpecs.length" class="qa-card__specs">
                       <span v-for="spec in item.relatedSpecs" :key="`${item.id}-${spec.key}`">
@@ -481,8 +432,6 @@ watch(
                   </div>
                   <footer class="qa-card__footer">
                     <span>{{ formatDateTime(item.updatedAt) }}</span>
-                    <span><AppIcon :icon="Eye" :size="14" />{{ item.viewCount }}</span>
-                    <span><AppIcon :icon="ThumbsUp" :size="14" />{{ item.helpfulCount }}</span>
                   </footer>
                 </div>
                 <div class="qa-card__actions">
@@ -491,9 +440,10 @@ watch(
                     {{ getStatusLabel(item.status) }}
                   </span>
                   <button
+                    v-if="hasAnswer(item)"
                     type="button"
                     :aria-expanded="isExpanded(item.id)"
-                    @click="toggleQuestion(item.id)"
+                    @click="toggleQuestion(item)"
                   >
                     {{ isExpanded(item.id) ? '收起' : '查看详情' }}
                   </button>
@@ -505,6 +455,30 @@ watch(
               <strong>没有匹配的问答</strong>
               <p>换一个商品型号、规格参数或技术关键词再搜索。</p>
             </div>
+          </div>
+
+          <div v-if="!loading && !errorMessage && renderedQuestions.length" class="qa-center-pagination">
+            <button type="button" :disabled="currentPage <= 1" @click="handlePageChange(currentPage - 1)">
+              上一页
+            </button>
+            <div class="qa-center-pagination__pages">
+              <button
+                v-for="page in totalPages"
+                :key="page"
+                type="button"
+                :class="{ 'is-active': currentPage === page }"
+                @click="handlePageChange(page)"
+              >
+                {{ page }}
+              </button>
+            </div>
+            <button
+              type="button"
+              :disabled="currentPage >= totalPages"
+              @click="handlePageChange(currentPage + 1)"
+            >
+              下一页
+            </button>
           </div>
         </section>
 
@@ -646,8 +620,6 @@ watch(
 .qa-center-tabs-row,
 .qa-center-tabs,
 .qa-center-list-panel__head,
-.qa-center-toolbar-actions,
-.qa-center-status-tabs,
 .qa-card,
 .qa-card__meta-row,
 .qa-card__footer,
@@ -656,6 +628,8 @@ watch(
 .qa-center-hot-panel__title,
 .qa-center-hot-list button,
 .qa-center-submit-button,
+.qa-center-pagination,
+.qa-center-pagination__pages,
 .qa-modal__header,
 .qa-modal__footer,
 .qa-modal__submit {
@@ -691,10 +665,10 @@ watch(
 
 .qa-center-search__bar button,
 .qa-center-tabs button,
-.qa-center-status-tabs button,
 .qa-card__actions button,
 .qa-center-hot-list button,
 .qa-center-hot-more,
+.qa-center-pagination button,
 .qa-modal__header button {
   font: inherit;
   cursor: pointer;
@@ -723,6 +697,7 @@ watch(
   justify-content: space-between;
   min-width: 0;
   padding: 6px 0 0;
+  border-top: 1px solid #e5edf7;
 }
 
 .qa-center-tabs {
@@ -825,69 +800,9 @@ watch(
   font-size: 20px;
 }
 
-.qa-center-toolbar-actions {
-  flex: 0 0 auto;
-  flex-wrap: wrap;
-  gap: 10px;
-  justify-content: flex-end;
-  min-width: 0;
-}
-
-.qa-center-status-tabs {
-  gap: 4px;
-  padding: 4px;
-  background: #f6f9fd;
-  border: 1px solid #dfe8f5;
-  border-radius: 999px;
-}
-
-.qa-center-status-tabs button {
-  height: 30px;
-  padding: 0 12px;
-  color: #5c6d88;
-  border-radius: 999px;
-}
-
-.qa-center-status-tabs button.is-active {
-  color: #1664d9;
-  background: #fff;
-  box-shadow: 0 4px 10px rgb(18 33 61 / 6%);
-}
-
-.qa-center-sorter {
-  position: relative;
-  display: inline-flex;
-  flex: 0 0 auto;
-  gap: 8px;
-  align-items: center;
-  min-width: 150px;
-  height: 40px;
-  padding: 0 28px 0 12px;
-  color: #60708d;
-  background: #fff;
-  border: 1px solid #dce4f0;
-  border-radius: 10px;
-}
-
-.qa-center-sorter select {
-  flex: 1 1 auto;
-  min-width: 0;
-  font: inherit;
-  color: #22344f;
-  appearance: none;
-  background: transparent;
-  border: 0;
-  outline: none;
-}
-
-.qa-center-sorter .app-icon {
-  position: absolute;
-  right: 10px;
-}
-
 .qa-center-scroll-area {
-  height: min(640px, calc(100vh - 320px));
-  min-height: 460px;
+  height: min(620px, calc(100vh - 350px));
+  min-height: 430px;
   padding: 0;
   overflow-x: hidden;
   overflow-y: auto;
@@ -1038,12 +953,6 @@ watch(
   color: #7d8da8;
 }
 
-.qa-card__footer span {
-  display: inline-flex;
-  gap: 5px;
-  align-items: center;
-}
-
 .qa-card__actions {
   flex: 0 0 108px;
   flex-direction: column;
@@ -1079,6 +988,40 @@ watch(
 
 .qa-card.is-expanded .qa-card__actions button::after {
   content: '⌃';
+}
+
+.qa-center-pagination {
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+  padding: 14px 18px;
+  border-top: 1px solid #edf2f8;
+}
+
+.qa-center-pagination button {
+  height: 32px;
+  min-width: 32px;
+  padding: 0 10px;
+  color: #4a5b78;
+  background: #fff;
+  border: 1px solid #dfe8f5;
+  border-radius: 8px;
+}
+
+.qa-center-pagination button.is-active {
+  color: #fff;
+  background: #1677ff;
+  border-color: #1677ff;
+}
+
+.qa-center-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.qa-center-pagination__pages {
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .qa-center-hot-panel {
@@ -1291,16 +1234,15 @@ watch(
   .qa-center-search,
   .qa-center-tabs-row,
   .qa-center-list-panel__head,
-  .qa-center-toolbar-actions,
-  .qa-card {
+  .qa-card,
+  .qa-center-pagination {
     align-items: stretch;
     flex-direction: column;
   }
 
   .qa-center-search__bar,
   .qa-center-search__button,
-  .qa-center-submit-button,
-  .qa-center-sorter {
+  .qa-center-submit-button {
     width: 100%;
   }
 
@@ -1321,17 +1263,10 @@ watch(
     min-width: max-content;
   }
 
-  .qa-center-status-tabs {
-    width: 100%;
-  }
-
-  .qa-center-status-tabs button {
-    flex: 1 1 0;
-  }
-
   .qa-center-scroll-area {
-    height: 620px;
-    min-height: 420px;
+    height: auto;
+    min-height: auto;
+    max-height: none;
   }
 
   .qa-card__actions {
@@ -1350,6 +1285,10 @@ watch(
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
+  }
+
+  .qa-center-pagination__pages {
+    justify-content: center;
   }
 
   .qa-modal-mask {
