@@ -1,6 +1,6 @@
 -- 问答中心数据库表结构建议
 -- 适用：Supabase / PostgreSQL
--- 说明：前台页面已按 docs/QA_CENTER_API.md 的字段契约开发；执行本 SQL 后，apps/web-front/src/api/qa-center.ts 可直接读写真实表。
+-- 说明：前台页面已按 docs/QA_CENTER_API.md 的字段契约开发；执行本 SQL 后，apps/web-front/src/api/qa-center.ts 和 apps/web-ele 后台问答管理可直接读写真实表。
 
 create extension if not exists pgcrypto;
 
@@ -68,7 +68,7 @@ before update on public.qa_questions
 for each row
 execute function public.set_qa_questions_updated_at();
 
--- RLS 建议：公开前台只读取已回答/待补充问题；写入按项目登录策略决定。
+-- RLS：前台公开读 answered/pending，后台 admin 可全量维护。
 alter table public.qa_questions enable row level security;
 alter table public.qa_question_specs enable row level security;
 alter table public.qa_question_documents enable row level security;
@@ -78,6 +78,19 @@ create policy "qa_questions_public_read"
   on public.qa_questions
   for select
   using (status in ('answered', 'pending'));
+
+drop policy if exists "qa_questions_public_insert_pending" on public.qa_questions;
+create policy "qa_questions_public_insert_pending"
+  on public.qa_questions
+  for insert
+  with check (status = 'pending' and source = 'manual');
+
+drop policy if exists "qa_questions_write_admin" on public.qa_questions;
+create policy "qa_questions_write_admin"
+  on public.qa_questions
+  for all
+  using (public.is_admin())
+  with check (public.is_admin());
 
 drop policy if exists "qa_question_specs_public_read" on public.qa_question_specs;
 create policy "qa_question_specs_public_read"
@@ -92,6 +105,13 @@ create policy "qa_question_specs_public_read"
     )
   );
 
+drop policy if exists "qa_question_specs_write_admin" on public.qa_question_specs;
+create policy "qa_question_specs_write_admin"
+  on public.qa_question_specs
+  for all
+  using (public.is_admin())
+  with check (public.is_admin());
+
 drop policy if exists "qa_question_documents_public_read" on public.qa_question_documents;
 create policy "qa_question_documents_public_read"
   on public.qa_question_documents
@@ -105,8 +125,9 @@ create policy "qa_question_documents_public_read"
     )
   );
 
-drop policy if exists "qa_questions_public_insert_pending" on public.qa_questions;
-create policy "qa_questions_public_insert_pending"
-  on public.qa_questions
-  for insert
-  with check (status = 'pending' and source = 'manual');
+drop policy if exists "qa_question_documents_write_admin" on public.qa_question_documents;
+create policy "qa_question_documents_write_admin"
+  on public.qa_question_documents
+  for all
+  using (public.is_admin())
+  with check (public.is_admin());
