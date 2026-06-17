@@ -177,9 +177,20 @@ const routes: RouteRecordRaw[] = [
     path: '/admin/quotes/:batchId',
   },
   {
+    component: () => import('#/views/product-info/qa-center/index.vue'),
+    meta: {
+      authority: ['admin'],
+      order: 13,
+      icon: 'lucide:messages-square',
+      title: '问答管理',
+    },
+    name: 'AdminQaCenter',
+    path: '/admin/qa-center',
+  },
+  {
     component: () => import('#/views/product-info/updates/index.vue'),
     meta: {
-      order: 13,
+      order: 14,
       icon: 'lucide:radio',
       title: '动态管理',
     },
@@ -190,7 +201,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import('#/views/product-info/users/index.vue'),
     meta: {
       authority: ['admin'],
-      order: 14,
+      order: 15,
       icon: 'lucide:shield-check',
       title: '用户权限',
     },
