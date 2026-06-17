@@ -13,6 +13,7 @@ import { Page } from '@vben/common-ui';
 import { useUserStore } from '@vben/stores';
 
 import {
+  ElAlert,
   ElButton,
   ElCard,
   ElDialog,
@@ -263,6 +264,14 @@ onMounted(async () => {
 
 <template>
   <Page description="维护前台问答中心的问题、标准回答、状态和关联商品" title="问答管理">
+    <ElAlert
+      class="mb-4"
+      :closable="false"
+      show-icon
+      title="状态说明：已回答会在前台展示答案；待补充只展示问题、不展示答案；已归档不会在前台展示，仅用于后台留档和后续恢复。优先级仅用于后台处理排序和待办判断，前台不展示。"
+      type="info"
+    />
+
     <ElSpace class="mb-4" wrap>
       <ElCard shadow="never">
         <div class="qa-stat-card">
