@@ -2,6 +2,8 @@ import vue from '@vitejs/plugin-vue';
 import { fileURLToPath, URL } from 'node:url';
 import { defineConfig } from 'vite';
 
+const srcAlias = fileURLToPath(new URL('./src', import.meta.url));
+
 export default defineConfig({
   plugins: [vue()],
   server: {
@@ -10,7 +12,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '#': fileURLToPath(new URL('./src', import.meta.url)),
+      '@': srcAlias,
+      '#': srcAlias,
     },
   },
 });
