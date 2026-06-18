@@ -4,7 +4,7 @@
 
 当前开发阶段优先接入 Supabase Cloud，前端通过 `VITE_SUPABASE_URL` 和 `VITE_SUPABASE_ANON_KEY` 连接云端项目。不要在代码、文档示例或提交记录中写入 `service_role` key、真实 anon key、数据库密码或其他密钥。
 
-本文件是 Codex 和 coding agent 的项目级指令文档，应保持简洁、可执行、不过度记录业务背景。业务背景写入 `docs/PRD.md`，技术路线写入 `docs/ARCHITECTURE.md`，Supabase 操作细节写入 `supabase/README.md`，文档总入口写入 `docs/README.md`。
+本文件是 Codex 和 coding agent 的项目级指令文档，应保持简洁、可执行、不过度记录业务背景。业务背景写入 `docs/PRD.md`，技术路线写入 `docs/ARCHITECTURE.md`，前端 Vue3 开发强制规范写入 `docs/VUE3_FRONTEND_RULES.md`，Supabase 操作细节写入 `supabase/README.md`，文档总入口写入 `docs/README.md`。
 
 ## 未来本地迁移要求
 
@@ -40,6 +40,7 @@ pnpm run build
 - 根目录只保留一个面向项目的 `README.md`。
 - 不恢复 Vben 模板原始多语言 README，除非项目重新需要多语言文档。
 - 子包 README 可保留作为 Vben 内部模块说明，不作为业务需求来源。
+- Vue3 前端开发强制规范维护在 `docs/VUE3_FRONTEND_RULES.md`，涉及前端代码生成、重构和评审时必须优先遵循。
 
 ## UI 设计参考
 
