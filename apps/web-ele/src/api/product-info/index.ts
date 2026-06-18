@@ -8,6 +8,7 @@ export * from './governance';
 export * from './import-attachments';
 export * from './import-workbench';
 export * from './products';
+export * from './qa-center';
 export * from './quote-options';
 export * from './quotes';
 export * from './spec-items';
