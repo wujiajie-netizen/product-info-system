@@ -4,7 +4,7 @@ import { CheckCircle2, CircleHelp } from 'lucide-vue-next';
 import type { QaQuestionItem } from '#/api/qa-center';
 import AppIcon from '#/components/AppIcon.vue';
 
-defineProps<{
+const props = defineProps<{
   currentPage: number;
   errorMessage: string;
   expandedQuestionIds: string[];
@@ -37,15 +37,7 @@ function hasAnswer(item: QaQuestionItem) {
 }
 
 function isExpanded(questionId: string) {
-  return propsExpandedQuestionIds().includes(questionId);
-}
-
-function propsExpandedQuestionIds() {
-  return (getCurrentInstanceProps().expandedQuestionIds || []) as string[];
-}
-
-function getCurrentInstanceProps() {
-  return __props;
+  return props.expandedQuestionIds.includes(questionId);
 }
 </script>
 
