@@ -18,19 +18,6 @@
 - MVP 阶段避免依赖 Supabase Cloud 独有能力；如果必须使用，先在技术文档中记录本地替代方案。
 - 上线前需要做一次 Cloud 到本地或自托管环境的迁移演练，范围包括业务表、Auth 用户、Storage 对象和前端环境变量。
 
-## Vue 页面组件拆分
-
-开发或重构 Vue `views` 页面时，必须遵守 `docs/FRONTEND_COMPONENT_SPLIT_GUIDE.md`。
-
-核心要求：
-
-- 不为了拆分而拆分，不把 `index.vue` 拆成没有业务可读性的组件清单。
-- `index.vue` 可以保留页面标题、简单搜索框、简单 tabs、轻量筛选、页面级状态和页面级事件协调。
-- 优先拆分复杂列表 item、详情弹窗、编辑弹窗、抽屉、表格、上传区、复杂业务卡片等独立性高的功能块。
-- 当前模块私有组件必须放在 `views/[module]/components/`，不要擅自放到全局 `src/components/`。
-- 组件可以包含只服务自己的逻辑、状态和接口；但列表 item 不得因自身渲染触发详情接口请求，避免 N+1 请求。
-- 除非用户明确要求，不要顺手抽 `composables/`、`types.ts`、`constants.ts`、`utils.ts`。
-
 ## 开发验证
 
 涉及 Supabase 的改动完成后，至少确认：
