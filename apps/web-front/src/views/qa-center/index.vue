@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import QaAskQuestionModal from '#/components/business/qa-center/QaAskQuestionModal.vue';
-import QaCenterHero from '#/components/business/qa-center/QaCenterHero.vue';
-import QaCenterToolbar from '#/components/business/qa-center/QaCenterToolbar.vue';
-import QaQuestionList from '#/components/business/qa-center/QaQuestionList.vue';
-import QaRecommendedPanel from '#/components/business/qa-center/QaRecommendedPanel.vue';
 import FrontShell from '#/components/FrontShell.vue';
-import { useQaCenter } from '#/hooks/useQaCenter';
+
+import QaAskQuestionModal from './components/QaAskQuestionModal.vue';
+import QaCenterHero from './components/QaCenterHero.vue';
+import QaCenterToolbar from './components/QaCenterToolbar.vue';
+import QaQuestionList from './components/QaQuestionList.vue';
+import QaRecommendedPanel from './components/QaRecommendedPanel.vue';
+import { useQaCenter } from './utils/useQaCenter';
 
 defineOptions({
   name: 'QaCenterView',
