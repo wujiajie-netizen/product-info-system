@@ -10,7 +10,7 @@ import '@vben/styles/ele';
 import { useTitle } from '@vueuse/core';
 import { ElLoading } from 'element-plus';
 
-import { $t, setupI18n } from '#/locales';
+import { $t, setupI18n } from '@/locales';
 
 import { initComponentAdapter } from './adapter/component';
 import { initSetupVbenForm } from './adapter/form';

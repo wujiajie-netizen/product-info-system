@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Component } from 'vue';
 
-import AppIcon from '#/components/AppIcon.vue';
+import AppIcon from '@/components/AppIcon.vue';
 
 defineProps<{
   count: string;

@@ -1,6 +1,6 @@
 import type { Component } from 'vue';
 
-import type { DocumentRecord, UpdateRecord } from '#/api/product-info';
+import type { DocumentRecord, UpdateRecord } from '@/api/product-info';
 
 import {
   AlarmClock,

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { CompanyRecord, CompanyStatus, CompanyType } from '#/api';
+import type { CompanyRecord, CompanyStatus, CompanyType } from '@/api';
 
 import { computed, onMounted, reactive, ref } from 'vue';
 
@@ -29,7 +29,7 @@ import {
   listCompanies,
   setCompanyStatus,
   updateCompany,
-} from '#/api';
+} from '@/api';
 
 const companyTypeOptions: Array<{ label: string; value: CompanyType }> = [
   { label: '供应商', value: 'supplier' },

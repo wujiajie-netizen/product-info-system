@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { CategoryRecord, CategoryStatus } from '#/api';
+import type { CategoryRecord, CategoryStatus } from '@/api';
 
 import { computed, onMounted, reactive, ref } from 'vue';
 
@@ -30,7 +30,7 @@ import {
   listCategories,
   setCategoryStatus,
   updateCategory,
-} from '#/api';
+} from '@/api';
 
 const userStore = useUserStore();
 const loading = ref(false);

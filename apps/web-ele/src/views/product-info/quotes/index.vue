@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { QuoteStatus, QuoteWithRelations } from '#/api';
+import type { QuoteStatus, QuoteWithRelations } from '@/api';
 
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
@@ -22,7 +22,7 @@ import {
   ElTag,
 } from 'element-plus';
 
-import { listQuotes, setQuoteStatus } from '#/api';
+import { listQuotes, setQuoteStatus } from '@/api';
 
 interface QuoteBatchRow {
   batchId: string;

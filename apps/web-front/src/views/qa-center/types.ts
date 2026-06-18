@@ -1,4 +1,4 @@
-import type { QaQuestionCategory } from '#/api/qa-center';
+import type { QaQuestionCategory } from '@/api/qa-center';
 
 export type FrontQaSortBy = 'latest_answered' | 'latest_created' | 'latest_updated' | 'recommend';
 

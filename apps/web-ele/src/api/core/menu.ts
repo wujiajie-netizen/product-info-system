@@ -1,7 +1,7 @@
 import type { RouteRecordStringComponent } from '@vben/types';
 import type { RouteRecordRaw } from 'vue-router';
 
-import { accessRoutes } from '#/router/routes';
+import { accessRoutes } from '@/router/routes';
 
 function toMenuRoute(route: RouteRecordRaw): RouteRecordStringComponent {
   return {

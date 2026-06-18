@@ -16,8 +16,8 @@ import {
   getUserInfoApi,
   loginApi,
   logoutApi,
-} from '#/api';
-import { $t } from '#/locales';
+} from '@/api';
+import { $t } from '@/locales';
 
 export const useAuthStore = defineStore('auth', () => {
   const accessStore = useAccessStore();

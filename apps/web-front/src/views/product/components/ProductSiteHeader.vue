@@ -3,8 +3,8 @@ import { ref } from 'vue';
 import { Menu, X } from 'lucide-vue-next';
 import { RouterLink, useRoute } from 'vue-router';
 
-import AppIcon from '#/components/AppIcon.vue';
-import { productNavItems } from '#/views/product/product-list-data';
+import AppIcon from '@/components/AppIcon.vue';
+import { productNavItems } from '@/views/product/product-list-data';
 
 const route = useRoute();
 const mobileOpen = ref(false);

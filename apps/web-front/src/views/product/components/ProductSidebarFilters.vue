@@ -2,11 +2,11 @@
 import { computed, ref } from 'vue';
 import { ChevronDown } from 'lucide-vue-next';
 
-import AppIcon from '#/components/AppIcon.vue';
+import AppIcon from '@/components/AppIcon.vue';
 import type {
   BrandFilter,
   CategoryGroup,
-} from '#/views/product/product-list-data';
+} from '@/views/product/product-list-data';
 
 const props = withDefaults(
   defineProps<{

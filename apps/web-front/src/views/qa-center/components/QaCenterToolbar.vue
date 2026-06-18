@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { PlusCircle } from 'lucide-vue-next';
 
-import AppIcon from '#/components/AppIcon.vue';
+import AppIcon from '@/components/AppIcon.vue';
 
 import type { FrontQaSortBy, QaCategoryFilter, QaCategoryTab, QaSortOption } from '../types';
 

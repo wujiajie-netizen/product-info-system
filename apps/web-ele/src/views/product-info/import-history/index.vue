@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { ImportHistoryRecord, ImportHistoryRowRecord } from '#/api';
+import type { ImportHistoryRecord, ImportHistoryRowRecord } from '@/api';
 
 import { onMounted, ref } from 'vue';
 
@@ -18,7 +18,7 @@ import {
   ElTag,
 } from 'element-plus';
 
-import { listImportHistories, listImportHistoryRows } from '#/api';
+import { listImportHistories, listImportHistoryRows } from '@/api';
 
 const loading = ref(false);
 const rowLoading = ref(false);

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { Send, X } from 'lucide-vue-next';
 
-import type { QaCategoryOption, QaQuestionCategory } from '#/api/qa-center';
-import AppIcon from '#/components/AppIcon.vue';
+import type { QaCategoryOption, QaQuestionCategory } from '@/api/qa-center';
+import AppIcon from '@/components/AppIcon.vue';
 
 import type { QaAskQuestionForm } from '../types';
 

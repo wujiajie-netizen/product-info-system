@@ -1,6 +1,6 @@
 import type { UserInfo } from '@vben/types';
 
-import { assertSupabaseClient } from '#/api/product-info/client';
+import { assertSupabaseClient } from '@/api/product-info/client';
 
 export async function getUserInfoApi(): Promise<UserInfo> {
   const supabase = assertSupabaseClient();

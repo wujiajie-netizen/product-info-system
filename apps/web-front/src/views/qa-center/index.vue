@@ -11,11 +11,11 @@ import {
   type QaCenterOverview,
   type QaQuestionCategory,
   type QaQuestionItem,
-} from '#/api/qa-center';
-import { isUsingDemoData } from '#/api/product-info';
-import FrontShell from '#/components/FrontShell.vue';
-import { useAuthState } from '#/lib/auth';
-import { getErrorMessage } from '#/lib/errors';
+} from '@/api/qa-center';
+import { isUsingDemoData } from '@/api/product-info';
+import FrontShell from '@/components/FrontShell.vue';
+import { useAuthState } from '@/lib/auth';
+import { getErrorMessage } from '@/lib/errors';
 
 import QaAskQuestionModal from './components/QaAskQuestionModal.vue';
 import QaCenterHero from './components/QaCenterHero.vue';

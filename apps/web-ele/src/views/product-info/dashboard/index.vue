@@ -4,7 +4,7 @@ import type {
   AdminDashboardDistributionItem,
   AdminDashboardPendingVariant,
   AdminDashboardTrendTab,
-} from '#/api';
+} from '@/api';
 import type { AnalysisOverviewItem } from '@vben/common-ui';
 
 import { computed, onMounted, ref } from 'vue';
@@ -28,7 +28,7 @@ import {
   ElTag,
 } from 'element-plus';
 
-import { getAdminDashboard } from '#/api';
+import { getAdminDashboard } from '@/api';
 
 import DashboardChart from './components/dashboard-chart.vue';
 

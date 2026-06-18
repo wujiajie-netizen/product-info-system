@@ -4,7 +4,7 @@ import type {
   DocumentFileType,
   DocumentKind,
   ProductRecord,
-} from '#/api';
+} from '@/api';
 import type { UploadFile } from 'element-plus';
 
 import { computed, onMounted, ref } from 'vue';
@@ -27,7 +27,7 @@ import {
   ElUpload,
 } from 'element-plus';
 
-import { createDocument, listCompanies, listProducts } from '#/api';
+import { createDocument, listCompanies, listProducts } from '@/api';
 
 interface FileDraft {
   companyId: string;

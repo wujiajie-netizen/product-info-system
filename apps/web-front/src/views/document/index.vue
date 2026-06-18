@@ -9,16 +9,16 @@ import {
   formatDocumentType,
   isUsingDemoData,
   listDocuments,
-} from '#/api/product-info';
-import AppIcon from '#/components/AppIcon.vue';
-import FrontShell from '#/components/FrontShell.vue';
+} from '@/api/product-info';
+import AppIcon from '@/components/AppIcon.vue';
+import FrontShell from '@/components/FrontShell.vue';
 import {
   getDocumentTypeIcon,
   quickEntryIcons,
   searchIcon,
-} from '#/lib/front-icons';
-import { useAuthState } from '#/lib/auth';
-import { getErrorMessage } from '#/lib/errors';
+} from '@/lib/front-icons';
+import { useAuthState } from '@/lib/auth';
+import { getErrorMessage } from '@/lib/errors';
 
 const auth = useAuthState();
 const route = useRoute();

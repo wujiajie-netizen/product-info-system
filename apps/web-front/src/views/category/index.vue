@@ -3,12 +3,12 @@ import { computed, ref } from 'vue';
 import { ChevronRight, Flame, Hash } from 'lucide-vue-next';
 import { RouterLink } from 'vue-router';
 
-import AppIcon from '#/components/AppIcon.vue';
-import FrontShell from '#/components/FrontShell.vue';
-import CategoryBrandCard from '#/views/category/components/CategoryBrandCard.vue';
-import CategoryNavCard from '#/views/category/components/CategoryNavCard.vue';
-import CategoryQuickEntryCard from '#/views/category/components/CategoryQuickEntryCard.vue';
-import CategoryRecentUpdateItem from '#/views/category/components/CategoryRecentUpdateItem.vue';
+import AppIcon from '@/components/AppIcon.vue';
+import FrontShell from '@/components/FrontShell.vue';
+import CategoryBrandCard from '@/views/category/components/CategoryBrandCard.vue';
+import CategoryNavCard from '@/views/category/components/CategoryNavCard.vue';
+import CategoryQuickEntryCard from '@/views/category/components/CategoryQuickEntryCard.vue';
+import CategoryRecentUpdateItem from '@/views/category/components/CategoryRecentUpdateItem.vue';
 import {
   allBrandItems,
   brandIndexGroups,
@@ -20,7 +20,7 @@ import {
   platformStats,
   quickEntryItems,
   recentUpdateItems,
-} from '#/views/category/category-navigation-data';
+} from '@/views/category/category-navigation-data';
 
 const props = defineProps<{
   slug?: string;

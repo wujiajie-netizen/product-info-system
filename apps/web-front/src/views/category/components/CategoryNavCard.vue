@@ -4,7 +4,7 @@ import type { RouteLocationRaw } from 'vue-router';
 
 import { RouterLink } from 'vue-router';
 
-import AppIcon from '#/components/AppIcon.vue';
+import AppIcon from '@/components/AppIcon.vue';
 
 defineProps<{
   active?: boolean;

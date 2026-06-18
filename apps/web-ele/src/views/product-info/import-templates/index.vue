@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { ImportTemplateRecord, ImportTemplateStatus, SaveImportTemplateInput } from '#/api';
+import type { ImportTemplateRecord, ImportTemplateStatus, SaveImportTemplateInput } from '@/api';
 
 import { computed, onMounted, reactive, ref } from 'vue';
 
@@ -34,7 +34,7 @@ import {
   listCompanies,
   listImportTemplates,
   updateImportTemplate,
-} from '#/api';
+} from '@/api';
 
 const userStore = useUserStore();
 const isAdmin = computed(() => userStore.userRoles.includes('admin'));

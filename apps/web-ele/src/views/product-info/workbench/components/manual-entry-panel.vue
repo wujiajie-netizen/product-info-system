@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { BrandRecord, CategoryRecord, CompanyRecord, ProductRecord, SaveQuoteTierInput } from '#/api';
+import type { BrandRecord, CategoryRecord, CompanyRecord, ProductRecord, SaveQuoteTierInput } from '@/api';
 
 import { computed, onMounted, reactive, ref } from 'vue';
 
@@ -29,7 +29,7 @@ import {
   listBrands,
   listCategories,
   listCompanies,
-} from '#/api';
+} from '@/api';
 
 const userStore = useUserStore();
 const isAdmin = computed(() => userStore.userRoles.includes('admin'));

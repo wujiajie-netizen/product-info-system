@@ -4,25 +4,25 @@ import { NSelect } from 'naive-ui';
 import { Search } from 'lucide-vue-next';
 import { RouterLink, useRouter } from 'vue-router';
 
-import AppIcon from '#/components/AppIcon.vue';
+import AppIcon from '@/components/AppIcon.vue';
 import {
   getDashboardSummary,
   isUsingDemoData,
   listUpdates,
-} from '#/api/product-info';
-import FrontShell from '#/components/FrontShell.vue';
-import { useAuthState } from '#/lib/auth';
-import { getCategoryIcon, getUpdateTypeIcon } from '#/lib/front-icons';
-import HomeCategoryTile from '#/views/home/components/HomeCategoryTile.vue';
-import HomeProductCard from '#/views/home/components/HomeProductCard.vue';
-import HomeSectionHeader from '#/views/home/components/HomeSectionHeader.vue';
-import HomeSideCard from '#/views/home/components/HomeSideCard.vue';
+} from '@/api/product-info';
+import FrontShell from '@/components/FrontShell.vue';
+import { useAuthState } from '@/lib/auth';
+import { getCategoryIcon, getUpdateTypeIcon } from '@/lib/front-icons';
+import HomeCategoryTile from '@/views/home/components/HomeCategoryTile.vue';
+import HomeProductCard from '@/views/home/components/HomeProductCard.vue';
+import HomeSectionHeader from '@/views/home/components/HomeSectionHeader.vue';
+import HomeSideCard from '@/views/home/components/HomeSideCard.vue';
 import {
   features,
   hotKeywords,
   searchScopes,
-} from '#/views/home/home-data';
-import { getErrorMessage } from '#/lib/errors';
+} from '@/views/home/home-data';
+import { getErrorMessage } from '@/lib/errors';
 
 const auth = useAuthState();
 const router = useRouter();

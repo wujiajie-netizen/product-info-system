@@ -6,7 +6,7 @@ import type {
   DocumentRecord,
   ProductRecord,
   QuoteWithRelations,
-} from '#/api';
+} from '@/api';
 import type { UploadFile } from 'element-plus';
 
 import { computed, onMounted, reactive, ref } from 'vue';
@@ -40,7 +40,7 @@ import {
   listDocuments,
   listProducts,
   listQuotes,
-} from '#/api';
+} from '@/api';
 
 const userStore = useUserStore();
 const loading = ref(false);

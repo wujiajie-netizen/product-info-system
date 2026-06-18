@@ -8,7 +8,7 @@ import type {
   ProductRecord,
   SaveProductInput,
   SaveQuoteTierInput,
-} from '#/api';
+} from '@/api';
 import type { CheckboxValueType, UploadFile } from 'element-plus';
 import type { WorkSheet } from 'xlsx';
 import type { ExcelImageCandidate } from './utils/excel-image-extractor';
@@ -58,7 +58,7 @@ import {
   listProducts,
   saveQuoteWorkbookAttachments,
   updateProduct,
-} from '#/api';
+} from '@/api';
 
 import ExcelImageImportPanel from './components/excel-image-import-panel.vue';
 import ImportHistoryPanel from './components/import-history-panel.vue';

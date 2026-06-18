@@ -4,7 +4,7 @@ import { computed } from 'vue';
 import { NConfigProvider, NGlobalStyle, NMessageProvider } from 'naive-ui';
 import { useRoute } from 'vue-router';
 
-import ProductSiteHeader from '#/views/product/components/ProductSiteHeader.vue';
+import ProductSiteHeader from '@/views/product/components/ProductSiteHeader.vue';
 
 const route = useRoute();
 const showSiteHeader = computed(() => route.meta.siteHeader !== false);

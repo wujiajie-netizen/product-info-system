@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Search, X } from 'lucide-vue-next';
 
-import AppIcon from '#/components/AppIcon.vue';
+import AppIcon from '@/components/AppIcon.vue';
 
 defineProps<{
   keyword: string;

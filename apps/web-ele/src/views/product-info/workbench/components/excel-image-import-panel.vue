@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { DocumentRecord, ProductRecord } from '#/api';
+import type { DocumentRecord, ProductRecord } from '@/api';
 import type { ExcelImageCandidate } from '../utils/excel-image-extractor';
 
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
@@ -18,7 +18,7 @@ import {
   ElTag,
 } from 'element-plus';
 
-import { createDocument } from '#/api';
+import { createDocument } from '@/api';
 
 const props = defineProps<{
   candidates: ExcelImageCandidate[];

@@ -6,7 +6,7 @@ import type {
   QaQuestionPriority,
   QaQuestionRecord,
   QaQuestionStatus,
-} from '#/api';
+} from '@/api';
 
 import { computed, onMounted, reactive, ref } from 'vue';
 
@@ -38,7 +38,7 @@ import {
   listQaQuestions,
   setQaQuestionStatus,
   updateAdminQaQuestion,
-} from '#/api';
+} from '@/api';
 
 const categoryOptions: Array<{ label: string; value: QaQuestionCategory }> = [
   { label: '商品问题', value: 'product' },

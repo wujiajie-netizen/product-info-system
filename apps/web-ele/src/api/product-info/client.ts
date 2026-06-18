@@ -1,4 +1,4 @@
-import { isSupabaseConfigured, supabase } from '#/lib/supabase';
+import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 export function assertSupabaseClient() {
   if (!isSupabaseConfigured || !supabase) {

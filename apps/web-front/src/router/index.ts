@@ -1,14 +1,14 @@
 import type { RouteRecordRaw } from 'vue-router';
 
-import CategoryView from '#/views/category/index.vue';
-import CompanyListView from '#/views/company/index.vue';
-import DocumentListView from '#/views/document/index.vue';
-import HomeView from '#/views/home/index.vue';
-import ProductDetailView from '#/views/product/detail.vue';
-import ProductListView from '#/views/product/index.vue';
-import QaCenterView from '#/views/qa-center/index.vue';
-import QuoteListView from '#/views/quote/index.vue';
-import UpdateListView from '#/views/update/index.vue';
+import CategoryView from '@/views/category/index.vue';
+import CompanyListView from '@/views/company/index.vue';
+import DocumentListView from '@/views/document/index.vue';
+import HomeView from '@/views/home/index.vue';
+import ProductDetailView from '@/views/product/detail.vue';
+import ProductListView from '@/views/product/index.vue';
+import QaCenterView from '@/views/qa-center/index.vue';
+import QuoteListView from '@/views/quote/index.vue';
+import UpdateListView from '@/views/update/index.vue';
 
 export const routes: RouteRecordRaw[] = [
   {

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { ProductRecord, QuoteWithRelations, UpdateRecord, UpdateType } from '#/api';
+import type { ProductRecord, QuoteWithRelations, UpdateRecord, UpdateType } from '@/api';
 
 import { computed, onMounted, reactive, ref } from 'vue';
 
@@ -23,7 +23,7 @@ import {
   ElTag,
 } from 'element-plus';
 
-import { createUpdate, listProducts, listQuotes, listUpdates } from '#/api';
+import { createUpdate, listProducts, listQuotes, listUpdates } from '@/api';
 
 const userStore = useUserStore();
 const loading = ref(false);

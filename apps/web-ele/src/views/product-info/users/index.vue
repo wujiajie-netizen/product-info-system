@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { ProfileRecord, UserRole } from '#/api';
+import type { ProfileRecord, UserRole } from '@/api';
 
 import { computed, onMounted, ref } from 'vue';
 
@@ -17,7 +17,7 @@ import {
   ElTag,
 } from 'element-plus';
 
-import { listProfiles, updateProfileRole } from '#/api';
+import { listProfiles, updateProfileRole } from '@/api';
 
 const userStore = useUserStore();
 const loading = ref(false);

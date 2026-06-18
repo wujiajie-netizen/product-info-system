@@ -4,7 +4,7 @@ import { ChevronDown, Search } from 'lucide-vue-next';
 import { NTimeline } from 'naive-ui';
 import { RouterLink, useRoute } from 'vue-router';
 
-import AppIcon from '#/components/AppIcon.vue';
+import AppIcon from '@/components/AppIcon.vue';
 import {
   formatDate,
   isUsingDemoData,
@@ -13,12 +13,12 @@ import {
   listDocuments,
   listQuotes,
   listUpdates,
-} from '#/api/product-info';
-import FrontShell from '#/components/FrontShell.vue';
-import { useAuthState } from '#/lib/auth';
-import { getErrorMessage } from '#/lib/errors';
-import UpdatesSidePanel from '#/views/update/components/UpdatesSidePanel.vue';
-import UpdatesTimelineItem from '#/views/update/components/UpdatesTimelineItem.vue';
+} from '@/api/product-info';
+import FrontShell from '@/components/FrontShell.vue';
+import { useAuthState } from '@/lib/auth';
+import { getErrorMessage } from '@/lib/errors';
+import UpdatesSidePanel from '@/views/update/components/UpdatesSidePanel.vue';
+import UpdatesTimelineItem from '@/views/update/components/UpdatesTimelineItem.vue';
 
 type UpdateCategory = 'all' | 'document' | 'new-product' | 'platform' | 'price';
 

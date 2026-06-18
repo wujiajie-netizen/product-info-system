@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { DocumentRecord, ProductRecord, QuoteWithRelations } from '#/api';
+import type { DocumentRecord, ProductRecord, QuoteWithRelations } from '@/api';
 
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -8,7 +8,7 @@ import { Page } from '@vben/common-ui';
 
 import { ElButton, ElCard, ElEmpty, ElMessage, ElSpace, ElTable, ElTableColumn, ElTag } from 'element-plus';
 
-import { listDocuments, listProducts, listQuotes } from '#/api';
+import { listDocuments, listProducts, listQuotes } from '@/api';
 
 const route = useRoute();
 const router = useRouter();

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { CheckCircle2, CircleHelp } from 'lucide-vue-next';
 
-import type { QaQuestionItem } from '#/api/qa-center';
-import AppIcon from '#/components/AppIcon.vue';
+import type { QaQuestionItem } from '@/api/qa-center';
+import AppIcon from '@/components/AppIcon.vue';
 
 const props = defineProps<{
   currentPage: number;

@@ -7,7 +7,7 @@ import type {
   DocumentKind,
   ProductRecord,
   ProductStatus,
-} from '#/api';
+} from '@/api';
 import type { UploadFile } from 'element-plus';
 
 import { computed, onMounted, reactive, ref } from 'vue';
@@ -46,7 +46,7 @@ import {
   listProducts,
   setProductStatus,
   updateProduct,
-} from '#/api';
+} from '@/api';
 
 const userStore = useUserStore();
 const loading = ref(false);

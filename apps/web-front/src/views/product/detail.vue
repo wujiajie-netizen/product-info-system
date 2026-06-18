@@ -21,18 +21,18 @@ import {
   formatStatus,
   getProductDetail,
   isUsingDemoData,
-} from '#/api/product-info';
-import AppIcon from '#/components/AppIcon.vue';
-import FrontShell from '#/components/FrontShell.vue';
+} from '@/api/product-info';
+import AppIcon from '@/components/AppIcon.vue';
+import FrontShell from '@/components/FrontShell.vue';
 import {
   detailActionIcons,
   getCompanyTypeIcon,
   getDocumentTypeIcon,
   getQuoteMetaIcon,
   quickEntryIcons,
-} from '#/lib/front-icons';
-import { useAuthState } from '#/lib/auth';
-import { getErrorMessage } from '#/lib/errors';
+} from '@/lib/front-icons';
+import { useAuthState } from '@/lib/auth';
+import { getErrorMessage } from '@/lib/errors';
 
 const props = defineProps<{
   productId: string;

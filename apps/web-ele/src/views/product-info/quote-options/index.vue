@@ -6,7 +6,7 @@ import type {
   QuoteOptionType,
   QuoteWithRelations,
   SaveQuoteOptionInput,
-} from '#/api';
+} from '@/api';
 
 import { computed, onMounted, reactive, ref } from 'vue';
 
@@ -38,7 +38,7 @@ import {
   listQuoteOptionsForAdmin,
   listQuotes,
   updateQuoteOption,
-} from '#/api';
+} from '@/api';
 
 const userStore = useUserStore();
 const isAdmin = computed(() => userStore.userRoles.includes('admin'));

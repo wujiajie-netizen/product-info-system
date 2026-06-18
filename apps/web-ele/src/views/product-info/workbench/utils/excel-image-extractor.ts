@@ -1,4 +1,4 @@
-import type { ProductRecord } from '#/api';
+import type { ProductRecord } from '@/api';
 import type { WorkBook } from 'xlsx';
 
 import { read } from 'xlsx';

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { CompanyType } from '#/api';
+import type { CompanyType } from '@/api';
 
 import { reactive, ref } from 'vue';
 
@@ -17,7 +17,7 @@ import {
   ElTabs,
 } from 'element-plus';
 
-import { createBrand, createCategory, createCompany } from '#/api';
+import { createBrand, createCategory, createCompany } from '@/api';
 
 const emit = defineEmits<{
   created: [];

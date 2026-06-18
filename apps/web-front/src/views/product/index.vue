@@ -14,7 +14,7 @@ import type {
   BrandFilter,
   CatalogProduct,
   CategoryGroup,
-} from '#/views/product/product-list-data';
+} from '@/views/product/product-list-data';
 
 import {
   exportProductsCsv,
@@ -27,12 +27,12 @@ import {
   listProducts,
   type ProductListOptions,
   type ProductListItem,
-} from '#/api/product-info';
-import AppIcon from '#/components/AppIcon.vue';
-import { useAuthState } from '#/lib/auth';
-import { getErrorMessage } from '#/lib/errors';
-import ProductSidebarFilters from '#/views/product/components/ProductSidebarFilters.vue';
-import ProductTableRow from '#/views/product/components/ProductTableRow.vue';
+} from '@/api/product-info';
+import AppIcon from '@/components/AppIcon.vue';
+import { useAuthState } from '@/lib/auth';
+import { getErrorMessage } from '@/lib/errors';
+import ProductSidebarFilters from '@/views/product/components/ProductSidebarFilters.vue';
+import ProductTableRow from '@/views/product/components/ProductTableRow.vue';
 
 const auth = useAuthState();
 const route = useRoute();

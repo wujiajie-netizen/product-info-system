@@ -2,7 +2,7 @@
 import { ChevronRight } from 'lucide-vue-next';
 import { RouterLink } from 'vue-router';
 
-import AppIcon from '#/components/AppIcon.vue';
+import AppIcon from '@/components/AppIcon.vue';
 
 withDefaults(
   defineProps<{

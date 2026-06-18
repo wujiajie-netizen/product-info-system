@@ -3,8 +3,8 @@ import { ChevronRight, FileText } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
 
-import AppIcon from '#/components/AppIcon.vue';
-import type { CatalogProduct } from '#/views/product/product-list-data';
+import AppIcon from '@/components/AppIcon.vue';
+import type { CatalogProduct } from '@/views/product/product-list-data';
 
 const props = defineProps<{
   product: CatalogProduct;

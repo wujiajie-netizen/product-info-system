@@ -13,7 +13,7 @@ import type {
   QuoteWithRelations,
   SaveQuoteOptionInput,
   SaveQuoteTierInput,
-} from '#/api';
+} from '@/api';
 
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -61,7 +61,7 @@ import {
   updateQuoteBatch,
   updateQuoteLine,
   updateQuoteOption,
-} from '#/api';
+} from '@/api';
 
 type EditableTier = {
   minQuantity?: number;

@@ -1,4 +1,4 @@
-import { assertSupabaseClient, getSupabaseClient } from '#/api/product-info/client';
+import { assertSupabaseClient, getSupabaseClient } from '@/api/product-info/client';
 
 export namespace AuthApi {
   export interface LoginParams {

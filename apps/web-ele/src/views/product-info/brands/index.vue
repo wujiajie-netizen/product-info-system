@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { BrandRecord, BrandStatus } from '#/api';
+import type { BrandRecord, BrandStatus } from '@/api';
 
 import { computed, onMounted, reactive, ref } from 'vue';
 
@@ -24,7 +24,7 @@ import {
   ElTag,
 } from 'element-plus';
 
-import { createBrand, listBrands, setBrandStatus, updateBrand } from '#/api';
+import { createBrand, listBrands, setBrandStatus, updateBrand } from '@/api';
 
 const userStore = useUserStore();
 const loading = ref(false);

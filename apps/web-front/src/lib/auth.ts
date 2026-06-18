@@ -2,7 +2,7 @@ import type { Session, User } from '@supabase/supabase-js';
 
 import { reactive, readonly } from 'vue';
 
-import { isSupabaseConfigured, supabase } from '#/lib/supabase';
+import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 interface AuthState {
   initialized: boolean;
