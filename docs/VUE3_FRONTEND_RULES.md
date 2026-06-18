@@ -1,110 +1,129 @@
 # Vue3 项目开发强制规范（AI 指令集）
 
-> 以下路径以前端项目根目录为准，如 `apps/web-ele/`。
+> 以下路径以前端项目根目录为准，如 `apps/web-front/`、`apps/web-ele/`。
 
 ## 1. 目录分层
 
-必须按职责分层，禁止混放。
+核心原则：**私有优先，公共上浮；按需封装，禁止过度设计。**
 
-- `src/api/[moduleName].js`：接口请求
-- `src/components/base/`：纯 UI 组件
-- `src/components/business/`：业务组件
-- `src/hooks/`：可复用逻辑
-- `src/store/modules/[moduleName].js`：Pinia 状态模块
-- `src/views/[moduleName]/[PageName].vue`：路由页面
+```text
+src/
+├── views/                         # 页面模块，目录名使用 kebab-case
+│   └── [module]/                  # 业务模块目录
+│       ├── index.vue              # 模块主页面
+│       ├── detail.vue             # 模块详情页或子页面
+│       ├── components/            # 模块私有组件
+│       ├── hooks/                 # 模块私有组合式函数，可选
+│       ├── utils/                 # 模块私有工具函数，可选
+│       ├── types.ts               # 模块私有类型，可选
+│       └── [child]/               # 子页面目录，可选
+├── components/                    # 跨模块公共组件
+├── hooks/                         # 跨模块公共组合式函数
+├── stores/                        # Pinia 共享状态
+├── router/                        # 路由配置
+├── api/                           # 接口请求
+├── utils/                         # 跨模块公共工具函数
+├── types/                         # 跨模块公共类型
+└── assets/                        # 静态资源
+```
 
-## 2. 组件封装规则
+放置规则：
 
-必须封装：
+- 只给当前模块使用的组件、hook、utils、types，放在 `views/[module]/` 内。
+- 被多个模块复用的组件，才放到 `src/components/`。
+- 被多个模块复用的组合式函数，才放到 `src/hooks/`。
+- 被多个模块复用的工具函数，才放到 `src/utils/`。
+- 被多个模块复用的类型，才放到 `src/types/`。
+- 不得为了减少文件数量破坏分层，也不得为了分层制造无意义文件。
 
-- 重复出现 2 次及以上
-- 有独立交互逻辑
-- 可独立展示或测试
-- 稳定的纯展示 UI
+## 2. 组件规则
 
-禁止封装：
+组件不是越多越好，必须有明确职责边界。
 
-- 仅当前页面使用的胶水代码
-- 强依赖页面上下文的临时逻辑
-- `views/*` 路由页面本身
+应该封装：
 
-判断标准：
+- 同一结构或逻辑重复出现 2 次及以上。
+- 有独立展示职责或独立交互逻辑。
+- 可通过 `props + emits` 独立驱动。
+- 页面过大，且抽离后父子职责仍然清晰。
 
-- 能通过 `props + emits` 独立驱动，则封装
-- 抽离后父子边界不清晰，则不封装
+不应该封装：
 
-## 3. 分层职责
+- 只有几行模板或简单胶水代码。
+- 强依赖当前页面上下文。
+- 抽离后需要传大量零散 props。
+- 抽离后父子边界更模糊。
+- 没有复用价值，也没有独立维护价值。
 
-### `components/base/*`
+组件放置：
 
-只做 UI。
+- 当前模块私有组件：`src/views/[module]/components/`。
+- 跨模块公共基础组件：`src/components/base/`。
+- 跨模块公共业务组件：`src/components/business/`。
+- `src/components/` 禁止放只服务单个模块的组件。
 
-- 只接收 `props`
-- 只通过 `emit` 通知外部
-- 禁止 API 请求
-- 禁止访问 `store`、`router`
-- 禁止业务判断
+## 3. 页面职责
 
-### `components/business/*`
+`views/[module]/index.vue` 只做页面编排。
 
-承载局部业务。
+允许：
 
-- 可调用 `hooks`、`store`
-- 可包含组件自身交互逻辑
-- 禁止直接写 `axios`
-- 请求必须来自 `api` 或 `hooks`
+- 页面布局。
+- 组件组装。
+- 数据分发。
+- 事件转发。
+- 少量简单状态。
 
-### `views/*`
+禁止：
 
-只做页面编排。
+- 堆积大段业务判断。
+- 堆积复杂请求流程。
+- 堆积复杂表单流程。
+- 堆积可独立维护的大段模板。
 
-- 负责布局、组件组装、数据分发
-- 简单请求可直接调用 `api`
-- 复杂判断必须抽到 `hooks` 或 `store`
-- 禁止堆积大段业务逻辑
+页面变复杂时，优先顺序：
 
-### `hooks/*`
+1. 拆到 `views/[module]/components/`。
+2. 模块私有逻辑拆到 `views/[module]/hooks/`。
+3. 确认跨模块复用后，再上浮到 `src/components/` 或 `src/hooks/`。
 
-封装可复用逻辑。
+## 4. Hooks 规则
 
-- 命名必须以 `use` 开头
-- 可封装请求、状态、计算、交互流程
-- 复用 2 次及以上必须抽离为 hook
+- hook 命名必须以 `use` 开头。
+- 当前模块私有 hook 放在 `views/[module]/hooks/`。
+- 跨模块公共 hook 才放在 `src/hooks/`。
+- 不要为了让页面变短而强行抽 hook。
+- 抽 hook 后如果暴露状态过多、调用更复杂，说明不该抽。
 
-### `store/*`
+## 5. 请求与状态规则
 
-管理共享状态。
+- 所有接口请求统一放入 `src/api/`。
+- 组件内禁止直接写 `axios.get/post`。
+- API 文件只负责请求和数据适配，不处理展示逻辑。
+- 简单页面请求可直接在页面或模块私有 hook 中调用 api。
+- 复杂且仅当前模块使用的请求流程，放在 `views/[module]/hooks/`。
+- 跨模块复用的请求流程，才放到 `src/hooks/`。
+- `stores/` 只存跨组件、跨页面或跨模块共享状态。
+- 单页面临时状态、弹窗状态、表单状态不得放入 store。
 
-- 只存跨组件、跨页面状态
-- 复杂业务流程写入 `actions`
-- 单组件临时状态不得放入 store
+## 6. 编码规范
 
-## 4. 请求规范
+- 目录名使用 `kebab-case`。
+- 组件文件使用 `PascalCase.vue`。
+- 组件标签使用 `PascalCase`。
+- `props` 必须声明类型。
+- 事件必须使用 `defineEmits`。
+- 样式必须使用 `<style scoped>` 或 CSS Modules。
+- 禁止污染全局样式。
+- 公共组件禁止直接依赖具体模块 API、路由、store。
 
-- 所有接口统一放入 `src/api/`
-- 组件内禁止直接写 `axios.get/post`
-- API 文件只负责请求，不处理展示逻辑
-- 请求逻辑复用时必须抽到 `hooks`
-- `loading`、`error`、`list` 等请求状态优先由 `hooks` 管理
+## 7. AI 输出要求
 
-## 5. 编码规范
+生成或重构代码时必须遵守：
 
-- 组件文件使用 `PascalCase.vue`
-- 组件标签使用 `PascalCase`
-- `props` 必须声明 `type`、`required` 或 `default`
-- 复杂对象 `props` 必须校验结构
-- 事件必须使用 `defineEmits`
-- 样式必须使用 `<style scoped>` 或 CSS Modules
-- 禁止污染全局样式
-
-## 6. AI 输出要求
-
-生成代码时必须遵守：
-
-- 新接口先写入 `api`
-- 复用逻辑同步写入 `hooks`
-- 共享状态写入 `store`
-- 基础组件不得含业务逻辑
-- 页面不得堆积复杂判断
-- 新组件必须明确 `props`、`emits`、职责边界
-- 不得为减少文件数量破坏分层
+- 默认先放模块私有目录，不默认上浮公共目录。
+- 只有确认跨模块复用，才放 `src/components/`、`src/hooks/`、`src/utils/`、`src/types/`。
+- 不得为了封装而封装。
+- 不得为了减少页面行数破坏职责边界。
+- 新组件必须明确 `props`、`emits`、职责边界。
+- 重构必须保持原有功能、逻辑、接口行为不变。
