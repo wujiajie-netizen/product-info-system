@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type {
+  AdminQaSortBy,
   ProductRecord,
   QaQuestionCategory,
   QaQuestionPriority,
@@ -59,6 +60,14 @@ const priorityOptions: Array<{ label: string; value: QaQuestionPriority }> = [
   { label: '低', value: 'low' },
 ];
 
+const sortOptions: Array<{ label: string; value: AdminQaSortBy }> = [
+  { label: '待处理优先', value: 'pending_first' },
+  { label: '高优先级优先', value: 'priority_first' },
+  { label: '最新提交', value: 'latest_created' },
+  { label: '最近更新', value: 'latest_updated' },
+  { label: '最新回答', value: 'latest_answered' },
+];
+
 const userStore = useUserStore();
 const isAdmin = computed(() => userStore.userRoles.includes('admin'));
 
@@ -67,6 +76,7 @@ const saving = ref(false);
 const keyword = ref('');
 const categoryFilter = ref<'' | QaQuestionCategory>('');
 const statusFilter = ref<'' | QaQuestionStatus>('');
+const sortBy = ref<AdminQaSortBy>('pending_first');
 const questions = ref<QaQuestionRecord[]>([]);
 const products = ref<ProductRecord[]>([]);
 const dialogVisible = ref(false);
@@ -199,6 +209,7 @@ async function loadQuestions() {
     questions.value = await listQaQuestions({
       category: categoryFilter.value,
       keyword: keyword.value,
+      sortBy: sortBy.value,
       status: statusFilter.value,
     });
   } catch (error) {
@@ -329,6 +340,19 @@ onMounted(async () => {
             :value="option.value"
           />
         </ElSelect>
+        <ElSelect
+          v-model="sortBy"
+          placeholder="排序方式"
+          style="width: 160px"
+          @change="loadQuestions"
+        >
+          <ElOption
+            v-for="option in sortOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </ElSelect>
         <ElButton @click="loadQuestions">查询</ElButton>
         <ElButton v-if="isAdmin" type="primary" @click="openCreateDialog">
           新增问答
@@ -369,6 +393,9 @@ onMounted(async () => {
           </template>
         </ElTableColumn>
         <ElTableColumn label="提问来源" width="120" prop="asker_role" />
+        <ElTableColumn label="创建时间" width="130">
+          <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
+        </ElTableColumn>
         <ElTableColumn label="更新时间" width="130">
           <template #default="{ row }">{{ formatDate(row.updated_at) }}</template>
         </ElTableColumn>
