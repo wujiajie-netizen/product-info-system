@@ -12,6 +12,12 @@ export type QaQuestionCategory =
 export type QaQuestionPriority = 'high' | 'low' | 'medium';
 export type QaQuestionStatus = 'answered' | 'archived' | 'pending';
 export type QaQuestionSource = 'imported' | 'manual' | 'product_generated';
+export type AdminQaSortBy =
+  | 'latest_answered'
+  | 'latest_created'
+  | 'latest_updated'
+  | 'pending_first'
+  | 'priority_first';
 
 export interface QaQuestionRecord {
   answer: null | string;
@@ -54,6 +60,7 @@ export interface QaQuestionDocumentRecord {
 
 export interface ListQaQuestionsParams extends ListParams {
   category?: '' | QaQuestionCategory;
+  sortBy?: AdminQaSortBy;
   status?: '' | QaQuestionStatus;
 }
 
@@ -71,6 +78,18 @@ export interface UpsertQaQuestionInput {
   title: string;
 }
 
+const statusRank: Record<QaQuestionStatus, number> = {
+  pending: 0,
+  answered: 1,
+  archived: 2,
+};
+
+const priorityRank: Record<QaQuestionPriority, number> = {
+  high: 0,
+  medium: 1,
+  low: 2,
+};
+
 function buildQuestionNo() {
   return `QA-${String(Date.now()).slice(-6)}`;
 }
@@ -79,13 +98,50 @@ function normalizeTags(tags?: string[]) {
   return [...new Set((tags || []).map((item) => item.trim()).filter(Boolean))];
 }
 
+function timestamp(value?: null | string) {
+  return value ? new Date(value).getTime() : 0;
+}
+
+function sortQaRecords(
+  records: QaQuestionRecord[],
+  sortBy: AdminQaSortBy = 'pending_first',
+) {
+  return [...records].sort((left, right) => {
+    if (sortBy === 'latest_created') {
+      return timestamp(right.created_at) - timestamp(left.created_at);
+    }
+
+    if (sortBy === 'latest_updated') {
+      return timestamp(right.updated_at) - timestamp(left.updated_at);
+    }
+
+    if (sortBy === 'latest_answered') {
+      return (
+        timestamp(right.answered_at) - timestamp(left.answered_at) ||
+        timestamp(right.updated_at) - timestamp(left.updated_at)
+      );
+    }
+
+    if (sortBy === 'priority_first') {
+      return (
+        priorityRank[left.priority] - priorityRank[right.priority] ||
+        statusRank[left.status] - statusRank[right.status] ||
+        timestamp(right.updated_at) - timestamp(left.updated_at)
+      );
+    }
+
+    return (
+      statusRank[left.status] - statusRank[right.status] ||
+      priorityRank[left.priority] - priorityRank[right.priority] ||
+      timestamp(right.created_at) - timestamp(left.created_at)
+    );
+  });
+}
+
 export async function listQaQuestions(params: ListQaQuestionsParams = {}) {
   const supabase = assertSupabaseClient();
   const keyword = normalizeKeyword(params.keyword);
-  let query = supabase
-    .from('qa_questions')
-    .select('*')
-    .order('updated_at', { ascending: false });
+  let query = supabase.from('qa_questions').select('*');
 
   if (params.category) {
     query = query.eq('category', params.category);
@@ -102,13 +158,13 @@ export async function listQaQuestions(params: ListQaQuestionsParams = {}) {
     );
   }
 
-  const { data, error } = await query;
+  const { data, error } = await query.order('updated_at', { ascending: false });
 
   if (error) {
     throw error;
   }
 
-  return (data || []) as QaQuestionRecord[];
+  return sortQaRecords((data || []) as QaQuestionRecord[], params.sortBy);
 }
 
 export async function createAdminQaQuestion(input: UpsertQaQuestionInput) {
