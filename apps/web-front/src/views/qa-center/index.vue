@@ -31,6 +31,8 @@ defineOptions({
   name: 'QaCenterView',
 });
 
+type FrontQaSortBy = 'latest_answered' | 'latest_created' | 'latest_updated' | 'recommend';
+
 const auth = useAuthState();
 const route = useRoute();
 const router = useRouter();
@@ -41,6 +43,7 @@ const errorMessage = ref('');
 const submittedMessage = ref('');
 const keyword = ref('');
 const selectedCategory = ref<'all' | QaQuestionCategory>('all');
+const sortBy = ref<FrontQaSortBy>('recommend');
 const currentPage = ref(1);
 const pageSize = 10;
 const fetchPageSize = 200;
@@ -67,10 +70,35 @@ const qaCategoryKeys: QaQuestionCategory[] = [
   'after_sales',
 ];
 
-const renderedQuestions = computed(() => [
-  ...matchedLocalQuestions.value,
-  ...questions.value,
-]);
+const sortOptions: Array<{ description: string; label: string; value: FrontQaSortBy }> = [
+  {
+    description: '已回答问题优先，其次按最近维护时间排列',
+    label: '推荐排序',
+    value: 'recommend',
+  },
+  {
+    description: '按问题或答案最近维护时间排列',
+    label: '最新更新',
+    value: 'latest_updated',
+  },
+  {
+    description: '按用户提交问题的时间排列',
+    label: '最新提问',
+    value: 'latest_created',
+  },
+  {
+    description: '按后台最近补充答案的时间排列',
+    label: '最新回答',
+    value: 'latest_answered',
+  },
+];
+
+const renderedQuestions = computed(() =>
+  sortQaItems([
+    ...matchedLocalQuestions.value,
+    ...questions.value,
+  ], sortBy.value),
+);
 const renderedTotal = computed(() => totalResults.value + matchedLocalQuestions.value.length);
 const renderedTotalLabel = computed(() => renderedTotal.value.toLocaleString('zh-CN'));
 const totalPages = computed(() => Math.max(1, Math.ceil(renderedQuestions.value.length / pageSize)));
@@ -93,11 +121,14 @@ const categoryTabs = computed(() => [
     label: item.label,
   })),
 ]);
-const hotQuestions = computed(() => (overview.value?.featuredQuestions || []).slice(0, 5));
+const recommendedQuestions = computed(() => sortQaItems(renderedQuestions.value, 'recommend').slice(0, 5));
 const matchedLocalQuestions = computed(() =>
   localQuestions.value.filter((item) => matchesCurrentFilters(item)),
 );
 const modalDescriptionCount = computed(() => askForm.value.question.length);
+const currentSortDescription = computed(
+  () => sortOptions.find((item) => item.value === sortBy.value)?.description || '',
+);
 
 function normalizeQueryValue(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
@@ -105,6 +136,39 @@ function normalizeQueryValue(value: unknown) {
 
 function isQaCategory(value: string): value is QaQuestionCategory {
   return qaCategoryKeys.includes(value as QaQuestionCategory);
+}
+
+function isFrontQaSortBy(value: string): value is FrontQaSortBy {
+  return sortOptions.some((item) => item.value === value);
+}
+
+function timestamp(value?: null | string) {
+  return value ? new Date(value).getTime() : 0;
+}
+
+function sortQaItems(items: QaQuestionItem[], nextSortBy: FrontQaSortBy) {
+  return [...items].sort((left, right) => {
+    if (nextSortBy === 'latest_created') {
+      return timestamp(right.createdAt) - timestamp(left.createdAt);
+    }
+
+    if (nextSortBy === 'latest_updated') {
+      return timestamp(right.updatedAt) - timestamp(left.updatedAt);
+    }
+
+    if (nextSortBy === 'latest_answered') {
+      return (
+        timestamp(right.answeredAt) - timestamp(left.answeredAt) ||
+        timestamp(right.updatedAt) - timestamp(left.updatedAt)
+      );
+    }
+
+    if (left.status !== right.status) {
+      return left.status === 'answered' ? -1 : 1;
+    }
+
+    return timestamp(right.updatedAt) - timestamp(left.updatedAt);
+  });
 }
 
 function getStatusLabel(status: QaQuestionItem['status']) {
@@ -119,8 +183,8 @@ function getCategoryCount(category: QaQuestionCategory) {
   return overview.value?.categoryCounts[category] || 0;
 }
 
-function formatDateTime(value: string) {
-  return value.slice(0, 10);
+function formatDateTime(value?: null | string) {
+  return value ? value.slice(0, 10) : '-';
 }
 
 function hasAnswer(item: QaQuestionItem) {
@@ -172,6 +236,9 @@ function syncRouteFilters() {
   const category = normalizeQueryValue(route.query.category);
   selectedCategory.value = isQaCategory(category) ? category : 'all';
 
+  const nextSortBy = normalizeQueryValue(route.query.sortBy);
+  sortBy.value = isFrontQaSortBy(nextSortBy) ? nextSortBy : 'recommend';
+
   const page = Number(normalizeQueryValue(route.query.page));
   currentPage.value = Number.isFinite(page) && page > 0 ? page : 1;
 }
@@ -185,6 +252,10 @@ function buildQaRouteQuery() {
 
   if (selectedCategory.value !== 'all') {
     query.category = selectedCategory.value;
+  }
+
+  if (sortBy.value !== 'recommend') {
+    query.sortBy = sortBy.value;
   }
 
   if (currentPage.value > 1) {
@@ -209,6 +280,13 @@ function submitSearch() {
 
 function selectCategory(category: 'all' | QaQuestionCategory) {
   selectedCategory.value = category;
+  currentPage.value = 1;
+  expandedQuestionIds.value = [];
+  replaceQaRouteQuery();
+}
+
+function selectSort(nextSortBy: FrontQaSortBy) {
+  sortBy.value = nextSortBy;
   currentPage.value = 1;
   expandedQuestionIds.value = [];
   replaceQaRouteQuery();
@@ -258,6 +336,7 @@ async function submitQuestion() {
 
     localQuestions.value = [question, ...localQuestions.value];
     selectedCategory.value = question.category;
+    sortBy.value = 'latest_created';
     currentPage.value = 1;
     expandedQuestionIds.value = [];
     resetAskForm(question.category);
@@ -281,7 +360,7 @@ async function loadQaCenter() {
         keyword: keyword.value || undefined,
         page: 1,
         pageSize: fetchPageSize,
-        sortBy: 'hot',
+        sortBy: 'latest',
       }),
       listQaCategories(),
       getQaCenterOverview(),
@@ -385,6 +464,15 @@ watch(
               <h2>问题列表</h2>
               <p>共 {{ renderedTotalLabel }} 条结果，每页展示 10 条，只有已回答问题展示答案。</p>
             </div>
+            <div class="qa-center-sort">
+              <label for="qa-sort">排序</label>
+              <select id="qa-sort" v-model="sortBy" @change="selectSort(sortBy)">
+                <option v-for="option in sortOptions" :key="option.value" :value="option.value">
+                  {{ option.label }}
+                </option>
+              </select>
+              <small>{{ currentSortDescription }}</small>
+            </div>
           </div>
 
           <div class="qa-center-scroll-area">
@@ -417,6 +505,7 @@ watch(
                   </div>
                   <h3>{{ item.title }}</h3>
                   <p v-if="hasAnswer(item)" class="qa-card__answer-preview">{{ item.answer }}</p>
+                  <p v-else class="qa-card__pending-text">该问题已进入待补充队列，暂未发布标准答案。</p>
                   <div v-if="isExpanded(item.id) && hasAnswer(item)" class="qa-card__expanded-body">
                     <p>{{ item.answer }}</p>
                     <div v-if="item.relatedSpecs.length" class="qa-card__specs">
@@ -431,7 +520,9 @@ watch(
                     </div>
                   </div>
                   <footer class="qa-card__footer">
-                    <span>{{ formatDateTime(item.updatedAt) }}</span>
+                    <span>更新：{{ formatDateTime(item.updatedAt) }}</span>
+                    <span v-if="item.answeredAt">回答：{{ formatDateTime(item.answeredAt) }}</span>
+                    <span>提问：{{ formatDateTime(item.createdAt) }}</span>
                   </footer>
                 </div>
                 <div class="qa-card__actions">
@@ -485,11 +576,11 @@ watch(
         <aside class="qa-center-hot-panel">
           <div class="qa-center-hot-panel__title">
             <AppIcon :icon="Flame" :size="18" />
-            <h2>热门问题</h2>
+            <h2>推荐问题</h2>
           </div>
           <div class="qa-center-hot-list">
             <button
-              v-for="(item, index) in hotQuestions"
+              v-for="(item, index) in recommendedQuestions"
               :key="item.id"
               type="button"
               @click="keyword = item.productModel; submitSearch()"
@@ -581,7 +672,6 @@ watch(
   display: grid;
   gap: 10px;
   min-width: 0;
-  padding: 0;
 }
 
 .qa-center-hero__eyebrow {
@@ -609,7 +699,8 @@ watch(
 }
 
 .qa-center-hero p,
-.qa-center-list-panel__head p {
+.qa-center-list-panel__head p,
+.qa-center-sort small {
   margin: 0;
   line-height: 1.7;
   color: #52627d;
@@ -718,17 +809,13 @@ watch(
   background: rgb(255 255 255 / 70%);
   border: 1px solid transparent;
   border-radius: 999px;
-  transition:
-    background 0.18s ease,
-    border-color 0.18s ease,
-    box-shadow 0.18s ease,
-    color 0.18s ease;
 }
 
-.qa-center-tabs button:hover {
+.qa-center-tabs button:hover,
+.qa-center-tabs button.is-active {
   color: #1664d9;
   background: #fff;
-  border-color: #d9e7fb;
+  border-color: #9cc6ff;
 }
 
 .qa-center-tabs button strong {
@@ -742,13 +829,6 @@ watch(
   color: #647590;
   background: #f2f6fb;
   border-radius: 999px;
-}
-
-.qa-center-tabs button.is-active {
-  color: #1664d9;
-  background: linear-gradient(180deg, #fff 0%, #f2f8ff 100%);
-  border-color: #9cc6ff;
-  box-shadow: 0 8px 18px rgb(22 119 255 / 10%);
 }
 
 .qa-center-tabs button.is-active strong {
@@ -800,24 +880,43 @@ watch(
   font-size: 20px;
 }
 
+.qa-center-sort {
+  display: grid;
+  flex: 0 0 210px;
+  gap: 6px;
+}
+
+.qa-center-sort label {
+  font-size: 12px;
+  font-weight: 800;
+  color: #52627d;
+}
+
+.qa-center-sort select,
+.qa-modal select,
+.qa-modal input,
+.qa-modal textarea {
+  width: 100%;
+  font: inherit;
+  background: #fff;
+  border: 1px solid #d9e3f0;
+  border-radius: 10px;
+}
+
+.qa-center-sort select {
+  height: 36px;
+  padding: 0 10px;
+}
+
+.qa-center-sort small {
+  font-size: 12px;
+}
+
 .qa-center-scroll-area {
   height: min(620px, calc(100vh - 350px));
   min-height: 430px;
-  padding: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  scrollbar-color: #b9c6d8 transparent;
-  scrollbar-width: thin;
-}
-
-.qa-center-scroll-area::-webkit-scrollbar {
-  width: 8px;
-}
-
-.qa-center-scroll-area::-webkit-scrollbar-thumb {
-  background: #b9c6d8;
-  border: 2px solid #fff;
-  border-radius: 999px;
 }
 
 .qa-center-list {
@@ -829,7 +928,6 @@ watch(
   gap: 18px;
   justify-content: space-between;
   width: 100%;
-  max-width: 100%;
   min-width: 0;
   padding: 18px 20px;
   border-bottom: 1px solid #edf2f8;
@@ -838,7 +936,6 @@ watch(
 .qa-card__main {
   flex: 1 1 auto;
   min-width: 0;
-  max-width: 100%;
 }
 
 .qa-card__meta-row {
@@ -860,14 +957,12 @@ watch(
 }
 
 .qa-card__category {
-  flex: 0 0 auto;
   color: #1664d9;
   background: #edf5ff;
 }
 
 .qa-card__no,
 .qa-card__model {
-  flex: 0 0 auto;
   font-weight: 700;
   color: #60708d;
 }
@@ -891,7 +986,8 @@ watch(
   white-space: nowrap;
 }
 
-.qa-card__answer-preview {
+.qa-card__answer-preview,
+.qa-card__pending-text {
   max-width: 100%;
   margin: 0;
   overflow: hidden;
@@ -899,6 +995,10 @@ watch(
   color: #5c6d88;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.qa-card__pending-text {
+  color: #9a6a20;
 }
 
 .qa-card.is-expanded .qa-card__answer-preview {
@@ -1049,23 +1149,27 @@ watch(
 }
 
 .qa-center-hot-list button {
-  gap: 12px;
-  align-items: flex-start;
+  gap: 10px;
   width: 100%;
-  min-width: 0;
-  color: #31425f;
+  padding: 0;
   text-align: left;
 }
 
 .qa-center-hot-list strong {
-  flex: 0 0 auto;
-  min-width: 18px;
-  color: #1664d9;
+  display: inline-flex;
+  flex: 0 0 24px;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  color: #fff;
+  background: #1677ff;
+  border-radius: 999px;
 }
 
 .qa-center-hot-list span {
   min-width: 0;
   overflow: hidden;
+  color: #44556f;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1078,235 +1182,142 @@ watch(
 
 .qa-center-empty {
   display: grid;
-  gap: 10px;
-  justify-items: center;
-  padding: 88px 20px;
+  gap: 8px;
+  place-items: center;
+  min-height: 260px;
+  padding: 32px;
   text-align: center;
+  color: #52627d;
 }
 
-.qa-center-empty p {
-  margin: 0;
-  color: #60708d;
+.qa-center-empty strong {
+  color: #10203a;
 }
 
 .qa-modal-mask {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  z-index: 1000;
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgb(10 22 42 / 18%);
-  backdrop-filter: blur(3px);
+  background: rgb(15 23 42 / 45%);
 }
 
 .qa-modal {
-  width: min(520px, 100%);
-  max-height: calc(100vh - 48px);
-  overflow: auto;
+  width: min(640px, 100%);
+  overflow: hidden;
   background: #fff;
-  border: 1px solid #dfe8f5;
-  border-radius: 16px;
-  box-shadow: 0 24px 60px rgb(10 22 42 / 18%);
+  border-radius: 18px;
+  box-shadow: 0 24px 80px rgb(15 23 42 / 28%);
 }
 
 .qa-modal__header {
   justify-content: space-between;
-  padding: 22px 24px 10px;
-}
-
-.qa-modal__header h2 {
-  font-size: 20px;
-}
-
-.qa-modal__header button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  color: #2d3d59;
-  border-radius: 8px;
+  padding: 18px 20px;
+  border-bottom: 1px solid #edf2f8;
 }
 
 .qa-modal__body {
   display: grid;
   gap: 14px;
-  padding: 8px 24px 18px;
+  padding: 20px;
 }
 
 .qa-modal__body label {
-  position: relative;
   display: grid;
   gap: 7px;
-  font-size: 13px;
   font-weight: 800;
-  color: #52627d;
+  color: #25334d;
 }
 
-.qa-modal__body label span {
-  color: #d84a4a;
+.qa-modal__body label span,
+.qa-modal__message {
+  color: #ef4c3c;
 }
 
-.qa-modal__body input,
-.qa-modal__body select,
-.qa-modal__body textarea {
-  width: 100%;
+.qa-modal select,
+.qa-modal input {
+  height: 42px;
+  padding: 0 12px;
+}
+
+.qa-modal textarea {
+  min-height: 120px;
   padding: 10px 12px;
-  font: inherit;
-  font-weight: 400;
-  color: #233450;
-  background: #fff;
-  border: 1px solid #dce4f0;
-  border-radius: 9px;
-  outline: none;
-}
-
-.qa-modal__body textarea {
   resize: vertical;
 }
 
-.qa-modal__body small {
-  position: absolute;
-  right: 10px;
-  bottom: 8px;
-  font-size: 12px;
-  font-weight: 500;
-  color: #7385a1;
-}
-
-.qa-modal__message {
-  margin: 0;
-  line-height: 1.6;
-  color: #d84a4a;
+.qa-modal small {
+  justify-self: end;
+  color: #7d8da8;
 }
 
 .qa-modal__footer {
+  gap: 10px;
   justify-content: flex-end;
-  gap: 12px;
-  padding: 0 24px 24px;
+  padding: 16px 20px;
+  border-top: 1px solid #edf2f8;
 }
 
 .qa-modal__cancel {
-  height: 38px;
-  padding: 0 22px;
+  height: 42px;
+  padding: 0 18px;
   font: inherit;
-  color: #4f607c;
+  font-weight: 800;
+  color: #4a5b78;
   cursor: pointer;
   background: #fff;
-  border: 1px solid #dce4f0;
-  border-radius: 9px;
+  border: 1px solid #d9e3f0;
+  border-radius: 12px;
 }
 
 .qa-modal__submit {
-  gap: 8px;
-  height: 38px;
-  padding: 0 22px;
-  border-radius: 9px;
+  gap: 7px;
+  height: 42px;
 }
 
 .qa-modal__submit:disabled {
   cursor: not-allowed;
-  opacity: 0.55;
+  opacity: 0.5;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1180px) {
   .qa-center-content {
     grid-template-columns: 1fr;
   }
 
   .qa-center-hot-panel {
     position: static;
-    order: -1;
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 780px) {
   .qa-center-page {
-    gap: 14px;
-    padding: 18px 14px;
-  }
-
-  .qa-center-hero h1 {
-    font-size: 28px;
+    padding: 20px 14px;
   }
 
   .qa-center-search,
   .qa-center-tabs-row,
   .qa-center-list-panel__head,
-  .qa-card,
-  .qa-center-pagination {
+  .qa-card {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .qa-center-search__bar,
-  .qa-center-search__button,
-  .qa-center-submit-button {
-    width: 100%;
-  }
-
-  .qa-center-tabs {
-    flex-wrap: nowrap;
-    gap: 8px;
-    padding-bottom: 6px;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .qa-center-tabs::-webkit-scrollbar {
-    display: none;
-  }
-
-  .qa-center-tabs button {
-    flex: 0 0 auto;
-    min-width: max-content;
+  .qa-center-sort {
+    flex: 1 1 auto;
   }
 
   .qa-center-scroll-area {
     height: auto;
-    min-height: auto;
-    max-height: none;
+    min-height: 0;
   }
 
   .qa-card__actions {
-    flex: 0 0 auto;
+    flex: 1 1 auto;
     flex-direction: row;
     justify-content: space-between;
-  }
-
-  .qa-card h3,
-  .qa-card__answer-preview,
-  .qa-center-hot-list span {
-    white-space: normal;
-  }
-
-  .qa-card__answer-preview {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-  }
-
-  .qa-center-pagination__pages {
-    justify-content: center;
-  }
-
-  .qa-modal-mask {
-    align-items: end;
-    padding: 12px;
-  }
-
-  .qa-modal {
-    width: 100%;
-    max-height: calc(100vh - 24px);
-    border-radius: 16px 16px 12px 12px;
-  }
-
-  .qa-modal__header,
-  .qa-modal__body,
-  .qa-modal__footer {
-    padding-right: 16px;
-    padding-left: 16px;
   }
 }
 </style>
