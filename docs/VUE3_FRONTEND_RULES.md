@@ -13,7 +13,6 @@ src/
 │       ├── index.vue              # 模块主页面
 │       ├── detail.vue             # 模块详情页或子页面
 │       ├── components/            # 模块私有组件
-│       ├── utils/                 # 模块私有工具函数，可选
 │       ├── types.ts               # 模块私有类型，可选
 │       └── [child]/               # 子页面目录，可选
 ├── components/                    # 跨模块公共组件
@@ -29,7 +28,7 @@ src/
 放置规则：
 
 - 当前模块私有组件，放在 `views/[module]/components/`。
-- 当前模块私有工具函数、类型，放在 `views/[module]/utils/`、`views/[module]/types.ts`。
+- 当前模块私有类型，放在 `views/[module]/types.ts`。
 - 被多个模块复用的组件，才放到 `src/components/`。
 - 被多个模块复用的组合式函数，才放到 `src/hooks/`。
 - 被多个模块复用的工具函数，才放到 `src/utils/`。
@@ -70,7 +69,6 @@ src/
 
 - 模板结构影响主流程阅读时，拆成模块私有组件。
 - 同类 UI 或交互重复出现时，拆成模块私有组件。
-- 纯工具逻辑与页面无强绑定时，并且公共使用，可拆到模块私有 `utils/`。
 - 确认跨模块复用后，才上浮到 `src/components/`、`src/hooks/`、`src/utils/`。
 
 判断标准：
@@ -116,6 +114,7 @@ src/
 - 默认先放模块私有目录，不默认上浮公共目录。
 - 只有确认跨模块复用，才放 `src/components/`、`src/hooks/`、`src/utils/`、`src/types/`。
 - `src/hooks/` 只放公共 hook，不放模块私有 hook。
+- `src/utils/` 只放公共工具函数，不放模块私有工具函数。
 - 不得为了封装而封装。
 - 不得为了减少页面行数破坏职责边界。
 - 新组件必须明确 `props`、`emits`、职责边界。
