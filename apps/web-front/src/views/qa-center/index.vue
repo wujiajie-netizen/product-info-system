@@ -70,27 +70,11 @@ const qaCategoryKeys: QaQuestionCategory[] = [
   'after_sales',
 ];
 
-const sortOptions: Array<{ description: string; label: string; value: FrontQaSortBy }> = [
-  {
-    description: '已回答问题优先，其次按最近维护时间排列',
-    label: '推荐排序',
-    value: 'recommend',
-  },
-  {
-    description: '按问题或答案最近维护时间排列',
-    label: '最新更新',
-    value: 'latest_updated',
-  },
-  {
-    description: '按用户提交问题的时间排列',
-    label: '最新提问',
-    value: 'latest_created',
-  },
-  {
-    description: '按后台最近补充答案的时间排列',
-    label: '最新回答',
-    value: 'latest_answered',
-  },
+const sortOptions: Array<{ label: string; value: FrontQaSortBy }> = [
+  { label: '推荐排序', value: 'recommend' },
+  { label: '最新更新', value: 'latest_updated' },
+  { label: '最新提问', value: 'latest_created' },
+  { label: '最新回答', value: 'latest_answered' },
 ];
 
 const renderedQuestions = computed(() =>
@@ -100,7 +84,6 @@ const renderedQuestions = computed(() =>
   ], sortBy.value),
 );
 const renderedTotal = computed(() => totalResults.value + matchedLocalQuestions.value.length);
-const renderedTotalLabel = computed(() => renderedTotal.value.toLocaleString('zh-CN'));
 const totalPages = computed(() => Math.max(1, Math.ceil(renderedQuestions.value.length / pageSize)));
 const paginatedQuestions = computed(() => {
   const start = (currentPage.value - 1) * pageSize;
@@ -126,9 +109,6 @@ const matchedLocalQuestions = computed(() =>
   localQuestions.value.filter((item) => matchesCurrentFilters(item)),
 );
 const modalDescriptionCount = computed(() => askForm.value.question.length);
-const currentSortDescription = computed(
-  () => sortOptions.find((item) => item.value === sortBy.value)?.description || '',
-);
 
 function normalizeQueryValue(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
@@ -451,30 +431,21 @@ watch(
             <strong>{{ tab.count }}</strong>
           </button>
         </div>
-        <button class="qa-center-submit-button" type="button" @click="openAskModal">
-          <AppIcon :icon="PlusCircle" :size="17" />
-          提交商品问题
-        </button>
+        <div class="qa-center-tabs-row__actions">
+          <select v-model="sortBy" class="qa-center-sort-select" aria-label="排序方式" @change="selectSort(sortBy)">
+            <option v-for="option in sortOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+          <button class="qa-center-submit-button" type="button" @click="openAskModal">
+            <AppIcon :icon="PlusCircle" :size="17" />
+            提交商品问题
+          </button>
+        </div>
       </section>
 
       <section class="qa-center-content">
         <section class="qa-center-list-panel">
-          <div class="qa-center-list-panel__head">
-            <div class="qa-center-list-panel__title">
-              <h2>问题列表</h2>
-              <p>共 {{ renderedTotalLabel }} 条结果，每页展示 10 条，只有已回答问题展示答案。</p>
-            </div>
-            <div class="qa-center-sort">
-              <label for="qa-sort">排序</label>
-              <select id="qa-sort" v-model="sortBy" @change="selectSort(sortBy)">
-                <option v-for="option in sortOptions" :key="option.value" :value="option.value">
-                  {{ option.label }}
-                </option>
-              </select>
-              <small>{{ currentSortDescription }}</small>
-            </div>
-          </div>
-
           <div class="qa-center-scroll-area">
             <div v-if="errorMessage" class="qa-center-empty">
               <strong>问答加载失败</strong>
@@ -687,7 +658,6 @@ watch(
 }
 
 .qa-center-hero h1,
-.qa-center-list-panel__head h2,
 .qa-center-hot-panel h2,
 .qa-modal h2 {
   margin: 0;
@@ -698,9 +668,7 @@ watch(
   line-height: 1.1;
 }
 
-.qa-center-hero p,
-.qa-center-list-panel__head p,
-.qa-center-sort small {
+.qa-center-hero p {
   margin: 0;
   line-height: 1.7;
   color: #52627d;
@@ -710,7 +678,7 @@ watch(
 .qa-center-search__bar,
 .qa-center-tabs-row,
 .qa-center-tabs,
-.qa-center-list-panel__head,
+.qa-center-tabs-row__actions,
 .qa-card,
 .qa-card__meta-row,
 .qa-card__footer,
@@ -798,6 +766,11 @@ watch(
   min-width: 0;
 }
 
+.qa-center-tabs-row__actions {
+  flex: 0 0 auto;
+  gap: 10px;
+}
+
 .qa-center-tabs button {
   display: inline-flex;
   gap: 8px;
@@ -836,6 +809,26 @@ watch(
   background: #1677ff;
 }
 
+.qa-center-sort-select,
+.qa-modal select,
+.qa-modal input,
+.qa-modal textarea {
+  width: 100%;
+  font: inherit;
+  background: #fff;
+  border: 1px solid #d9e3f0;
+  border-radius: 10px;
+}
+
+.qa-center-sort-select {
+  flex: 0 0 auto;
+  width: 128px;
+  height: 42px;
+  padding: 0 10px;
+  font-weight: 700;
+  color: #4a5b78;
+}
+
 .qa-center-submit-button {
   flex: 0 0 auto;
   gap: 8px;
@@ -864,56 +857,8 @@ watch(
   overflow: hidden;
 }
 
-.qa-center-list-panel__head {
-  gap: 16px;
-  justify-content: space-between;
-  min-width: 0;
-  padding: 18px 20px 14px;
-  border-bottom: 1px solid #edf2f8;
-}
-
-.qa-center-list-panel__title {
-  min-width: 0;
-}
-
-.qa-center-list-panel__head h2 {
-  font-size: 20px;
-}
-
-.qa-center-sort {
-  display: grid;
-  flex: 0 0 210px;
-  gap: 6px;
-}
-
-.qa-center-sort label {
-  font-size: 12px;
-  font-weight: 800;
-  color: #52627d;
-}
-
-.qa-center-sort select,
-.qa-modal select,
-.qa-modal input,
-.qa-modal textarea {
-  width: 100%;
-  font: inherit;
-  background: #fff;
-  border: 1px solid #d9e3f0;
-  border-radius: 10px;
-}
-
-.qa-center-sort select {
-  height: 36px;
-  padding: 0 10px;
-}
-
-.qa-center-sort small {
-  font-size: 12px;
-}
-
 .qa-center-scroll-area {
-  height: min(620px, calc(100vh - 350px));
+  height: min(620px, calc(100vh - 280px));
   min-height: 430px;
   overflow-x: hidden;
   overflow-y: auto;
@@ -1299,14 +1244,14 @@ watch(
 
   .qa-center-search,
   .qa-center-tabs-row,
-  .qa-center-list-panel__head,
+  .qa-center-tabs-row__actions,
   .qa-card {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .qa-center-sort {
-    flex: 1 1 auto;
+  .qa-center-sort-select {
+    width: 100%;
   }
 
   .qa-center-scroll-area {
