@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { NCard, NEmpty, NInput, NTag } from 'naive-ui';
+import { NCard, NEmpty, NInput, NSkeleton, NTag } from 'naive-ui';
 import { useRoute } from 'vue-router';
 
 import {
@@ -30,6 +30,7 @@ const companies = ref<Awaited<ReturnType<typeof listCompanies>>>([]);
 const products = ref<Awaited<ReturnType<typeof listAllProducts>>>([]);
 const quotes = ref<Awaited<ReturnType<typeof listQuotes>>>([]);
 const updates = ref<Awaited<ReturnType<typeof listUpdates>>>([]);
+const skeletonCompanies = Array.from({ length: 6 }, (_, index) => index);
 
 const visibleCompanies = computed(() => {
   const value = keyword.value.trim().toLowerCase();
@@ -67,6 +68,15 @@ const visibleCompanies = computed(() => {
       .includes(value);
   });
 });
+const showInitialSkeleton = computed(
+  () =>
+    loading.value &&
+    !companies.value.length &&
+    !products.value.length &&
+    !quotes.value.length &&
+    !updates.value.length &&
+    !errorMessage.value,
+);
 
 function productsForCompany(companyId: string) {
   return products.value.filter(
@@ -158,6 +168,26 @@ watch(
       <n-card v-if="errorMessage">
         <n-empty :description="errorMessage" />
       </n-card>
+
+      <div v-else-if="showInitialSkeleton" class="company-grid page-skeleton-grid" aria-hidden="true">
+        <div
+          v-for="item in skeletonCompanies"
+          :key="`company-skeleton-${item}`"
+          class="page-skeleton-card page-skeleton-card--company"
+        >
+          <div class="page-skeleton-card__head">
+            <n-skeleton text class="page-skeleton-line page-skeleton-line--medium" />
+            <n-skeleton class="page-skeleton-pill" />
+          </div>
+          <n-skeleton text class="page-skeleton-line page-skeleton-line--wide" />
+          <n-skeleton text class="page-skeleton-line page-skeleton-line--medium" />
+          <div class="page-skeleton-mini-list">
+            <n-skeleton class="page-skeleton-mini-line" />
+            <n-skeleton class="page-skeleton-mini-line" />
+            <n-skeleton class="page-skeleton-mini-line" />
+          </div>
+        </div>
+      </div>
 
       <div v-else-if="visibleCompanies.length" class="company-grid">
         <n-card

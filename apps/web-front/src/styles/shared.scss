@@ -172,6 +172,101 @@
   border-radius: 8px;
 }
 
+.page-skeleton-card,
+.page-skeleton-row {
+  background: linear-gradient(180deg, #f8fbff 0%, #f2f6fc 100%);
+  border: 1px solid #e4ebf6;
+}
+
+.page-skeleton-card {
+  display: grid;
+  gap: 12px;
+  min-height: 194px;
+  padding: 18px;
+  border-radius: 8px;
+}
+
+.page-skeleton-card--company {
+  min-height: 258px;
+}
+
+.page-skeleton-card__head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.page-skeleton-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+}
+
+.page-skeleton-line {
+  display: block;
+  width: 100%;
+  height: 16px;
+  border-radius: 999px;
+}
+
+.page-skeleton-line--wide {
+  width: 86%;
+}
+
+.page-skeleton-line--medium {
+  width: 62%;
+}
+
+.page-skeleton-line--short {
+  width: 38%;
+}
+
+.page-skeleton-pill {
+  display: block;
+  width: 68px;
+  height: 24px;
+  border-radius: 999px;
+}
+
+.page-skeleton-button {
+  display: block;
+  width: 84px;
+  height: 30px;
+  margin-top: auto;
+  border-radius: 8px;
+}
+
+.page-skeleton-row {
+  display: grid;
+  gap: 16px;
+  align-items: center;
+  padding: 18px;
+  border-radius: 8px;
+}
+
+.page-skeleton-row--quote {
+  grid-template-columns: 1.4fr 1.2fr 1fr 1fr;
+}
+
+.page-skeleton-row > div {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.page-skeleton-mini-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.page-skeleton-mini-line {
+  display: block;
+  height: 40px;
+  border-radius: 8px;
+}
+
 @media (max-width: 1023px) {
   .shell-container {
     padding: 0 16px;
@@ -193,7 +288,8 @@
   .product-card-grid,
   .document-grid,
   .company-grid,
-  .toolbar-row {
+  .toolbar-row,
+  .page-skeleton-row--quote {
     grid-template-columns: 1fr;
   }
 }

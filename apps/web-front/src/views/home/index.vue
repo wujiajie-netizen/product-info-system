@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { NSelect } from 'naive-ui';
+import { NSelect, NSkeleton } from 'naive-ui';
 import { Search } from 'lucide-vue-next';
 import { RouterLink, useRouter } from 'vue-router';
 
@@ -250,11 +250,11 @@ watch(
           <section class="home-panel">
             <HomeSectionHeader title="分类入口" link-label="查看全部" link-to="/categories" />
             <div v-if="showInitialSkeleton" class="home-category-grid home-category-grid--skeleton">
-              <div
+              <n-skeleton
                 v-for="item in skeletonCategoryTiles"
                 :key="`category-skeleton-${item}`"
                 class="home-skeleton-card home-skeleton-card--tile"
-              ></div>
+              />
             </div>
             <div v-else-if="categoryTiles.length" class="home-category-grid">
               <HomeCategoryTile
@@ -275,11 +275,11 @@ watch(
           <section class="home-panel">
             <HomeSectionHeader title="热门产品" link-label="查看全部" link-to="/products" />
             <div v-if="showInitialSkeleton" class="home-product-grid home-product-grid--skeleton">
-              <div
+              <n-skeleton
                 v-for="item in skeletonProductTiles"
                 :key="`product-skeleton-${item}`"
                 class="home-skeleton-card home-skeleton-card--product"
-              ></div>
+              />
             </div>
             <div v-else-if="hotProducts.length" class="home-product-grid">
               <HomeProductCard
@@ -343,10 +343,10 @@ watch(
                 :key="`update-skeleton-${item}`"
                 class="home-update-skeleton"
               >
-                <span class="home-update-skeleton__tag"></span>
+                <n-skeleton class="home-update-skeleton__tag" />
                 <div class="home-update-skeleton__content">
-                  <span></span>
-                  <span></span>
+                  <n-skeleton text class="home-update-skeleton__line home-update-skeleton__line--title" />
+                  <n-skeleton text class="home-update-skeleton__line home-update-skeleton__line--meta" />
                 </div>
               </div>
             </div>
@@ -729,28 +729,8 @@ watch(
   display: grid;
 }
 
-.home-update-skeleton,
 .home-skeleton-card {
-  position: relative;
-  overflow: hidden;
-  background: linear-gradient(180deg, #f8fbff 0%, #f2f6fc 100%);
-  border: 1px solid #e7eef8;
   border-radius: 14px;
-}
-
-.home-update-skeleton::before,
-.home-skeleton-card::before {
-  position: absolute;
-  inset: 0;
-  content: '';
-  background: linear-gradient(
-    110deg,
-    transparent 0%,
-    rgb(255 255 255 / 0.86) 40%,
-    transparent 75%
-  );
-  transform: translateX(-100%);
-  animation: home-skeleton-shimmer 1.5s ease-in-out infinite;
 }
 
 .home-skeleton-card--tile {
@@ -778,11 +758,8 @@ watch(
 }
 
 .home-update-skeleton__tag,
-.home-update-skeleton__content span {
+.home-update-skeleton__line {
   display: block;
-  height: 14px;
-  background: #e6edf8;
-  border-radius: 999px;
 }
 
 .home-update-skeleton__tag {
@@ -795,11 +772,11 @@ watch(
   gap: 10px;
 }
 
-.home-update-skeleton__content span:first-child {
+.home-update-skeleton__line--title {
   width: 82%;
 }
 
-.home-update-skeleton__content span:last-child {
+.home-update-skeleton__line--meta {
   width: 38%;
 }
 
@@ -954,12 +931,6 @@ watch(
   margin: 12px 0 0;
   font-size: 13px;
   color: #d84a4a;
-}
-
-@keyframes home-skeleton-shimmer {
-  100% {
-    transform: translateX(100%);
-  }
 }
 
 @media (max-width: 1200px) {

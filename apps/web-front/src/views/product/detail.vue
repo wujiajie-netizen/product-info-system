@@ -7,6 +7,7 @@ import {
   NDescriptionsItem,
   NEmpty,
   NResult,
+  NSkeleton,
   NSpace,
   NTag,
 } from 'naive-ui';
@@ -186,37 +187,37 @@ onUnmounted(() => {
     <section class="content-section shell-container product-detail-page">
       <div v-if="detailViewState === 'loading'" class="detail-skeleton">
         <div class="detail-skeleton__breadcrumbs">
-          <span></span>
-          <span></span>
-          <span></span>
+          <n-skeleton />
+          <n-skeleton />
+          <n-skeleton />
         </div>
         <div class="detail-skeleton__hero">
-          <div class="detail-skeleton__panel detail-skeleton__panel--image"></div>
+          <n-skeleton class="detail-skeleton__panel detail-skeleton__panel--image" />
           <div class="detail-skeleton__panel detail-skeleton__panel--main">
-            <span class="detail-skeleton__title"></span>
-            <span class="detail-skeleton__text detail-skeleton__text--long"></span>
-            <span class="detail-skeleton__text detail-skeleton__text--short"></span>
+            <n-skeleton text class="detail-skeleton__title" />
+            <n-skeleton text class="detail-skeleton__text detail-skeleton__text--long" />
+            <n-skeleton text class="detail-skeleton__text detail-skeleton__text--short" />
             <div class="detail-skeleton__chips">
-              <span></span>
-              <span></span>
-              <span></span>
+              <n-skeleton />
+              <n-skeleton />
+              <n-skeleton />
             </div>
             <div class="detail-skeleton__stats">
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
+              <n-skeleton />
+              <n-skeleton />
+              <n-skeleton />
+              <n-skeleton />
             </div>
           </div>
           <div class="detail-skeleton__side">
-            <div class="detail-skeleton__card"></div>
-            <div class="detail-skeleton__card"></div>
-            <div class="detail-skeleton__card"></div>
+            <n-skeleton class="detail-skeleton__card" />
+            <n-skeleton class="detail-skeleton__card" />
+            <n-skeleton class="detail-skeleton__card" />
           </div>
         </div>
         <div class="detail-skeleton__sections">
-          <div class="detail-skeleton__section"></div>
-          <div class="detail-skeleton__section"></div>
+          <n-skeleton class="detail-skeleton__section" />
+          <n-skeleton class="detail-skeleton__section" />
         </div>
       </div>
 

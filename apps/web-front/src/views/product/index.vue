@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { NPagination } from 'naive-ui';
+import { NPagination, NSkeleton } from 'naive-ui';
 import {
   ChevronDown,
   Download,
@@ -54,6 +54,7 @@ const mobileFilterOpen = ref(false);
 const pageSize = 20;
 const totalResults = ref(0);
 const totalPages = ref(1);
+const skeletonProductRows = Array.from({ length: 6 }, (_, index) => index);
 
 const sortOptions = ['相关度', '最新更新', '价格从低到高'] as const;
 
@@ -285,6 +286,9 @@ const activeFilterChips = computed(() => {
 const totalResultsLabel = computed(() => {
   return totalResults.value.toLocaleString('zh-CN');
 });
+const showInitialSkeleton = computed(
+  () => loading.value && rows.value.length === 0 && !errorMessage.value,
+);
 
 function buildProductsRouteQuery() {
   const query: Record<string, string | string[]> = {};
@@ -592,7 +596,10 @@ watch(
           </div>
         </div>
 
-        <div class="product-page__table">
+        <div
+          class="product-page__table"
+          :class="{ 'is-refreshing': loading && rows.length > 0 }"
+        >
           <div class="product-page__table-head">
             <span>产品信息</span>
             <span>关键参数</span>
@@ -608,11 +615,50 @@ watch(
             <button type="button" @click="loadProducts">重新加载</button>
           </div>
 
-          <div v-else-if="loading" class="product-page__empty">
-            <strong>正在加载产品数据</strong>
-            <p>请稍候片刻。</p>
+          <div v-else-if="showInitialSkeleton" class="product-page__skeleton" aria-hidden="true">
+            <article
+              v-for="item in skeletonProductRows"
+              :key="`product-row-skeleton-${item}`"
+              class="product-page__skeleton-row"
+            >
+              <div class="product-page__skeleton-info">
+                <n-skeleton class="product-page__skeleton-thumb" />
+                <div class="product-page__skeleton-copy">
+                  <div class="product-page__skeleton-title-row">
+                    <n-skeleton text class="product-page__skeleton-line product-page__skeleton-line--title" />
+                    <n-skeleton class="product-page__skeleton-pill" />
+                  </div>
+                  <n-skeleton text class="product-page__skeleton-line product-page__skeleton-line--medium" />
+                  <n-skeleton text class="product-page__skeleton-line product-page__skeleton-line--wide" />
+                  <div class="product-page__skeleton-tags">
+                    <n-skeleton class="product-page__skeleton-tag" />
+                    <n-skeleton class="product-page__skeleton-tag" />
+                  </div>
+                </div>
+              </div>
+              <div class="product-page__skeleton-stack">
+                <n-skeleton text class="product-page__skeleton-line product-page__skeleton-line--wide" />
+                <n-skeleton text class="product-page__skeleton-line product-page__skeleton-line--medium" />
+                <n-skeleton text class="product-page__skeleton-line product-page__skeleton-line--short" />
+              </div>
+              <div class="product-page__skeleton-stack">
+                <n-skeleton class="product-page__skeleton-tag product-page__skeleton-tag--long" />
+                <n-skeleton class="product-page__skeleton-tag product-page__skeleton-tag--long" />
+              </div>
+              <div class="product-page__skeleton-stack">
+                <n-skeleton text class="product-page__skeleton-line product-page__skeleton-line--price" />
+                <n-skeleton text class="product-page__skeleton-line product-page__skeleton-line--medium" />
+              </div>
+              <div class="product-page__skeleton-stack">
+                <n-skeleton text class="product-page__skeleton-line product-page__skeleton-line--wide" />
+                <n-skeleton class="product-page__skeleton-tag" />
+              </div>
+              <div class="product-page__skeleton-stack">
+                <n-skeleton text class="product-page__skeleton-line product-page__skeleton-line--medium" />
+                <n-skeleton text class="product-page__skeleton-line product-page__skeleton-line--short" />
+              </div>
+            </article>
           </div>
-
           <template v-else>
             <ProductTableRow
               v-for="product in rows"
@@ -629,7 +675,7 @@ watch(
         </div>
 
         <div
-          v-if="!loading && !errorMessage && totalResults > 0"
+          v-if="!showInitialSkeleton && !errorMessage && totalResults > 0"
           class="product-page__pagination"
         >
           <span class="product-page__pagination-summary">
@@ -937,6 +983,11 @@ watch(
   border-radius: 6px;
 }
 
+.product-page__table.is-refreshing .product-table-row {
+  opacity: 0.68;
+  transition: opacity 0.18s ease;
+}
+
 .product-page__table-head {
   display: grid;
   grid-template-columns: minmax(0, 2.8fr) minmax(0, 1.5fr) 0.95fr 0.9fr 1.05fr 0.62fr;
@@ -946,6 +997,97 @@ watch(
   font-size: 12px;
   color: #60708d;
   background: #fafcff;
+}
+
+.product-page__skeleton {
+  display: grid;
+}
+
+.product-page__skeleton-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2.8fr) minmax(0, 1.5fr) 0.95fr 0.9fr 1.05fr 0.62fr;
+  gap: 16px;
+  align-items: stretch;
+  padding: 12px 14px;
+  border-top: 1px solid #edf2f8;
+}
+
+.product-page__skeleton-info {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.product-page__skeleton-thumb {
+  flex: 0 0 auto;
+  width: 96px;
+  height: 96px;
+  border-radius: 8px;
+}
+
+.product-page__skeleton-copy,
+.product-page__skeleton-stack {
+  display: grid;
+  gap: 10px;
+  align-content: flex-start;
+  min-width: 0;
+}
+
+.product-page__skeleton-copy {
+  flex: 1 1 auto;
+  padding-top: 2px;
+}
+
+.product-page__skeleton-title-row,
+.product-page__skeleton-tags {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.product-page__skeleton-line,
+.product-page__skeleton-pill,
+.product-page__skeleton-tag {
+  display: block;
+}
+
+.product-page__skeleton-line--title {
+  width: 58%;
+  height: 18px;
+}
+
+.product-page__skeleton-line--wide {
+  width: 86%;
+}
+
+.product-page__skeleton-line--medium {
+  width: 62%;
+}
+
+.product-page__skeleton-line--short {
+  width: 42%;
+}
+
+.product-page__skeleton-line--price {
+  width: 74%;
+  height: 28px;
+}
+
+.product-page__skeleton-pill {
+  width: 42px;
+  height: 22px;
+  border-radius: 4px;
+}
+
+.product-page__skeleton-tag {
+  width: 58px;
+  height: 22px;
+  border-radius: 4px;
+}
+
+.product-page__skeleton-tag--long {
+  width: 74px;
 }
 
 .product-page__empty {
@@ -1052,6 +1194,11 @@ watch(
   .product-page__filter-toggle {
     display: inline-flex;
   }
+
+  .product-page__skeleton-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
 }
 
 @media (max-width: 760px) {
@@ -1086,6 +1233,21 @@ watch(
   .product-page__pagination {
     align-items: flex-start;
     justify-content: flex-start;
+  }
+}
+
+@media (max-width: 680px) {
+  .product-page__skeleton-row {
+    padding: 14px 12px;
+  }
+
+  .product-page__skeleton-info {
+    flex-direction: column;
+  }
+
+  .product-page__skeleton-thumb {
+    width: 100%;
+    max-width: 280px;
   }
 }
 </style>

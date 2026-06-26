@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { Flame } from 'lucide-vue-next';
+import { NSkeleton } from 'naive-ui';
 
 import type { QaQuestionItem } from '@/api/qa-center';
 import AppIcon from '@/components/AppIcon.vue';
 
 defineProps<{
+  loading: boolean;
   questions: QaQuestionItem[];
 }>();
 
@@ -12,6 +14,8 @@ const emit = defineEmits<{
   'select-keyword': [productModel: string];
   'show-all': [];
 }>();
+
+const skeletonQuestions = Array.from({ length: 5 }, (_, index) => index);
 </script>
 
 <template>
@@ -20,7 +24,17 @@ const emit = defineEmits<{
       <AppIcon :icon="Flame" :size="18" />
       <h2>推荐问题</h2>
     </div>
-    <div class="qa-center-hot-list">
+    <div v-if="loading" class="qa-center-hot-list qa-center-hot-list--skeleton" aria-hidden="true">
+      <span
+        v-for="item in skeletonQuestions"
+        :key="`qa-hot-skeleton-${item}`"
+        class="qa-hot-skeleton-row"
+      >
+        <n-skeleton circle class="qa-hot-skeleton-index" />
+        <n-skeleton text class="qa-hot-skeleton-title" />
+      </span>
+    </div>
+    <div v-else class="qa-center-hot-list">
       <button
         v-for="(item, index) in questions"
         :key="item.id"
@@ -31,7 +45,7 @@ const emit = defineEmits<{
         <span>{{ item.title }}</span>
       </button>
     </div>
-    <button class="qa-center-hot-more" type="button" @click="emit('show-all')">
+    <button v-if="!loading" class="qa-center-hot-more" type="button" @click="emit('show-all')">
       查看更多
     </button>
   </aside>
@@ -97,6 +111,29 @@ const emit = defineEmits<{
   height: 24px;
   color: #fff;
   background: #1677ff;
+  border-radius: 999px;
+}
+
+.qa-hot-skeleton-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.qa-hot-skeleton-index,
+.qa-hot-skeleton-title {
+  display: block;
+}
+
+.qa-hot-skeleton-index {
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+}
+
+.qa-hot-skeleton-title {
+  width: 100%;
+  height: 18px;
   border-radius: 999px;
 }
 

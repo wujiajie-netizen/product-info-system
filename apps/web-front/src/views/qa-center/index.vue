@@ -415,6 +415,7 @@ watch(
         />
 
         <QaRecommendedPanel
+          :loading="loading"
           :questions="recommendedQuestions"
           @select-keyword="selectRecommendedKeyword"
           @show-all="selectCategory('all')"

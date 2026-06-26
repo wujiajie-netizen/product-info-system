@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { ChevronDown, Search } from 'lucide-vue-next';
-import { NTimeline } from 'naive-ui';
+import { NSkeleton, NTimeline } from 'naive-ui';
 import { RouterLink, useRoute } from 'vue-router';
 
 import AppIcon from '@/components/AppIcon.vue';
@@ -51,6 +51,8 @@ const products = ref<Awaited<ReturnType<typeof listAllProducts>>>([]);
 const documents = ref<Awaited<ReturnType<typeof listDocuments>>>([]);
 const quotes = ref<Awaited<ReturnType<typeof listQuotes>>>([]);
 const companies = ref<Awaited<ReturnType<typeof listCompanies>>>([]);
+const skeletonTimelineRows = Array.from({ length: 4 }, (_, index) => index);
+const skeletonSideRows = Array.from({ length: 4 }, (_, index) => index);
 
 const updateFilterTabs: Array<{ label: string; value: UpdateCategory }> = [
   { label: '全部动态', value: 'all' },
@@ -320,6 +322,9 @@ const latestDigest = computed(() =>
     tone: item.tone,
   })),
 );
+const showInitialSkeleton = computed(
+  () => loading.value && !timelineItems.value.length && !errorMessage.value,
+);
 
 function handleTabClick(value: UpdateCategory) {
   activeTab.value = value;
@@ -428,7 +433,16 @@ watch(
               <h2>{{ pinnedNotice.badge }}通知</h2>
             </header>
 
-            <RouterLink :to="pinnedNotice.to" class="updates-pinned__body">
+            <div v-if="showInitialSkeleton" class="updates-pinned__body updates-pinned__body--skeleton" aria-hidden="true">
+              <n-skeleton class="updates-skeleton-time" />
+              <div class="updates-skeleton-copy">
+                <n-skeleton text class="updates-skeleton-line updates-skeleton-line--title" />
+                <n-skeleton text class="updates-skeleton-line updates-skeleton-line--wide" />
+              </div>
+              <n-skeleton class="updates-skeleton-button" />
+            </div>
+
+            <RouterLink v-else :to="pinnedNotice.to" class="updates-pinned__body">
               <div class="updates-pinned__time">
                 <strong>{{ pinnedNotice.date }}</strong>
                 <span>{{ pinnedNotice.time }}</span>
@@ -452,7 +466,22 @@ watch(
               <strong>动态加载失败</strong>
               <p>{{ errorMessage }}</p>
             </div>
-            <template v-if="filteredTimelineSections.length">
+            <div v-else-if="showInitialSkeleton" class="updates-feed__skeleton" aria-hidden="true">
+              <article
+                v-for="item in skeletonTimelineRows"
+                :key="`updates-timeline-skeleton-${item}`"
+                class="updates-timeline-skeleton"
+              >
+                <n-skeleton class="updates-timeline-skeleton__time" />
+                <div class="updates-timeline-skeleton__card">
+                  <n-skeleton class="updates-skeleton-pill" />
+                  <n-skeleton text class="updates-skeleton-line updates-skeleton-line--title" />
+                  <n-skeleton text class="updates-skeleton-line updates-skeleton-line--wide" />
+                  <n-skeleton text class="updates-skeleton-line updates-skeleton-line--medium" />
+                </div>
+              </article>
+            </div>
+            <template v-else-if="filteredTimelineSections.length">
               <section
                 v-for="section in filteredTimelineSections"
                 :key="section.title"
@@ -483,7 +512,20 @@ watch(
 
         <aside class="updates-side">
           <UpdatesSidePanel title="热门产品" to="/products">
-            <div class="updates-side-products">
+            <div v-if="showInitialSkeleton" class="updates-side-products updates-side-skeleton-list" aria-hidden="true">
+              <div
+                v-for="item in skeletonSideRows"
+                :key="`hot-product-skeleton-${item}`"
+                class="updates-side-skeleton-row updates-side-skeleton-row--product"
+              >
+                <n-skeleton class="updates-side-skeleton-thumb" />
+                <div>
+                  <n-skeleton text class="updates-skeleton-line updates-skeleton-line--wide" />
+                  <n-skeleton text class="updates-skeleton-line updates-skeleton-line--short" />
+                </div>
+              </div>
+            </div>
+            <div v-else class="updates-side-products">
               <RouterLink
                 v-for="item in hotProducts"
                 :key="item.name"
@@ -502,7 +544,18 @@ watch(
           </UpdatesSidePanel>
 
           <UpdatesSidePanel title="最新动态" to="/updates">
-            <div class="updates-side-digest">
+            <div v-if="showInitialSkeleton" class="updates-side-digest updates-side-skeleton-list" aria-hidden="true">
+              <div
+                v-for="item in skeletonSideRows"
+                :key="`latest-digest-skeleton-${item}`"
+                class="updates-side-skeleton-row"
+              >
+                <n-skeleton class="updates-skeleton-pill" />
+                <n-skeleton text class="updates-skeleton-line updates-skeleton-line--wide" />
+                <n-skeleton text class="updates-skeleton-line updates-skeleton-line--short" />
+              </div>
+            </div>
+            <div v-else class="updates-side-digest">
               <RouterLink
                 v-for="item in latestDigest"
                 :key="`${item.tagLabel}-${item.title}`"
@@ -792,6 +845,10 @@ watch(
   background: linear-gradient(180deg, #fff 0%, #fffdfd 100%);
 }
 
+.updates-pinned__body--skeleton {
+  pointer-events: none;
+}
+
 .updates-pinned__time {
   position: relative;
   display: grid;
@@ -1056,6 +1113,125 @@ watch(
   color: #8d9cb4;
 }
 
+.updates-skeleton-time,
+.updates-skeleton-line,
+.updates-skeleton-button,
+.updates-skeleton-pill,
+.updates-timeline-skeleton__time,
+.updates-side-skeleton-thumb {
+  display: block;
+}
+
+.updates-skeleton-time {
+  width: 76px;
+  height: 42px;
+  justify-self: center;
+  border-radius: 10px;
+}
+
+.updates-skeleton-copy {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.updates-skeleton-line {
+  display: block;
+  height: 16px;
+  border-radius: 999px;
+}
+
+.updates-skeleton-line--title {
+  width: 70%;
+  height: 20px;
+}
+
+.updates-skeleton-line--wide {
+  width: 90%;
+}
+
+.updates-skeleton-line--medium {
+  width: 68%;
+}
+
+.updates-skeleton-line--short {
+  width: 42%;
+}
+
+.updates-skeleton-button {
+  width: 102px;
+  height: 36px;
+  justify-self: center;
+  border-radius: 10px;
+}
+
+.updates-skeleton-pill {
+  display: block;
+  width: 72px;
+  height: 24px;
+  border-radius: 8px;
+}
+
+.updates-feed__skeleton {
+  display: grid;
+  gap: 14px;
+  padding: 14px 0 12px;
+}
+
+.updates-timeline-skeleton {
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.updates-timeline-skeleton__time {
+  height: 46px;
+  border-radius: 10px;
+}
+
+.updates-timeline-skeleton__card {
+  display: grid;
+  gap: 12px;
+  min-height: 128px;
+  padding: 18px;
+  background: linear-gradient(180deg, #f8fbff 0%, #f2f6fc 100%);
+  border: 1px solid #e4ebf6;
+  border-radius: 14px;
+}
+
+.updates-side-skeleton-list {
+  display: grid;
+}
+
+.updates-side-skeleton-row {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) 56px;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 4px;
+}
+
+.updates-side-skeleton-row + .updates-side-skeleton-row {
+  border-top: 1px solid #edf2f8;
+}
+
+.updates-side-skeleton-row--product {
+  grid-template-columns: 60px minmax(0, 1fr);
+  padding: 8px 6px;
+}
+
+.updates-side-skeleton-row--product > div {
+  display: grid;
+  gap: 10px;
+}
+
+.updates-side-skeleton-thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+}
+
 @media (max-width: 1200px) {
   .updates-board {
     grid-template-columns: 1fr;
@@ -1090,6 +1266,10 @@ watch(
   .updates-pinned__time {
     border-right: 0;
     border-bottom: 1px solid #ffe3da;
+  }
+
+  .updates-timeline-skeleton {
+    grid-template-columns: 1fr;
   }
 }
 

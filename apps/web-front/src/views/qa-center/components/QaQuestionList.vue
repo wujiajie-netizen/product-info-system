@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { CheckCircle2, CircleHelp } from 'lucide-vue-next';
+import { NSkeleton } from 'naive-ui';
 
 import type { QaQuestionItem } from '@/api/qa-center';
 import AppIcon from '@/components/AppIcon.vue';
@@ -13,6 +14,8 @@ const props = defineProps<{
   renderedQuestionsLength: number;
   totalPages: number;
 }>();
+
+const skeletonQuestions = Array.from({ length: 5 }, (_, index) => index);
 
 const emit = defineEmits<{
   'page-change': [page: number];
@@ -50,9 +53,31 @@ function isExpanded(questionId: string) {
         <button type="button" @click="emit('reload')">重新加载</button>
       </div>
 
-      <div v-else-if="loading" class="qa-center-empty">
-        <strong>正在整理问答知识库</strong>
-        <p>正在从商品、规格、资料和报价数据中生成问答内容。</p>
+      <div v-else-if="loading" class="qa-center-list qa-center-list--skeleton" aria-hidden="true">
+        <article
+          v-for="item in skeletonQuestions"
+          :key="`qa-question-skeleton-${item}`"
+          class="qa-card qa-card--skeleton"
+        >
+          <div class="qa-card__main">
+            <div class="qa-skeleton-meta">
+              <n-skeleton text class="qa-skeleton-pill qa-skeleton-pill--category" />
+              <n-skeleton text class="qa-skeleton-pill qa-skeleton-pill--no" />
+              <n-skeleton text class="qa-skeleton-pill qa-skeleton-pill--model" />
+            </div>
+            <n-skeleton text class="qa-skeleton-line qa-skeleton-line--title" />
+            <n-skeleton text class="qa-skeleton-line qa-skeleton-line--long" />
+            <div class="qa-skeleton-footer">
+              <n-skeleton text />
+              <n-skeleton text />
+              <n-skeleton text />
+            </div>
+          </div>
+          <div class="qa-card__actions qa-skeleton-actions">
+            <n-skeleton text class="qa-skeleton-action-status" />
+            <n-skeleton text class="qa-skeleton-action-link" />
+          </div>
+        </article>
       </div>
 
       <div v-else-if="questions.length" class="qa-center-list">
@@ -169,6 +194,7 @@ function isExpanded(questionId: string) {
 }
 
 .qa-card,
+.qa-card--skeleton,
 .qa-card__meta-row,
 .qa-card__footer,
 .qa-card__actions,
@@ -410,6 +436,73 @@ function isExpanded(questionId: string) {
   border: 0;
   border-radius: 12px;
   box-shadow: 0 12px 24px rgb(22 119 255 / 18%);
+}
+
+.qa-card--skeleton {
+  pointer-events: none;
+}
+
+.qa-skeleton-meta,
+.qa-skeleton-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.qa-skeleton-pill,
+.qa-skeleton-line,
+.qa-skeleton-footer :deep(.n-skeleton),
+.qa-skeleton-actions :deep(.n-skeleton) {
+  display: block;
+  border-radius: 999px;
+}
+
+.qa-skeleton-pill--category {
+  width: 72px;
+  height: 24px;
+}
+
+.qa-skeleton-pill--no {
+  width: 92px;
+  height: 24px;
+}
+
+.qa-skeleton-pill--model {
+  width: 118px;
+  height: 24px;
+}
+
+.qa-skeleton-line {
+  margin-top: 10px;
+  height: 16px;
+}
+
+.qa-skeleton-line--title {
+  width: min(560px, 74%);
+  height: 23px;
+}
+
+.qa-skeleton-line--long {
+  width: min(680px, 92%);
+}
+
+.qa-skeleton-footer {
+  margin-top: 12px;
+}
+
+.qa-skeleton-footer :deep(.n-skeleton) {
+  width: 104px;
+  height: 18px;
+}
+
+.qa-skeleton-action-status {
+  width: 76px;
+  height: 26px;
+}
+
+.qa-skeleton-action-link {
+  width: 72px;
+  height: 18px;
 }
 
 @media (max-width: 780px) {

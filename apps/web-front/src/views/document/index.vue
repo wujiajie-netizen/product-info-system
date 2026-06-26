@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { NButton, NCard, NEmpty, NInput, NSelect, NTag } from 'naive-ui';
+import { NButton, NCard, NEmpty, NInput, NSelect, NSkeleton, NTag } from 'naive-ui';
 import { RouterLink, useRoute } from 'vue-router';
 
 import {
@@ -27,6 +27,7 @@ const errorMessage = ref('');
 const keyword = ref(typeof route.query.keyword === 'string' ? route.query.keyword : '');
 const fileType = ref<string | null>(null);
 const documents = ref<Awaited<ReturnType<typeof listDocuments>>>([]);
+const skeletonDocuments = Array.from({ length: 6 }, (_, index) => index);
 
 const typeOptions = [
   { label: '规格书', value: 'spec' },
@@ -53,6 +54,9 @@ const visibleDocuments = computed(() => {
       .includes(value);
   });
 });
+const showInitialSkeleton = computed(
+  () => loading.value && !documents.value.length && !errorMessage.value,
+);
 
 async function openDocument(document: (typeof documents.value)[number]) {
   const url = await createDocumentSignedUrl(document);
@@ -145,6 +149,20 @@ watch(
       <n-card v-if="errorMessage">
         <n-empty :description="errorMessage" />
       </n-card>
+
+      <div v-else-if="showInitialSkeleton" class="document-grid page-skeleton-grid" aria-hidden="true">
+        <div
+          v-for="item in skeletonDocuments"
+          :key="`document-skeleton-${item}`"
+          class="page-skeleton-card page-skeleton-card--document"
+        >
+          <n-skeleton class="page-skeleton-icon" />
+          <n-skeleton text class="page-skeleton-line page-skeleton-line--wide" />
+          <n-skeleton text class="page-skeleton-line page-skeleton-line--medium" />
+          <n-skeleton text class="page-skeleton-line page-skeleton-line--short" />
+          <n-skeleton class="page-skeleton-button" />
+        </div>
+      </div>
 
       <div v-else-if="visibleDocuments.length" class="document-grid">
         <n-card

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { NCard, NEmpty, NInput, NTag } from 'naive-ui';
+import { NCard, NEmpty, NInput, NSkeleton, NTag } from 'naive-ui';
 import { RouterLink, useRoute } from 'vue-router';
 
 import {
@@ -29,6 +29,7 @@ const keyword = ref(typeof route.query.keyword === 'string' ? route.query.keywor
 const quotes = ref<Awaited<ReturnType<typeof listQuotes>>>([]);
 const products = ref<Awaited<ReturnType<typeof listAllProducts>>>([]);
 const companies = ref<Awaited<ReturnType<typeof listCompanies>>>([]);
+const skeletonQuotes = Array.from({ length: 5 }, (_, index) => index);
 
 const visibleQuotes = computed(() => {
   const value = keyword.value.trim().toLowerCase();
@@ -56,6 +57,14 @@ const visibleQuotes = computed(() => {
       .includes(value);
   });
 });
+const showInitialSkeleton = computed(
+  () =>
+    loading.value &&
+    !quotes.value.length &&
+    !products.value.length &&
+    !companies.value.length &&
+    !errorMessage.value,
+);
 
 function getProduct(productId: string) {
   return products.value.find((item) => item.id === productId);
@@ -141,6 +150,31 @@ watch(
       <n-card v-if="errorMessage">
         <n-empty :description="errorMessage" />
       </n-card>
+
+      <div v-else-if="showInitialSkeleton" class="quote-list-page" aria-hidden="true">
+        <div
+          v-for="item in skeletonQuotes"
+          :key="`quote-skeleton-${item}`"
+          class="page-skeleton-row page-skeleton-row--quote"
+        >
+          <div>
+            <n-skeleton text class="page-skeleton-line page-skeleton-line--wide" />
+            <n-skeleton text class="page-skeleton-line page-skeleton-line--medium" />
+          </div>
+          <div>
+            <n-skeleton text class="page-skeleton-line page-skeleton-line--medium" />
+            <n-skeleton class="page-skeleton-pill" />
+          </div>
+          <div>
+            <n-skeleton text class="page-skeleton-line page-skeleton-line--short" />
+            <n-skeleton text class="page-skeleton-line page-skeleton-line--wide" />
+          </div>
+          <div>
+            <n-skeleton text class="page-skeleton-line page-skeleton-line--medium" />
+            <n-skeleton text class="page-skeleton-line page-skeleton-line--short" />
+          </div>
+        </div>
+      </div>
 
       <div v-else-if="visibleQuotes.length" class="quote-list-page">
         <RouterLink
